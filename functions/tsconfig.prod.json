@@ -1,4 +1,0 @@
-{
-    "extends": "./tsconfig",
-    "exclude": ["**/*/__tests__", "nodemon.json", "express_server.js", "jest.config.js"]
-  }
