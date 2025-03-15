@@ -1,9 +1,8 @@
 import { genkit, z } from 'genkit';
-import { vertexAI } from '@genkit-ai/vertexai';
 
 // Import models from the Vertex AI plugin. The Vertex AI API provides access to
 // several generative models. Here, we import Gemini 1.5 Flash.
-import { gemini15Flash } from '@genkit-ai/vertexai';
+import { vertexAI, gemini15Flash } from '@genkit-ai/vertexai';
 
 // Cloud Functions for Firebase supports Genkit natively. The onCallGenkit function creates a callable
 // function from a Genkit action. It automatically implements streaming if your flow does.
@@ -35,25 +34,25 @@ const menuSuggestionFlow = ai.defineFlow(
     streamSchema: z.string(),
   },
   async (subject, { sendChunk }) => {
-    // Construct a request and send it to the model API.
-    const prompt = `Suggest an item for the menu of a ${subject} themed restaurant`;
-    const { response, stream } = ai.generateStream({
-      model: gemini15Flash,
-      prompt: prompt,
-      config: {
-        temperature: 1,
-      },
-    });
+    try {
+      const prompt = `Suggest an item for the menu of a ${subject} themed restaurant`;
+      const { response, stream } = ai.generateStream({
+        model: gemini15Flash,
+        prompt: prompt,
+        config: {
+          temperature: 1,
+        },
+      });
 
-    for await (const chunk of stream) {
-      sendChunk(chunk.text);
+      for await (const chunk of stream) {
+        sendChunk(chunk.text);
+      }
+
+      return (await response).text;
+    } catch (error) {
+      console.error('Error generating menu suggestion:', error);
+      throw new Error('Failed to generate menu suggestion');
     }
-
-    // Handle the response from the model API. In this sample, we just
-    // convert it to a string, but more complicated flows might coerce the
-    // response into structured output or chain the response into another
-    // LLM call, etc.
-    return (await response).text;
   },
 );
 

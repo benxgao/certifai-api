@@ -7,13 +7,15 @@ permissions:
   checks: write
   contents: read
   pull-requests: write
+  deployments: write  # Add if needed for deployments
+  id-token: write    # Add if needed for OIDC
 jobs:
   build_and_preview:
     if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: npm ci && npm run build
+      - run: cd functions && npm ci && npm run build
       - uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}

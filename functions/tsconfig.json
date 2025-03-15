@@ -1,43 +1,17 @@
 {
   "compilerOptions": {
-    "target": "ES2017",
-    "lib": ["dom", "dom.iterable", "esnext"],
-    "allowJs": true,
-    "skipLibCheck": true,
-    "strict": true,
-    "noEmit": true,
+    "module": "NodeNext",
     "esModuleInterop": true,
-    "module": "esnext",
-    "moduleResolution": "bundler",
+    "moduleResolution": "nodenext",
+    "noImplicitReturns": true,
+    "noUnusedLocals": true,
+    "outDir": "lib",
+    "sourceMap": true,
+    "strict": true,
     "resolveJsonModule": true,
-    "isolatedModules": true,
-    "jsx": "preserve",
-    "incremental": true,
-    "plugins": [
-      {
-        "name": "next"
-      }
-    ],
-    "paths": {
-      "@/*": ["./*"]
-    }
+    "target": "es2020",
+    "lib": ["es2020", "dom"]
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules"]
-
-  // Uncomment the following lines to enable strict type checking
-  // "strict": true,
-  // "noImplicitAny": true,
-  // "strictNullChecks": true,
-
-  // Uncomment the following lines to specify custom module resolution
-  // "moduleResolution": "node",
-  // "baseUrl": "./",
-  // "paths": {
-  //   "@components/*": ["src/components/*"]
-  // },
-
-  // Uncomment the following lines to include additional files or exclude specific ones
-  // "include": ["src/**/*"],
-  // "exclude": ["node_modules", "dist"]
+  "compileOnSave": true,
+  "include": ["src/**/*"]
 }
