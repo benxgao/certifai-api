@@ -4,4 +4,5 @@ functions/.env.yaml
 **/*/*.log
 dist
 node_modules
-gha-creds-*.json
+**/*/gcp_credentials.json
+**/*/.DS_Store
