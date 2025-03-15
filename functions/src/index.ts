@@ -9,6 +9,7 @@
  */
 
 import { onRequest } from 'firebase-functions/v2/https';
+
 import apiEndpoints from './endpoints';
 
 export const endpoints = onRequest(apiEndpoints);

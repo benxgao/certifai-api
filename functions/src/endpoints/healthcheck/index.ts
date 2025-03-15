@@ -1,7 +1,7 @@
-import { Router } from 'express';
+import { Router as createRouter } from 'express';
 import * as logger from 'firebase-functions/logger';
 
-const router = Router();
+const router = createRouter();
 
 router.get('/', (req, res) => {
   logger.info('Healthcheck endpoint hit', { structuredData: true });

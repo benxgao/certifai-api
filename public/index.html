@@ -124,13 +124,13 @@
           let features = [
             'auth',
             'database',
-            'firestore',
+            // 'firestore',
             'functions',
-            'messaging',
-            'storage',
-            'analytics',
-            'remoteConfig',
-            'performance',
+            // 'messaging',
+            // 'storage',
+            // 'analytics',
+            // 'remoteConfig',
+            // 'performance',
           ].filter((feature) => typeof app[feature] === 'function');
           loadEl.textContent = `Firebase SDK loaded with ${features.join(', ')}`;
         } catch (e) {

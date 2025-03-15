@@ -26,6 +26,7 @@ module.exports = {
     'import/no-unresolved': 0,
     'max-len': 0,
     'quote-props': 0,
+    '@typescript-eslint/no-explicit-any': 0,
     'no-unused-vars': 0,
     'object-curly-spacing': 0,
     indent: ['error', 2],
