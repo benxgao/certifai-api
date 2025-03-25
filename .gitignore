@@ -8,3 +8,4 @@ node_modules
 **/*/gcp_credentials.json
 **/*/.DS_Store
 .firebase
+.DS_Store

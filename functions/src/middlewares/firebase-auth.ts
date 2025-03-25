@@ -2,6 +2,7 @@ import { Response, NextFunction } from 'express';
 
 import { firebaseAdmin as admin } from '../services/firebase/admin';
 import logger from '../services/firebase/logger';
+import { FirebaseJwtToken } from '../types';
 
 export const verifyFirebaseToken = async (
   req: any,
@@ -20,11 +21,13 @@ export const verifyFirebaseToken = async (
   }
 
   try {
-    const decodedToken = await admin.auth().verifyIdToken(token);
+    const decodedToken: FirebaseJwtToken = await admin
+      .auth()
+      .verifyIdToken(token);
 
     logger.info('Decoded JWT:', decodedToken);
 
-    req.token = decodedToken;
+    req.firebase_jwt_token = decodedToken;
 
     next();
     return;

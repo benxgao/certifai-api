@@ -5,7 +5,7 @@ import protectedResources from './protected-resources';
 
 const router = createRouter();
 
-router.use('/ai', ai);
+router.use('/ai', verifyFirebaseToken, ai);
 
 router.post('/protected-resources', verifyFirebaseToken, protectedResources);
 
