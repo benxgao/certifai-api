@@ -8,7 +8,7 @@
     "shell": "npm run build && firebase functions:shell",
     "start": "npm run shell",
     "dev": "npm run serve",
-    "deploy": "firebase deploy --only functions",
+    "deploy": "GOOGLE_APPLICATION_CREDENTIALS=./gcp_credentials.json firebase deploy --only functions --non-interactive --debug",
     "logs": "firebase functions:log",
     "test": "echo \"No test specified\" && exit 0"
   },
