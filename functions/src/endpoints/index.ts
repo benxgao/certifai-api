@@ -2,7 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
-import rateLimit from 'express-rate-limit';
+import rateLimitModule from 'express-rate-limit';
 
 import healthcheck from './healthcheck';
 import auth from './auth';
@@ -11,6 +11,8 @@ import { verifyFirebaseToken } from '../middlewares/firebase-auth';
 
 const app = express();
 
+app.set('trust proxy', 1);
+
 // Security middleware
 app.use(helmet());
 
@@ -18,7 +20,7 @@ app.use(helmet());
 app.use(compression());
 
 // Rate limiting middleware
-const limiter = rateLimit({
+const limiter = rateLimitModule({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100, // limit each IP to 100 requests per windowMs
 });

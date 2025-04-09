@@ -6,8 +6,6 @@ on:
 jobs:
   build_and_deploy:
     runs-on: ubuntu-latest
-    env:
-      GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_CO_WORKOUT_NEXT }}
 
     steps:
       - uses: actions/checkout@v4
@@ -16,31 +14,36 @@ jobs:
         with:
           node-version: 22
 
-      # - name: Cache Dependencies
-      #   uses: actions/cache@v4
-      #   id: cache-dependencies
-      #   with:
-      #     path: |
-      #       ~/.npm
-      #       ~/.cache/firebase
-      #     key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-      #     restore-keys: |
-      #       ${{ runner.os }}-node-
-
-      - name: Install Firebase CLI
+      - name: Install Firebase tools
         run: npm install -g firebase-tools
 
-      - name: Create GCP Credentials File
-        run: echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_CO_WORKOUT_NEXT }}' | jq '.' > gcp_credentials.json
+      - name: Cache npm Dependencies
+        uses: actions/cache@v4
+        id: cache-npm
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Install npm Dependencies
+        run: npm ci
         working-directory: functions
 
-      # - name: Authenticate to Google Cloud
-      #   uses: google-github-actions/auth@v2
-      #   with:
-      #     credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_CO_WORKOUT_NEXT }}
-
-      - name: Build and Deploy
+        # echo "GITHUB_WORKSPACE: $GITHUB_WORKSPACE"
+        # export GOOGLE_APPLICATION_CREDENTIALS=$GITHUB_WORKSPACE/gcp_credentials.json
+      - name: Create file - gcp_credentials.json
         run: |
-          npm ci
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_CO_WORKOUT_NEXT }}' | jq '.' > gcp_credentials.json
+        working-directory: functions
+
+      - name: Create file - .env
+        run: |
+          echo "TEST_ENV=${{ vars.TEST_ENV }}" > .env
+          echo "VAR_FIREBASE_PROJECT_ID=${{ vars.VAR_FIREBASE_PROJECT_ID }}" >> .env
+        working-directory: functions
+
+      - name: Deploy Firebase Functions
+        run: |
           npm run deploy
         working-directory: functions
