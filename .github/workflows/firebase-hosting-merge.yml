@@ -40,7 +40,7 @@ jobs:
       - name: Create file - .env
         run: |
           echo "TEST_ENV=${{ vars.TEST_ENV }}" > .env
-          echo "VAR_FIREBASE_PROJECT_ID=${{ vars.VAR_FIREBASE_PROJECT_ID }}" >> .env
+          echo "GCP_PROJECT_NUMBER=${{ vars.GCP_PROJECT_NUMBER }}" >> .env
         working-directory: functions
 
       - name: Deploy Firebase Functions

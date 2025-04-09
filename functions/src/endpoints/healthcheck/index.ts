@@ -1,16 +1,16 @@
 import { Router as createRouter } from 'express';
-import { defineSecret } from 'firebase-functions/params';
 import logger from '../../services/firebase/logger';
-
-const testSecret = defineSecret('TEST');
+import { getSecret } from '../../services/gcp/secret-manager';
 
 const router = createRouter();
 
 router.get('/', async (req, res) => {
+  const testSecret = await getSecret('TEST');
+
   logger.info(`Healthcheck endpoint hit
-    | secret_manager: ${JSON.stringify(testSecret.value())}
+    | secret_manager: ${JSON.stringify(testSecret)}
     | env_file: ${process.env.TEST_ENV}
-    | env: ${process.env.VAR_FIREBASE_PROJECT_ID}`);
+    | env: ${process.env.GCP_PROJECT_NUMBER}`);
 
   res.send('Hello World!');
 });
