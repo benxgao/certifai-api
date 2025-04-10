@@ -12,8 +12,10 @@ export const verifyFirebaseToken = async (
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
 
-  logger.info(`req.headers: ${JSON.stringify(req.headers)}`);
-  logger.info(`token received: ${token}`);
+  logger.info(
+    `verifyFirebaseToken: req.headers: ${JSON.stringify(req.headers)}`,
+  );
+  logger.info(`verifyFirebaseToken: token received: ${token}`);
 
   if (!token) {
     res.sendStatus(401);
@@ -25,14 +27,22 @@ export const verifyFirebaseToken = async (
       .auth()
       .verifyIdToken(token);
 
-    logger.info('Decoded JWT:', decodedToken);
+    logger.info(
+      `verifyFirebaseToken: decoded JWT: ${JSON.stringify(decodedToken)}`,
+    );
+
+    if (decodedToken.exp < Date.now() / 1000) {
+      logger.info('verifyFirebaseToken: token expired');
+      res.sendStatus(401);
+      return;
+    }
 
     req.firebase_jwt_token = decodedToken;
 
     next();
     return;
   } catch (err) {
-    console.error('JWT verification failed:', err);
+    console.error('verifyFirebaseToken: JWT verification failed:', err);
 
     res.sendStatus(403);
     return;
