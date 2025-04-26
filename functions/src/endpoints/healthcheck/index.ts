@@ -1,16 +1,13 @@
 import { Router as createRouter } from 'express';
 
-// import { PrismaClient } from '@prisma/client';
-import { PrismaClient } from '../../../../generated/prisma/client.js';
 import logger from '../../services/firebase/logger';
 import { getSecret } from '../../services/gcp/secret-manager';
+import prisma from '../../services/prisma';
 
 const router = createRouter();
 
 router.get('/', async (req, res) => {
   const testSecret = await getSecret('TEST');
-
-  const prisma = new PrismaClient();
 
   const newProduct = await prisma.product.create({
     data: {
