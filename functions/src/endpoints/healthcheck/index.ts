@@ -2,6 +2,7 @@ import { Router as createRouter } from 'express';
 
 import logger from '../../services/firebase/logger';
 import { getSecret } from '../../services/gcp/secret-manager';
+// eslint-disable-next-line import/no-named-as-default
 import prisma from '../../services/prisma';
 
 const router = createRouter();
