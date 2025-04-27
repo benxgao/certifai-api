@@ -1,5 +1,8 @@
 {
   "name": "functions",
+  "version": "1.0.0",
+  "description": "Firebase Functions for Co-Workout",
+  "author": "Ben Gao",
   "scripts": {
     "lint": "eslint --ext .js,.ts .",
     "build": "rm -rf lib && tsc",
