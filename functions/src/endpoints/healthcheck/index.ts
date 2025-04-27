@@ -1,5 +1,5 @@
 import { Router as createRouter } from 'express';
-
+// import fetch from 'node-fetch';
 import logger from '../../services/firebase/logger';
 import { getSecret } from '../../services/gcp/secret-manager';
 // eslint-disable-next-line import/no-named-as-default
@@ -9,6 +9,13 @@ const router = createRouter();
 
 router.get('/', async (req, res) => {
   const testSecret = await getSecret('TEST');
+
+  // const response = await fetch('https://httpbin.org/ip');
+  // const data = await response.json();
+
+  // logger.info(`Healthcheck: HTTPBIN
+  //   | status: ${response.status}
+  //   | data: ${JSON.stringify(data)}`);
 
   const newProduct = await prisma.product.create({
     data: {
