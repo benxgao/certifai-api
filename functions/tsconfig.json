@@ -13,5 +13,5 @@
     "lib": ["es2020", "dom"]
   },
   "compileOnSave": true,
-  "include": ["src/**/*"]
+  "include": ["src/**/*", "../scripts/seed.ts"]
 }
