@@ -1,5 +1,4 @@
-// eslint-disable-next-line import/no-named-as-default
-import prisma from '../services/prisma';
+import prismaInstance from '../services/prisma';
 
 // npx ts-node src/db/seed.ts
 
@@ -19,7 +18,7 @@ async function main() {
   ];
 
   for (const category of certCategories) {
-    await prisma.certCategories.create({
+    await prismaInstance.certCategories.create({
       data: category,
     });
   }
@@ -30,7 +29,8 @@ async function main() {
   const certifications = [
     {
       name: 'AWS Certified Solutions Architect',
-      exam_guide_url: 'https://aws.amazon.com/certification/certified-solutions-architect-associate/',
+      exam_guide_url:
+        'https://aws.amazon.com/certification/certified-solutions-architect-associate/',
       min_quiz_counts: 10,
       max_quiz_counts: 50,
       cert_category_id: 1, // Cloud Computing
@@ -38,7 +38,8 @@ async function main() {
     },
     {
       name: 'Google Cloud Professional Cloud Developer',
-      exam_guide_url: 'https://cloud.google.com/learn/certification/guides/cloud-developer',
+      exam_guide_url:
+        'https://cloud.google.com/learn/certification/guides/cloud-developer',
       min_quiz_counts: 15,
       max_quiz_counts: 60,
       cert_category_id: 2, // Data Engineering
@@ -54,7 +55,8 @@ async function main() {
     },
     {
       name: 'Microsoft Certified: Azure Solutions Architect Expert',
-      exam_guide_url: 'https://learn.microsoft.com/en-us/certifications/azure-solutions-architect/',
+      exam_guide_url:
+        'https://learn.microsoft.com/en-us/certifications/azure-solutions-architect/',
       min_quiz_counts: 20,
       max_quiz_counts: 70,
       cert_category_id: 3, // Cybersecurity
@@ -63,7 +65,8 @@ async function main() {
     // Adding 30 more mainstream certifications
     {
       name: 'AWS Certified Developer',
-      exam_guide_url: 'https://aws.amazon.com/certification/certified-developer-associate/',
+      exam_guide_url:
+        'https://aws.amazon.com/certification/certified-developer-associate/',
       min_quiz_counts: 10,
       max_quiz_counts: 40,
       cert_category_id: 1, // Cloud Computing
@@ -71,7 +74,8 @@ async function main() {
     },
     {
       name: 'AWS Certified SysOps Administrator',
-      exam_guide_url: 'https://aws.amazon.com/certification/certified-sysops-administrator-associate/',
+      exam_guide_url:
+        'https://aws.amazon.com/certification/certified-sysops-administrator-associate/',
       min_quiz_counts: 10,
       max_quiz_counts: 40,
       cert_category_id: 1, // Cloud Computing
@@ -95,7 +99,8 @@ async function main() {
     },
     {
       name: 'Microsoft Certified: Azure Administrator Associate',
-      exam_guide_url: 'https://learn.microsoft.com/en-us/certifications/azure-administrator/',
+      exam_guide_url:
+        'https://learn.microsoft.com/en-us/certifications/azure-administrator/',
       min_quiz_counts: 15,
       max_quiz_counts: 50,
       cert_category_id: 3, // Cybersecurity
@@ -103,7 +108,8 @@ async function main() {
     },
     {
       name: 'Microsoft Certified: Azure Developer Associate',
-      exam_guide_url: 'https://learn.microsoft.com/en-us/certifications/azure-developer/',
+      exam_guide_url:
+        'https://learn.microsoft.com/en-us/certifications/azure-developer/',
       min_quiz_counts: 15,
       max_quiz_counts: 50,
       cert_category_id: 3, // Cybersecurity
@@ -127,7 +133,8 @@ async function main() {
     },
     {
       name: 'Certified Kubernetes Administrator (CKA)',
-      exam_guide_url: 'https://training.linuxfoundation.org/certification/certified-kubernetes-administrator-cka/',
+      exam_guide_url:
+        'https://training.linuxfoundation.org/certification/certified-kubernetes-administrator-cka/',
       min_quiz_counts: 20,
       max_quiz_counts: 60,
       cert_category_id: 5, // DevOps
@@ -135,7 +142,8 @@ async function main() {
     },
     {
       name: 'Certified Kubernetes Application Developer (CKAD)',
-      exam_guide_url: 'https://training.linuxfoundation.org/certification/certified-kubernetes-application-developer-ckad/',
+      exam_guide_url:
+        'https://training.linuxfoundation.org/certification/certified-kubernetes-application-developer-ckad/',
       min_quiz_counts: 20,
       max_quiz_counts: 60,
       cert_category_id: 5, // DevOps
@@ -151,7 +159,8 @@ async function main() {
     },
     {
       name: 'Certified Ethical Hacker (CEH)',
-      exam_guide_url: 'https://www.eccouncil.org/programs/certified-ethical-hacker-ceh/',
+      exam_guide_url:
+        'https://www.eccouncil.org/programs/certified-ethical-hacker-ceh/',
       min_quiz_counts: 20,
       max_quiz_counts: 60,
       cert_category_id: 6, // Cybersecurity
@@ -159,7 +168,8 @@ async function main() {
     },
     {
       name: 'PMP: Project Management Professional',
-      exam_guide_url: 'https://www.pmi.org/certifications/project-management-pmp',
+      exam_guide_url:
+        'https://www.pmi.org/certifications/project-management-pmp',
       min_quiz_counts: 30,
       max_quiz_counts: 80,
       cert_category_id: 7, // Project Management
@@ -167,7 +177,8 @@ async function main() {
     },
     {
       name: 'Certified ScrumMaster (CSM)',
-      exam_guide_url: 'https://www.scrumalliance.org/get-certified/scrum-master-track/certified-scrummaster',
+      exam_guide_url:
+        'https://www.scrumalliance.org/get-certified/scrum-master-track/certified-scrummaster',
       min_quiz_counts: 15,
       max_quiz_counts: 50,
       cert_category_id: 7, // Project Management
@@ -175,7 +186,8 @@ async function main() {
     },
     {
       name: 'ITIL Foundation',
-      exam_guide_url: 'https://www.axelos.com/certifications/itil-certifications/itil-foundation',
+      exam_guide_url:
+        'https://www.axelos.com/certifications/itil-certifications/itil-foundation',
       min_quiz_counts: 20,
       max_quiz_counts: 60,
       cert_category_id: 8, // DevOps
@@ -183,7 +195,8 @@ async function main() {
     },
     {
       name: 'Certified Data Professional (CDP)',
-      exam_guide_url: 'https://iccp.org/certification/certified-data-professional/',
+      exam_guide_url:
+        'https://iccp.org/certification/certified-data-professional/',
       min_quiz_counts: 25,
       max_quiz_counts: 70,
       cert_category_id: 9, // Database Administration
@@ -191,7 +204,8 @@ async function main() {
     },
     {
       name: 'Certified Business Analysis Professional (CBAP)',
-      exam_guide_url: 'https://www.iiba.org/certification/core-business-analysis-certifications/cbap/',
+      exam_guide_url:
+        'https://www.iiba.org/certification/core-business-analysis-certifications/cbap/',
       min_quiz_counts: 20,
       max_quiz_counts: 60,
       cert_category_id: 10, // Blockchain
@@ -199,7 +213,8 @@ async function main() {
     },
     {
       name: 'Oracle Certified Professional: Java SE Programmer',
-      exam_guide_url: 'https://education.oracle.com/java-se-programmer/trackp_333',
+      exam_guide_url:
+        'https://education.oracle.com/java-se-programmer/trackp_333',
       min_quiz_counts: 20,
       max_quiz_counts: 60,
       cert_category_id: 11, // Programming
@@ -215,7 +230,8 @@ async function main() {
     },
     {
       name: 'Salesforce Certified Administrator',
-      exam_guide_url: 'https://trailhead.salesforce.com/credentials/administratoroverview/',
+      exam_guide_url:
+        'https://trailhead.salesforce.com/credentials/administratoroverview/',
       min_quiz_counts: 15,
       max_quiz_counts: 50,
       cert_category_id: 13, // Cloud Computing
@@ -223,7 +239,8 @@ async function main() {
     },
     {
       name: 'Salesforce Certified Platform Developer I',
-      exam_guide_url: 'https://trailhead.salesforce.com/credentials/platformdeveloperI/',
+      exam_guide_url:
+        'https://trailhead.salesforce.com/credentials/platformdeveloperI/',
       min_quiz_counts: 20,
       max_quiz_counts: 60,
       cert_category_id: 13, // Cloud Computing
@@ -231,7 +248,8 @@ async function main() {
     },
     {
       name: 'Certified Blockchain Expert',
-      exam_guide_url: 'https://www.blockchain-council.org/certifications/certified-blockchain-expert/',
+      exam_guide_url:
+        'https://www.blockchain-council.org/certifications/certified-blockchain-expert/',
       min_quiz_counts: 20,
       max_quiz_counts: 60,
       cert_category_id: 14, // Blockchain
@@ -279,7 +297,8 @@ async function main() {
     },
     {
       name: 'AWS Certified Machine Learning – Specialty',
-      exam_guide_url: 'https://aws.amazon.com/certification/certified-machine-learning-specialty/',
+      exam_guide_url:
+        'https://aws.amazon.com/certification/certified-machine-learning-specialty/',
       min_quiz_counts: 20,
       max_quiz_counts: 60,
       cert_category_id: 1, // Cloud Computing
@@ -287,7 +306,8 @@ async function main() {
     },
     {
       name: 'Google Cloud Professional Machine Learning Engineer',
-      exam_guide_url: 'https://cloud.google.com/certification/machine-learning-engineer',
+      exam_guide_url:
+        'https://cloud.google.com/certification/machine-learning-engineer',
       min_quiz_counts: 20,
       max_quiz_counts: 60,
       cert_category_id: 2, // Data Engineering
@@ -296,7 +316,7 @@ async function main() {
   ];
 
   for (const cert of certifications) {
-    await prisma.certifications.create({
+    await prismaInstance.certifications.create({
       data: cert,
     });
   }
@@ -310,5 +330,5 @@ main()
     process.exit(1);
   })
   .finally(async () => {
-    await prisma.$disconnect();
+    await prismaInstance.$disconnect();
   });

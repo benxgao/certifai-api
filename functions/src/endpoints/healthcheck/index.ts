@@ -2,8 +2,7 @@ import { Router as createRouter } from 'express';
 // import fetch from 'node-fetch';
 import logger from '../../services/firebase/logger';
 import { getSecret } from '../../services/gcp/secret-manager';
-// eslint-disable-next-line import/no-named-as-default
-import prisma from '../../services/prisma';
+import prismaInstance from '../../services/prisma';
 
 const router = createRouter();
 
@@ -17,7 +16,7 @@ router.get('/', async (req, res) => {
   //   | status: ${response.status}
   //   | data: ${JSON.stringify(data)}`);
 
-  const newProduct = await prisma.product.create({
+  const newProduct = await prismaInstance.product.create({
     data: {
       name: `Test Product - ${Date.now()}`,
       description: 'Test Product Description',
@@ -25,7 +24,7 @@ router.get('/', async (req, res) => {
     },
   });
 
-  const products = await prisma.product.findMany();
+  const products = await prismaInstance.product.findMany();
 
   logger.info(`Healthcheck: PRISMA
     | newProduct: ${JSON.stringify(newProduct)}
