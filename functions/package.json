@@ -20,6 +20,8 @@
   },
   "main": "lib/index.js",
   "dependencies": {
+    "@genkit-ai/google-cloud": "^1.9.0",
+    "@genkit-ai/googleai": "^1.9.0",
     "@genkit-ai/vertexai": "^1.9.0",
     "@google-cloud/secret-manager": "^6.0.1",
     "@prisma/client": "^6.8.1",
