@@ -29,12 +29,11 @@ jobs:
 
       - name: Create file - gcp_credentials.json
         run: |
-          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_CO_WORKOUT_NEXT }}' | jq '.' > gcp_credentials.json
+          echo '${{ secrets.GCP_CREDENTIALS_JSON }}' | jq '.' > gcp_credentials.json
         working-directory: functions
 
       - name: Create file - .env
         run: |
-          echo "TEST_ENV=${{ vars.TEST_ENV }}" > .env
           echo "GCP_PROJECT_NUMBER=${{ vars.GCP_PROJECT_NUMBER }}" >> .env
           echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> .env
         working-directory: functions

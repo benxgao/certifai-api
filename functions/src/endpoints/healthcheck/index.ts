@@ -7,7 +7,7 @@ import prismaInstance from '../../services/prisma';
 const router = createRouter();
 
 router.get('/', async (req, res) => {
-  const testSecret = await getSecret('TEST');
+  const testSecret = await getSecret('NEXT_PUBLIC_FIREBASE_BACKEND_URL');
 
   // const response = await fetch('https://httpbin.org/ip');
   // const data = await response.json();
@@ -31,8 +31,7 @@ router.get('/', async (req, res) => {
     | products: ${JSON.stringify(products)}`);
 
   logger.info(`Healthcheck endpoint hit
-    | secret_manager: ${JSON.stringify(testSecret)}
-    | env_file: ${process.env.TEST_ENV}
+ secret_manager:NEXT_PUBLIC_FIREBASE_BACKEND_URL: ${JSON.stringify(testSecret)}
     | env: ${process.env.GCP_PROJECT_NUMBER}`);
 
   res.send('Hello World!');

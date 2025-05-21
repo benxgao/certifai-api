@@ -20,7 +20,7 @@ provider "google" {
 # Optional: Configure backend for state storage
 terraform {
   backend "gcs" {
-    bucket  = "co-workout-next-tf-state"
+    bucket  = "certifai-prod-tf-state"
     prefix  = "init"
   }
 }

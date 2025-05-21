@@ -1,7 +1,7 @@
 variable "project_id" {
   description = "The Google Cloud project ID."
   type        = string
-  default     = "co-workout-next"
+  default     = "ccertifai-prod"
 }
 
 variable "region" {

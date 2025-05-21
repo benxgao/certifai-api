@@ -10,7 +10,8 @@
     "strict": true,
     "resolveJsonModule": true,
     "target": "es6",
-    "lib": ["es2020", "dom"]
+    "skipLibCheck": true,
+    "lib": ["es2020"]
   },
   "compileOnSave": true,
   "include": ["src/**/*", "../scripts/seed.ts"]

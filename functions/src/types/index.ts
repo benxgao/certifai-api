@@ -1,7 +1,7 @@
 import { Request } from 'express';
 
 export type FirebaseJwtToken = {
-  iss: string; // 'https://securetoken.google.com/co-workout-next';
+  iss: string; // 'https://securetoken.google.com/certifai-prod';
   aud: string; // 'rpoejct_id';
   auth_time: number;
   user_id?: string; // 'uid';
