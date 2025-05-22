@@ -1,4 +1,4 @@
-import prismaInstance from '../../../services/prisma/index'; // Adjust the import path as necessary
+// import prismaInstance from '../../../services/prisma/index'; // Adjust the import path as necessary
 
 const handler = async (req: any, res: any) => {
   try {
@@ -8,15 +8,8 @@ const handler = async (req: any, res: any) => {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    const exam = await prismaInstance.exams.create({
-      data: {
-        user_id: 1, // Placeholder user ID
-        cert_id: 1, // Placeholder certification ID
-        score: 0, // Default score
-        started_at: new Date(), // Current timestamp
-        submitted_at: null, // Default to null for unsubmitted exams
-      },
-    });
+    // const exam = await prismaInstance.exams.create({});
+    const exam = {};
 
     res.status(201).json({ message: 'Exam created successfully', exam });
   } catch (error) {
