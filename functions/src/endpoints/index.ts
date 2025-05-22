@@ -4,10 +4,9 @@ import helmet from 'helmet';
 import compression from 'compression';
 // import rateLimitModule from 'express-rate-limit';
 
-import healthcheck from './healthcheck';
-import auth from './auth';
+import healthcheck from './health_check';
 import api from './api';
-import { verifyFirebaseToken } from '../middlewares/firebase-auth';
+import { verifyFirebaseToken } from '../middlewares/firebase_auth';
 
 const app = express();
 
@@ -31,8 +30,6 @@ app.use(cors());
 app.use(express.json());
 
 app.use('/healthcheck', healthcheck);
-
-app.use('/auth', auth);
 
 app.use('/api', verifyFirebaseToken, api);
 
