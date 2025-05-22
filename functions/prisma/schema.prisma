@@ -14,6 +14,12 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum CertificationStatus {
+  PASSED
+  IN_PROGRESS
+  INTERESTED
+}
+
 model Product {
   id          Int     @id @default(autoincrement())
   name        String
@@ -35,6 +41,7 @@ model Certifications {
   certCategory    CertCategories @relation(fields: [cert_category_id], references: [cert_category_id])
   quizQuestions   QuizQuestions[]
   exams           Exams[]
+  userCertifications UserCertification[] // Relation to the join table
 }
 
 model CertCategories {
@@ -46,10 +53,25 @@ model CertCategories {
 
 model Users {
   user_id Int      @id @default(autoincrement())
+  firebase_user_id String? // Added firebase_user_id
 
   exams   Exams[]
+  userCertifications UserCertification[] // Relation to the join table
 }
 
+// New join table for Many-to-Many relationship between Users and Certifications with status
+model UserCertification {
+  user_id    Int
+  cert_id    Int
+  status     CertificationStatus
+  assignedAt DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user          Users        @relation(fields: [user_id], references: [user_id])
+  certification Certifications @relation(fields: [cert_id], references: [cert_id])
+
+  @@id([user_id, cert_id])
+}
 
 model QuizQuestions {
   quiz_question_id Int      @id @default(autoincrement())
@@ -57,22 +79,37 @@ model QuizQuestions {
   difficulty       String
   topic            String
   question_body    String
-  answer_options   String
-  correct_answers  String
+  answer_options   String // Consider normalizing this further if options are complex or reused
+  correct_answers  String // Consider normalizing this if multiple correct answers or complex logic
   explanations     String?
 
   certification    Certifications @relation(fields: [cert_id], references: [cert_id])
+  examEntries      ExamQuestions[] // Relation to the join table
 }
 
 model Exams {
   exam_id             Int      @id @default(autoincrement())
   user_id             Int
   cert_id             Int
-  quiz_question_id_list String
-  score               Float
+  score               Float // This can be calculated from ExamQuestions or stored
   started_at          DateTime
   submitted_at        DateTime?
 
   user                Users @relation(fields: [user_id], references: [user_id])
   certification       Certifications @relation(fields: [cert_id], references: [cert_id])
+  questions           ExamQuestions[] // Relation to the join table
+}
+
+// New join table for Many-to-Many relationship between Exams and QuizQuestions
+model ExamQuestions {
+  exam_question_id  Int      @id @default(autoincrement())
+  exam_id           Int
+  quiz_question_id  Int
+  user_answer       String?  // To store the user's selected answer(s)
+  is_correct        Boolean? // To store if the user's answer was correct
+
+  exam              Exams        @relation(fields: [exam_id], references: [exam_id])
+  quizQuestion      QuizQuestions @relation(fields: [quiz_question_id], references: [quiz_question_id])
+
+  @@unique([exam_id, quiz_question_id]) // Ensures a question appears only once per exam
 }
