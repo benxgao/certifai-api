@@ -4,7 +4,7 @@ import { Request, Response } from 'express';
 
 // Import models from the Vertex AI plugin. The Vertex AI API provides access to
 // several generative models. Here, we import Gemini 1.5 Flash.
-import { vertexAI, gemini15Flash } from '@genkit-ai/vertexai';
+import { vertexAI, gemini20Flash } from '@genkit-ai/vertexai';
 
 // Cloud Functions for Firebase supports Genkit natively. The onCallGenkit function creates a callable
 // function from a Genkit action. It automatically implements streaming if your flow does.
@@ -44,7 +44,7 @@ export const menuSuggestionFlow = ai.defineFlow(
     try {
       const prompt = `Suggest an item for the menu of a ${subject} themed restaurant`;
       const { response, stream } = ai.generateStream({
-        model: gemini15Flash,
+        model: gemini20Flash,
         prompt: prompt,
         config: {
           temperature: 1,

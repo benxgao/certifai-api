@@ -4,7 +4,7 @@ import helmet from 'helmet';
 import compression from 'compression';
 // import rateLimitModule from 'express-rate-limit';
 
-import healthcheck from './health_check';
+import healthcheck from './healthCheck';
 import api from './api';
 import { verifyFirebaseToken } from '../middlewares/firebase_auth';
 

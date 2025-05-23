@@ -1,7 +1,7 @@
 // import { inspect } from 'util';
 import { Response } from 'express';
-import logger from '../../services/firebase/logger';
-import { CustomRequest } from '../../types';
+import logger from '../../../services/firebase/logger';
+import { CustomRequest } from '../../../types';
 
 const handler = async (req: any | CustomRequest, res: Response) => {
   try {

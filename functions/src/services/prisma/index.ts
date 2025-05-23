@@ -1,4 +1,3 @@
-// import { PrismaClient } from '@prisma/client';
 import { PrismaClient } from '../../../src/generated/prisma/client';
 
 // Extend the NodeJS global type to allow for the prisma instance

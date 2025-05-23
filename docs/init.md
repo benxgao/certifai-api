@@ -14,6 +14,7 @@ Update admin IAM roles
     - Secret Manager Secret Accessor (otherwise it would report SecretManager access error when /healthcheck of prod is requested locally) 
   - adminsdk
     - Editor
+    - Secret Manager Secret Accessor (otherwise it would report SecretManager access error when /healthcheck of prod is requested locally) 
     - Cloud Functions Admin
     - Service Account Token Creator
     - Vertex AI administrator

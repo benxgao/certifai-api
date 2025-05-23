@@ -1,7 +1,8 @@
 // import { inspect } from 'util';
 import { Response } from 'express';
-import logger from '../../services/firebase/logger';
-import { CustomRequest } from '../../types';
+import logger from '../../../services/firebase/logger';
+import { CustomRequest } from '../../../types';
+import prismaInstance from '../../../services/prisma';
 
 const handler = async (req: any | CustomRequest, res: Response) => {
   try {
@@ -9,8 +10,11 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       `req.firebase_jwt_token: ${JSON.stringify(req.firebase_jwt_token)}`,
     );
 
+    const certifications = await prismaInstance.certifications.findMany();
+
     res.status(200).json({
       success: true,
+      data: certifications,
     });
   } catch (error) {
     logger.error('Error in strapi endpoint:', error as any);
