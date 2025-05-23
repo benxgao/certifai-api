@@ -1,20 +1,11 @@
 import prismaInstance from '../services/prisma';
 
 async function main() {
-  const users = [
-    {
-      firebase_user_id: 'tyPOPiI7DXdO9sXiyjL8aAQTJ412',
-    },
-    {
-      firebase_user_id: '2GzVTQIKe3dQBeHONzrnYO7pObj1',
-    },
-  ];
+  const certifications = [];
 
-  for (const user of users) {
-    await prismaInstance.exams.create({
-      data: {
-
-      },
+  for (const certification of certifications) {
+    await prismaInstance.quizQuestions.create({
+      data: {},
     });
   }
 
