@@ -5,4 +5,5 @@
 - certs
 - users
 - user_cert
-- exams
+- topics
+- questions
