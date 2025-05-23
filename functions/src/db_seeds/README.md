@@ -7,3 +7,4 @@
 - user_cert
 - topics
 - questions
+- exams
