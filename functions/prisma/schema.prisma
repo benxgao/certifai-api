@@ -30,8 +30,8 @@ model Product {
 }
 
 model Certifications {
-  cert_id          String @id @default(uuid())
-  cert_category_id String // Foreign Key
+  cert_id          Int @id @default(autoincrement())
+  cert_category_id Int // Foreign Key
 
   name            String
   exam_guide_url  String?
@@ -39,17 +39,28 @@ model Certifications {
   max_quiz_counts Int
   pass_score      Float
 
-  certCategory       CertCategories      @relation(fields: [cert_category_id], references: [cert_category_id])
-  quizQuestions      QuizQuestions[] // Relation to its question bank
+  cert_category       CertCategories      @relation(fields: [cert_category_id], references: [cert_category_id])
+  certificationTopics CertificationTopic[] // ADDED: Relation to CertificationTopic
   exams              Exams[]
   userCertifications UserCertification[] // Relation to the join table
 }
 
 model CertCategories {
-  cert_category_id String @id @default(uuid())
+  cert_category_id Int @id @default(autoincrement())
   name             String
 
   certifications Certifications[]
+}
+
+// ADDED new model CertificationTopic
+model CertificationTopic {
+  topic_id      Int            @id @default(autoincrement())
+  name          String
+  cert_id       Int            // Foreign Key to Certifications
+  certification Certifications @relation(fields: [cert_id], references: [cert_id], onDelete: Cascade)
+  quizQuestions QuizQuestions[]  // Relation to QuizQuestions that belong to this topic
+
+  @@unique([cert_id, name]) // A topic name should be unique within a certification
 }
 
 model Users {
@@ -60,10 +71,9 @@ model Users {
   userCertifications UserCertification[] // Relation to the join table
 }
 
-// New join table for Many-to-Many relationship between Users and Certifications with status
 model UserCertification {
   user_id String // Foreign Key
-  cert_id String // Foreign Key
+  cert_id Int // Foreign Key
 
   status     CertificationStatus
   assignedAt DateTime            @default(now())
@@ -80,10 +90,10 @@ model UserCertification {
 
 model QuizQuestions {
   quiz_question_id String @id @default(uuid())
-  cert_id          String // Foreign Key // Links the question to a specific Certification
+  // cert_id          Int // REMOVED: Foreign Key, was linking to Certifications directly
+  certification_topic_id Int // ADDED: Foreign Key to CertificationTopic
 
   difficulty    String // Consider Enum
-  topic         String // Consider Enum
   question_body String
   // answer_options   String
   // correct_answers  String
@@ -93,11 +103,11 @@ model QuizQuestions {
   createdAt DateTime @default(now()) // Added timestamp
   updatedAt DateTime @updatedAt // Added timestamp
 
-  certification Certifications    @relation(fields: [cert_id], references: [cert_id], onDelete: Cascade)
-  examEntries   ExamUserAnswers[] // Relation to the join table for exams
+  // certification Certifications    @relation(fields: [cert_id], references: [cert_id], onDelete: Cascade) // REMOVED
+  certificationTopic CertificationTopic @relation(fields: [certification_topic_id], references: [topic_id], onDelete: Cascade) // ADDED: Relation to CertificationTopic
+  examEntries   ExamUserAnswers[]
 
-  // @@index([topic])
-  // @@index([difficulty])
+  @@index([certification_topic_id])
 }
 
 model AnswerOption {
@@ -116,7 +126,7 @@ model AnswerOption {
 model Exams {
   exam_id String @id @default(uuid())
   user_id String // Foreign Key
-  cert_id String // Foreign Key
+  cert_id Int // Foreign Key
 
   score        Float? // Score can be null until exam is graded
   started_at   DateTime  @default(now())

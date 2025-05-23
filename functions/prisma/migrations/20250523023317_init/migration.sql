@@ -15,8 +15,8 @@ CREATE TABLE "Product" (
 
 -- CreateTable
 CREATE TABLE "Certifications" (
-    "cert_id" TEXT NOT NULL,
-    "cert_category_id" TEXT NOT NULL,
+    "cert_id" SERIAL NOT NULL,
+    "cert_category_id" INTEGER NOT NULL,
     "name" TEXT NOT NULL,
     "exam_guide_url" TEXT,
     "min_quiz_counts" INTEGER NOT NULL,
@@ -28,7 +28,7 @@ CREATE TABLE "Certifications" (
 
 -- CreateTable
 CREATE TABLE "CertCategories" (
-    "cert_category_id" TEXT NOT NULL,
+    "cert_category_id" SERIAL NOT NULL,
     "name" TEXT NOT NULL,
 
     CONSTRAINT "CertCategories_pkey" PRIMARY KEY ("cert_category_id")
@@ -45,7 +45,7 @@ CREATE TABLE "Users" (
 -- CreateTable
 CREATE TABLE "UserCertification" (
     "user_id" TEXT NOT NULL,
-    "cert_id" TEXT NOT NULL,
+    "cert_id" INTEGER NOT NULL,
     "status" "CertificationStatus" NOT NULL,
     "assignedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
@@ -56,7 +56,7 @@ CREATE TABLE "UserCertification" (
 -- CreateTable
 CREATE TABLE "QuizQuestions" (
     "quiz_question_id" TEXT NOT NULL,
-    "cert_id" TEXT NOT NULL,
+    "cert_id" INTEGER NOT NULL,
     "difficulty" TEXT NOT NULL,
     "topic" TEXT NOT NULL,
     "question_body" TEXT NOT NULL,
@@ -83,7 +83,7 @@ CREATE TABLE "AnswerOption" (
 CREATE TABLE "Exams" (
     "exam_id" TEXT NOT NULL,
     "user_id" TEXT NOT NULL,
-    "cert_id" TEXT NOT NULL,
+    "cert_id" INTEGER NOT NULL,
     "score" DOUBLE PRECISION,
     "started_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "submitted_at" TIMESTAMP(3),
