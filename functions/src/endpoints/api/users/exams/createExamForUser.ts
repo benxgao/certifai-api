@@ -18,7 +18,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       cert_id,
       numberOfQuestions: numQuestionsBody,
     }: CreateExamForUserBody = req.body;
-    const firebaseUserIdFromToken = req.firebase_jwt_token?.user_id;
+    const firebaseUserIdFromToken = req.firebase_user_info?.user_id;
 
     if (!user_id) {
       res
@@ -29,22 +29,18 @@ const handler = async (req: any | CustomRequest, res: Response) => {
 
     if (!firebaseUserIdFromToken) {
       // This should ideally be caught by the verifyFirebaseToken middleware
-      res
-        .status(401)
-        .json({
-          success: false,
-          error: 'Unauthorized: Firebase token missing.',
-        });
+      res.status(401).json({
+        success: false,
+        error: 'Unauthorized: Firebase token missing.',
+      });
       return;
     }
 
     if (typeof cert_id !== 'number') {
-      res
-        .status(400)
-        .json({
-          success: false,
-          error: 'cert_id (number) is required in body.',
-        });
+      res.status(400).json({
+        success: false,
+        error: 'cert_id (number) is required in body.',
+      });
       return;
     }
 
@@ -90,12 +86,10 @@ const handler = async (req: any | CustomRequest, res: Response) => {
     });
 
     if (!certification) {
-      res
-        .status(404)
-        .json({
-          success: false,
-          error: `Certification with ID: ${cert_id} not found.`,
-        });
+      res.status(404).json({
+        success: false,
+        error: `Certification with ID: ${cert_id} not found.`,
+      });
       return;
     }
 
@@ -109,12 +103,10 @@ const handler = async (req: any | CustomRequest, res: Response) => {
     });
 
     if (questions.length === 0) {
-      res
-        .status(400)
-        .json({
-          success: false,
-          error: `No quiz questions found for cert ID: ${cert_id}. Cannot create exam.`,
-        });
+      res.status(400).json({
+        success: false,
+        error: `No quiz questions found for cert ID: ${cert_id}. Cannot create exam.`,
+      });
       return;
     }
 

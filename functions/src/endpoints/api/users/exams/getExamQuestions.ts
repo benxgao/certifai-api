@@ -51,7 +51,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
     }
 
     // Authorization: Check if the exam belongs to the user_id specified in the path
-    // Further checks might be needed to ensure the authenticated user (from req.firebase_jwt_token)
+    // Further checks might be needed to ensure the authenticated user (from req.firebase_user_info)
     // matches req.params.user_id or has admin rights.
     if (exam.user_id !== user_id) {
       res.status(403).json({

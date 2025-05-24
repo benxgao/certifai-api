@@ -2,6 +2,8 @@ import { Router as createRouter } from 'express';
 import ai from './ai';
 import { verifyFirebaseToken } from '../../middlewares/firebase_auth';
 import protectedResources from './protected_resources';
+import authRegister from './auth/register';
+import authLogin from './auth/login';
 import getCertifications from './certifications/getList';
 import getUserExams from './users/exams/getUserExams';
 import createUser from './users/create';
@@ -18,6 +20,9 @@ const router = createRouter();
 router.use('/ai', verifyFirebaseToken, ai);
 
 router.post('/protected-resources', verifyFirebaseToken, protectedResources);
+
+router.post('/auth/register', verifyFirebaseToken, authRegister);
+router.post('/auth/login', verifyFirebaseToken, authLogin);
 
 // Show a list of certifications
 router.get('/certifications', verifyFirebaseToken, getCertifications);

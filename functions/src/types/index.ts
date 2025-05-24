@@ -18,5 +18,5 @@ export type FirebaseJwtToken = {
 };
 
 export type CustomRequest = Request & {
-  firebase_jwt_token: FirebaseJwtToken;
+  firebase_user_info: FirebaseJwtToken;
 };

@@ -89,7 +89,7 @@ export const genkitHandler = async (req: Request, res: Response) => {
       data: answer,
     });
   } catch (error) {
-    logger.error('Error in strapi endpoint:', error as any);
+    logger.error('Error in /genkit:', error as any);
     res
       .status(
         error instanceof Error && error.message === 'Unauthorized' ? 401 : 500,

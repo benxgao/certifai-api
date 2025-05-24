@@ -10,7 +10,7 @@ export const verifyFirebaseToken = async (
   next: NextFunction,
 ): Promise<void> => {
   const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
+  const token: string = authHeader && authHeader.split(' ')[1];
 
   logger.info(
     `verifyFirebaseToken: req.headers: ${JSON.stringify(req.headers)}`,
@@ -37,7 +37,7 @@ export const verifyFirebaseToken = async (
       return;
     }
 
-    req.firebase_jwt_token = decodedToken;
+    req.firebase_user_info = decodedToken;
 
     next();
     return;

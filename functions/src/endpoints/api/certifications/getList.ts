@@ -7,7 +7,7 @@ import prismaInstance from '../../../services/prisma';
 const handler = async (req: any | CustomRequest, res: Response) => {
   try {
     logger.info(
-      `req.firebase_jwt_token: ${JSON.stringify(req.firebase_jwt_token)}`,
+      `req.firebase_user_info: ${JSON.stringify(req.firebase_user_info)}`,
     );
 
     const certifications = await prismaInstance.certifications.findMany();
@@ -17,7 +17,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       data: certifications,
     });
   } catch (error) {
-    logger.error('Error in strapi endpoint:', error as any);
+    logger.error('Error in /api/certifications/getList:', error as any);
     res
       .status(
         error instanceof Error && error.message === 'Unauthorized' ? 401 : 500,
