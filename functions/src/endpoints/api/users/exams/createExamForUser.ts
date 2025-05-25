@@ -139,7 +139,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
         // Include answers and their questions for the response
         answers: {
           select: {
-            exam_question_id: true,
+            user_answer_id: true,
             quiz_question_id: true,
           },
         },

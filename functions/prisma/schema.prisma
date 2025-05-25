@@ -147,7 +147,7 @@ model Exams {
 }
 
 model ExamUserAnswers {
-  exam_question_id String @id @default(uuid())
+  user_answer_id   String @id @default(uuid())
   exam_id          String // Foreign Key
   quiz_question_id String // Foreign Key
 

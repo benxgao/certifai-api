@@ -3,6 +3,18 @@ import logger from '../../../../services/firebase/logger';
 import { CustomRequest } from '../../../../types';
 import prismaInstance from '../../../../services/prisma';
 
+/**
+ * Handles the request to answer a specific quiz question within an exam for a user.
+ *
+ * @param req - The Express request object. Expected to have:
+ *   - `params`: Contains `user_id`, `exam_id`, and `quiz_question_id`.
+ *   - `body`: Should be a JSON object containing `answer_option_id` (string).
+ *     Example:
+ *     {
+ *       "answer_option_id": "some-option-uuid"
+ *     }
+ * @param res - The Express response object.
+ */
 const handler = async (req: any | CustomRequest, res: Response) => {
   try {
     const { user_id, exam_id, quiz_question_id } = req.params;
@@ -88,7 +100,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
     // Update the existing answer
     const updatedAnswer = await prismaInstance.examUserAnswers.update({
       where: {
-        exam_question_id: existingExamUserAnswer?.exam_question_id,
+        user_answer_id: existingExamUserAnswer?.user_answer_id,
       },
       data: {
         selected_option_id: answer_option_id,

@@ -75,8 +75,8 @@ const handler = async (req: any | CustomRequest, res: Response) => {
     // Update the existing answer
     const updatedAnswer = await prismaInstance.examUserAnswers.update({
       where: {
-        // Use the unique exam_question_id from the fetched record
-        exam_question_id: existingExamUserAnswer?.exam_question_id,
+        // Use the unique user_answer_id from the fetched record
+        user_answer_id: existingExamUserAnswer?.user_answer_id,
       },
       data: {
         selected_option_id: answer_option_id,

@@ -85,7 +85,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       skip: skip,
       take: take,
       // Ensuring consistent question order for pagination and user experience.
-      orderBy: { quizQuestion: { createdAt: 'asc' } }
+      orderBy: { quizQuestion: { createdAt: 'asc' } },
     });
 
     const totalQuestions = await prismaInstance.examUserAnswers.count({
@@ -110,7 +110,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
         difficulty: string;
         topic_id: number;
         cert_id: number;
-        exam_question_id: string; // ID of the ExamUserAnswers record
+        user_answer_id: string; // ID of the ExamUserAnswers record
         selected_option_id: string | null;
         explanations?: string | null;
         user_answer_is_correct?: boolean | null;
@@ -125,7 +125,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
         topic_id: quizQuestion.topic_id,
         cert_id: quizQuestion.cert_id,
 
-        exam_question_id: eau.exam_question_id,
+        user_answer_id: eau.user_answer_id,
         selected_option_id: eau.selected_option_id, // Always include user's selection
 
         answerOptions: quizQuestion.answerOptions.map((ao) => {

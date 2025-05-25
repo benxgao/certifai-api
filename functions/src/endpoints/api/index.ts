@@ -16,9 +16,12 @@ import submitExamForUser from './users/exams/submitExamForUser';
 
 const router = createRouter();
 
-router.use('/ai', verifyFirebaseToken, ai);
+/** ******************* TO BE DEPRECATED ************************* */
 
+router.use('/ai', verifyFirebaseToken, ai);
 router.post('/protected-resources', verifyFirebaseToken, protectedResources);
+
+/** ******************* AUTHENTICATIONS ************************* */
 
 // User register
 router.post('/auth/register', verifyFirebaseToken, authRegister);
@@ -26,17 +29,29 @@ router.post('/auth/register', verifyFirebaseToken, authRegister);
 // User login
 router.post('/auth/login', verifyFirebaseToken, authLogin);
 
+/** ******************* CERTIFICATIONS ************************* */
+
 // Show a list of certifications
 router.get('/certifications', verifyFirebaseToken, getCertifications);
 
+// Register a certification for a user
+router.post(
+  '/users/:user_id/certifications',
+  verifyFirebaseToken,
+  registerCert,
+);
+
+// Show a list of certifications for a user
+router.get(
+  '/users/:user_id/certifications',
+  verifyFirebaseToken,
+  getUserCertifications,
+);
+
+/** *********************** EXAMS ******************************** */
+
 // Create a new user exam
 router.post('/users/:user_id/exams', verifyFirebaseToken, createExamForUser);
-
-router.post(
-  '/users/:user_id/exams/:exam_id/submit',
-  verifyFirebaseToken,
-  submitExamForUser,
-);
 
 // Show a list of exams for a user
 router.get('/users/:user_id/exams', verifyFirebaseToken, getUserExams);
@@ -55,18 +70,11 @@ router.put(
   answerUserExamQuestions,
 );
 
-// Show a list of certifications for a user
-router.get(
-  '/users/:user_id/certifications',
-  verifyFirebaseToken,
-  getUserCertifications,
-);
-
-// Register a certification for a user
+// Submit a user exam
 router.post(
-  '/users/:user_id/certifications',
+  '/users/:user_id/exams/:exam_id/submit',
   verifyFirebaseToken,
-  registerCert,
+  submitExamForUser,
 );
 
 export default router;
