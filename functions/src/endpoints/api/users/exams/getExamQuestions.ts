@@ -70,21 +70,83 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       include: {
         quizQuestion: {
           include: {
-            answerOptions: true, // Includes all answer options
+            answerOptions: {
+              select: {
+                option_id: true,
+                option_text: true,
+                is_correct: true, // Always fetch the true correctness of the option
+              },
+            },
+            // explanations field from QuizQuestion is included by default here
           },
         },
+        // selected_option_id and is_correct (for the user's answer) from ExamUserAnswers are included by default
       },
       skip: skip,
       take: take,
-      // Add orderBy if a specific question order is required, e.g.,
-      // orderBy: { quizQuestion: { position_in_exam: 'asc' } } // if such a field exists
+      // Ensuring consistent question order for pagination and user experience.
+      orderBy: { quizQuestion: { createdAt: 'asc' } }
     });
 
     const totalQuestions = await prismaInstance.examUserAnswers.count({
       where: { exam_id: exam_id },
     });
 
-    const questions = examUserAnswers.map((eau) => eau.quizQuestion);
+    const questions = examUserAnswers.map((eau) => {
+      const { quizQuestion } = eau;
+      const isExamSubmittedAndScored =
+        exam.score !== null && exam.submitted_at !== null;
+
+      // Define a type for the question response structure for clarity
+      type AnswerOptionResponse = {
+        option_id: string;
+        option_text: string;
+        is_correct?: boolean;
+      };
+
+      type QuestionResponse = {
+        quiz_question_id: string;
+        question_body: string;
+        difficulty: string;
+        topic_id: number;
+        cert_id: number;
+        exam_question_id: string; // ID of the ExamUserAnswers record
+        selected_option_id: string | null;
+        explanations?: string | null;
+        user_answer_is_correct?: boolean | null;
+        answerOptions: AnswerOptionResponse[];
+        // Potentially add other QuizQuestion fields like createdAt, updatedAt if needed
+      };
+
+      const questionResponse: QuestionResponse = {
+        quiz_question_id: quizQuestion.quiz_question_id,
+        question_body: quizQuestion.question_body,
+        difficulty: quizQuestion.difficulty,
+        topic_id: quizQuestion.topic_id,
+        cert_id: quizQuestion.cert_id,
+
+        exam_question_id: eau.exam_question_id,
+        selected_option_id: eau.selected_option_id, // Always include user's selection
+
+        answerOptions: quizQuestion.answerOptions.map((ao) => {
+          const option: AnswerOptionResponse = {
+            option_id: ao.option_id,
+            option_text: ao.option_text,
+          };
+          if (isExamSubmittedAndScored) {
+            option.is_correct = ao.is_correct;
+          }
+          return option;
+        }),
+      };
+
+      if (isExamSubmittedAndScored) {
+        questionResponse.explanations = quizQuestion.explanations;
+        questionResponse.user_answer_is_correct = eau.is_correct;
+      }
+
+      return questionResponse;
+    });
 
     res.status(200).json({
       success: true,
