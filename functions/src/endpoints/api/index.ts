@@ -72,7 +72,7 @@ router.put(
 
 // Submit a user exam
 router.post(
-  '/users/:user_id/exams/:exam_id/submit',
+  '/users/:user_id/certifications/:cert_id/exams/:exam_id/submit',
   verifyFirebaseToken,
   submitExamForUser,
 );

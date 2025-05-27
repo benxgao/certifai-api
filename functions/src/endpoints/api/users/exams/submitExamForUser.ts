@@ -5,120 +5,105 @@ import prismaInstance from '../../../../services/prisma';
 
 const handler = async (req: any | CustomRequest, res: Response) => {
   try {
-    const { user_id, exam_id, quiz_question_id } = req.params;
-    const { answer_option_id } = req.body; // Assuming the request body sends answer_option_id
+    const { exam_id } = req.params;
+    const certIdFromParams = req.params.cert_id; // Keep as string initially for parsing check
 
-    if (!user_id || !exam_id || !quiz_question_id) {
-      res.status(400).json({
-        success: false,
-        error: 'User ID, Exam ID, and Quiz Question ID are required.',
-      });
-    }
-
-    if (answer_option_id === undefined) {
-      res.status(400).json({
-        success: false,
-        error: 'answer_option_id is required in the request body.',
-      });
-    }
-
-    logger.info(
-      `Updating answer for user_id: ${user_id}, exam_id: ${exam_id}, quiz_question_id: ${quiz_question_id}`,
-    );
-
-    // Check if the specific exam question entry exists for this exam
-    const existingExamUserAnswer =
-      await prismaInstance.examUserAnswers.findUnique({
-        where: {
-          exam_id_quiz_question_id: {
-            exam_id: exam_id,
-            quiz_question_id: quiz_question_id,
-          },
-        },
-        include: {
-          // Include the quiz question to check if the answer option is valid
-          quizQuestion: {
-            include: {
-              answerOptions: true,
-            },
-          },
-        },
-      });
-
-    if (!existingExamUserAnswer) {
-      res.status(404).json({
-        success: false,
-        error: 'Exam question not found for this user and exam.',
-      });
-    }
-
-    // Validate if the provided answer_option_id is valid for the question
-    const isValidOption =
-      existingExamUserAnswer?.quizQuestion.answerOptions.some(
-        (option) => option.option_id === answer_option_id,
-      );
-
-    if (!isValidOption) {
-      res.status(400).json({
-        success: false,
-        error: 'Invalid answer_option_id for the given question.',
-      });
-    }
-
-    // Determine if the selected answer is correct
-    const selectedOption =
-      existingExamUserAnswer?.quizQuestion.answerOptions.find(
-        (option) => option.option_id === answer_option_id,
-      );
-    const is_correct = selectedOption ? selectedOption.is_correct : false;
-
-    // Update the existing answer
-    const updatedAnswer = await prismaInstance.examUserAnswers.update({
-      where: {
-        // Use the unique user_answer_id from the fetched record
-        user_answer_id: existingExamUserAnswer?.user_answer_id,
-      },
-      data: {
-        selected_option_id: answer_option_id,
-        is_correct: is_correct,
-      },
-    });
-
-    logger.info('Answer updated successfully.');
-
-    // After updating the answer, recalculate and update the exam score
-    const allAnswersForExam = await prismaInstance.examUserAnswers.findMany({
+    // 1. Collect all submitted answers for this exam to count correct ones
+    const allSubmittedAnswers = await prismaInstance.examUserAnswers.findMany({
       where: { exam_id: exam_id },
       select: { is_correct: true },
     });
 
-    const totalQuestionsInExam = allAnswersForExam.length;
-    const correctAnswers = allAnswersForExam.filter(
+    const correctlyAnsweredCount = allSubmittedAnswers.filter(
       (ans) => ans.is_correct === true,
     ).length;
 
-    let currentScore = 0;
-    if (totalQuestionsInExam > 0) {
-      currentScore = (correctAnswers / totalQuestionsInExam) * 100;
+    // 2. Determine the total number of questions for this exam's certification.
+    let totalQuestionsInExamDefinition = 0;
+    let parsedCertId: number | undefined;
+
+    if (certIdFromParams && !isNaN(parseInt(certIdFromParams, 10))) {
+      parsedCertId = parseInt(certIdFromParams, 10);
+    } else {
+      logger.warn(
+        `Invalid or missing cert_id in request params for exam_id: ${exam_id}. Param value: '${certIdFromParams}'. Total questions from definition will be 0. Fallback scoring may apply.`,
+      );
     }
 
+    if (parsedCertId !== undefined) {
+      try {
+        totalQuestionsInExamDefinition =
+          await prismaInstance.quizQuestions.count({
+            where: { cert_id: parsedCertId },
+          });
+        logger.info(
+          `For exam_id: ${exam_id} (using cert_id from params: ${parsedCertId}), determined total questions in definition: ${totalQuestionsInExamDefinition}.`,
+        );
+        if (totalQuestionsInExamDefinition === 0) {
+          logger.warn(
+            `No questions found in definition for cert_id: ${parsedCertId} (associated with exam_id: ${exam_id}). Fallback scoring may apply.`,
+          );
+        }
+      } catch (e: any) {
+        logger.error(
+          `Error while determining total questions for exam_id ${exam_id} (using cert_id from params: ${parsedCertId}): ${
+            e instanceof Error ? e.message : String(e)
+          }. Total questions from definition will be 0. Fallback scoring may apply.`,
+        );
+        // totalQuestionsInExamDefinition remains 0 in case of error.
+      }
+    }
+    // If parsedCertId was undefined, totalQuestionsInExamDefinition remains 0, and a warning has already been logged.
+
+    // Summary log before score calculation
+    logger.info(
+      `Preparing to calculate score for exam_id: ${exam_id}. ` +
+        `Correctly answered: ${correctlyAnsweredCount}. ` +
+        `Total questions from definition: ${totalQuestionsInExamDefinition} (derived from cert_id in params: ${
+          parsedCertId ?? 'N/A'
+        }). ` +
+        `Total submitted answers: ${allSubmittedAnswers.length}.`,
+    );
+
+    // 3. Calculate the score
+    let currentScore = 0;
+    let scoreDenominator = totalQuestionsInExamDefinition;
+
+    if (totalQuestionsInExamDefinition > 0) {
+      currentScore =
+        (correctlyAnsweredCount / totalQuestionsInExamDefinition) * 100;
+    } else if (allSubmittedAnswers.length > 0) {
+      // Fallback: If total questions in definition is 0 (e.g., due to error or setup issue),
+      // and answers have been submitted, score based on the number of answered questions.
+      logger.warn(
+        `Scoring exam_id ${exam_id} based on ${allSubmittedAnswers.length} answered questions ` +
+          'due to zero total questions in definition. This might indicate an issue with exam setup or certification linkage.',
+      );
+      scoreDenominator = allSubmittedAnswers.length;
+      currentScore =
+        (correctlyAnsweredCount / allSubmittedAnswers.length) * 100;
+    }
+    // If totalQuestionsInExamDefinition is 0 and allSubmittedAnswers.length is 0, score remains 0.
+
+    // 4. Update the exam record with the new score and submission timestamp
     await prismaInstance.exams.update({
       where: { exam_id: exam_id },
       data: {
-        score: parseFloat(currentScore.toFixed(2)), // Store score as a float, e.g., 85.50
-        submitted_at: new Date(), // Update submitted_at to the current time
+        score: parseFloat(currentScore.toFixed(2)), // Store score as a float
+        submitted_at: new Date(), // Update submitted_at to the current time of this answer submission
       },
     });
 
     logger.info(
-      `Exam score updated for exam_id: ${exam_id} to ${currentScore.toFixed(
+      `Exam score updated for exam_id: ${exam_id}. Score: ${currentScore.toFixed(
         2,
-      )}%`,
+      )}%. Correct answers: ${correctlyAnsweredCount}/${
+        scoreDenominator > 0 ? scoreDenominator : 'N/A (check definition)'
+      }.`,
     );
 
     res.status(200).json({
       success: true,
-      data: updatedAnswer,
     });
   } catch (error) {
     logger.error('Error in answerUserExamQuizQuestions handler:', error as any);
