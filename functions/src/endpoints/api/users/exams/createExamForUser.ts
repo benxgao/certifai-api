@@ -49,9 +49,10 @@ const handler = async (req: any | CustomRequest, res: Response) => {
         ? Math.min(numQuestionsBody, MAX_NUMBER_OF_QUESTIONS)
         : DEFAULT_NUMBER_OF_QUESTIONS;
 
-    logger.info(
-      `Attempting to create exam for user_id: ${user_id}, cert_id: ${cert_id}, questions: ${numberOfQuestions}. Requested by firebase_user_id: ${firebaseUserIdFromToken}`,
-    );
+    logger.info(`createExamForUser: initialized:
+      | user_id: ${user_id}
+      | cert_id: ${cert_id}
+      | questions: ${numberOfQuestions}`);
 
     // 1. Find the user by the provided user_id (internal UUID)
     const user = await prismaInstance.users.findUnique({

@@ -1,5 +1,5 @@
 import { inspect } from 'util';
-import { genkit, z } from 'genkit';
+import { genkit, z, FlowSideChannel } from 'genkit';
 import { Request, Response } from 'express';
 
 // Import models from the Vertex AI plugin. The Vertex AI API provides access to
@@ -30,35 +30,84 @@ const ai = genkit({
     // the value from the GCLOUD_PROJECT environment variable.
     vertexAI({ location: 'us-central1' }),
   ],
+  model: gemini20Flash,
 });
+
+const MenuItemSchema = z.object({
+  name: z.string().describe('The name of the menu item.'),
+  description: z.string().describe('A description of the menu item.'),
+  calories: z.number().describe('The estimated number of calories.'),
+  allergens: z
+    .array(z.string())
+    .describe('Any known allergens in the menu item.'),
+});
+
+// Infer the TypeScript type from the Zod schema
+type MenuItem = z.infer<typeof MenuItemSchema>;
 
 // Define a simple flow that prompts an LLM to generate menu suggestions.
 export const menuSuggestionFlow = ai.defineFlow(
   {
     name: 'menuSuggestionFlow',
     inputSchema: z.string().describe('A restaurant theme').default('seafood'),
-    outputSchema: z.string(),
+    outputSchema: z.array(MenuItemSchema), // Output schema remains the Zod schema
     streamSchema: z.string(),
   },
-  async (subject, { sendChunk }) => {
+  async (
+    subject: string,
+    { sendChunk }: FlowSideChannel<string>,
+  ): Promise<MenuItem[]> => {
+    // Corrected return type to MenuItem[]
     try {
-      const prompt = `Suggest an item for the menu of a ${subject} themed restaurant`;
+      const prompt = `Suggest 3 items for the menu of a ${subject} themed restaurant. Ensure the output is a valid JSON array matching the provided schema.`;
       const { response, stream } = ai.generateStream({
-        model: gemini20Flash,
         prompt: prompt,
         config: {
-          temperature: 1,
+          maxOutputTokens: 1024,
+          temperature: 1.0,
+          topP: 0.95,
+          topK: 40,
         },
+        output: { schema: z.array(MenuItemSchema) }, // Ensure this matches the flow's outputSchema for consistency
       });
 
       for await (const chunk of stream) {
-        sendChunk(chunk.text);
+        if (chunk.text) {
+          sendChunk(chunk.text);
+        }
       }
 
-      return (await response).text;
+      const generateResponse = await response;
+      // Access .output as a property. It can be MenuItem[] | null.
+      const actualMenuItems: MenuItem[] | null = generateResponse.output;
+
+      logger.info(
+        `Genkit awaited response: ${JSON.stringify(actualMenuItems, null, 2)}`,
+        {
+          structuredData: true,
+        },
+      );
+
+      if (!actualMenuItems || actualMenuItems.length === 0) {
+        logger.warn(
+          'Genkit response was null, empty, or not in the expected format.',
+          { subject },
+        );
+        // Throw an error if no valid menu items are returned
+        throw new Error('No valid menu items generated.');
+      }
+
+      return actualMenuItems; // Now, this is guaranteed to be MenuItem[]
     } catch (error) {
-      console.error('Error generating menu suggestion:', error);
-      throw new Error('Failed to generate menu suggestion');
+      logger.error(
+        `Error generating menu suggestion for subject '${subject}':`,
+        error as any,
+      );
+      throw new Error(
+        `Failed to generate menu suggestion: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
     }
   },
 );

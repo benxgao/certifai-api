@@ -110,6 +110,7 @@ model QuizQuestions {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  // TODO: isDeprecated Boolean @default(false)
 
   certification Certifications    @relation(fields: [cert_id], references: [cert_id], onDelete: Cascade) // ADDED: Relation to Certifications
   topic         Topic             @relation(fields: [topic_id], references: [id], onDelete: Cascade) // ADDED: Relation to Topic
