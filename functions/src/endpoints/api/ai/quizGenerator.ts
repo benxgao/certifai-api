@@ -41,50 +41,73 @@ const QuizSchema = z.object({
 
 type QuizItem = z.infer<typeof QuizSchema>;
 
+const QuizGeneratorInput = z.object({
+  subject: z
+    .string()
+    .describe('Name of IT certification')
+    .default('Google Cloud'),
+  count: z
+    .number()
+    .min(1)
+    .max(20)
+    .describe('Number of quiz items to generate')
+    .default(3),
+});
+
+type QuizGeneratorInputType = z.infer<typeof QuizGeneratorInput>;
+
 const quizGeneratorPromise = aiInstancePromise.then((ai) => {
   return ai.defineFlow(
     {
       name: 'quizGenerator',
-      inputSchema: z
-        .string()
-        .describe('Name of IT certification')
-        .default('Google Cloud'),
+      inputSchema: QuizGeneratorInput,
       outputSchema: z.array(QuizSchema),
       streamSchema: z.string(),
     },
     async (
-      subject: string,
+      input: QuizGeneratorInputType,
       { sendChunk }: FlowSideChannel<string>,
     ): Promise<QuizItem[]> => {
       try {
-        const prompt = `
-        You are an IT certification quiz generator.
-        Generate 3 items for the certification subject: ${subject}.
-        Each quiz item should include:
-        - A question related to the subject
-        - An array of choices (at least 4 options)
-        - The index of the correct answer (0-based)
-        - An optional topic or category for the question
-        - An explanation for the correct answer
-        Format the output as a JSON array of objects, each matching the following schema:
-        {
-          "question": "string",
-          "choices": ["string", "string", "string", "string"],
-          "answerIndex": 0,
-          "topic": "string", // optional
-          "explanation": "string"
-        }
-        Ensure the questions are relevant to the subject and suitable for a quiz format.
-        `;
+        const { subject, count } = input;
+        const prompt = `Generate ${count} realistic ${subject} certification exam questions.
+REQUIREMENTS:
+1. Scenario-based workplace situations
+2. All 4 choices plausible and technically accurate
+3. Wrong answers: common misconceptions, not obvious fakes
+4. Use real service names and proper terminology
+5. Test understanding, not memorization
+6. Sophisticated distractors requiring expertise
 
-        logger.info(`Starting quiz generation for subject: ${subject}`);
+CONSTRUCTION:
+- Business scenarios with specific constraints
+- Company context (size, budget, compliance)
+- Decision-making focus
+- Best practices and architecture
+- Exact 4 options, consistent grammar
+- Similar detail length across choices
+
+JSON format:
+[{
+  "question": "string",
+  "choices": ["string", "string", "string", "string"],
+  "answerIndex": 0,
+  "topic": "string",
+  "explanation": "string"
+}]
+
+Explanation: why correct answer is best, why others inadequate.`;
+
+        logger.info(
+          `Starting quiz generation for subject: ${subject}, count: ${count}`,
+        );
 
         const { response, stream } = ai.generateStream({
           prompt: prompt,
           config: {
-            maxOutputTokens: 1024,
-            temperature: 1.0,
-            topP: 0.95,
+            maxOutputTokens: 2048,
+            temperature: 0.7,
+            topP: 0.9,
             topK: 40,
           },
           output: { schema: z.array(QuizSchema) },
@@ -102,7 +125,7 @@ const quizGeneratorPromise = aiInstancePromise.then((ai) => {
         if (!actualQuizItems || actualQuizItems.length === 0) {
           logger.warn(
             'Genkit response was null, empty, or not in the expected format.',
-            { subject },
+            { subject, count },
           );
           throw new Error('No valid quiz items generated.');
         }
@@ -114,7 +137,7 @@ const quizGeneratorPromise = aiInstancePromise.then((ai) => {
         return actualQuizItems;
       } catch (error) {
         logger.error(
-          `Error in quizGenerator for subject '${subject}':`,
+          `Error in quizGenerator for subject '${input.subject}', count '${input.count}':`,
           error as any,
         );
         // Re-throw a more specific error or handle as needed
@@ -134,12 +157,16 @@ export const quizGeneratorHandler = async (req: Request, res: Response) => {
     const quizGenerator = await quizGeneratorPromise;
 
     const cert_name = req.body.cert_name || 'Google Cloud';
-    logger.info(`Handling /genkit request with cert_name: ${cert_name}`);
-
-    const quizList = await quizGenerator(cert_name);
+    const count = req.body.count || 3; // Default to 3 if not provided
 
     logger.info(
-      `Genkit handler response for cert_name '${cert_name}': ${inspect(
+      `Handling /genkit request with cert_name: ${cert_name}, count: ${count}`,
+    );
+
+    const quizList = await quizGenerator({ subject: cert_name, count });
+
+    logger.info(
+      `Genkit handler response for cert_name '${cert_name}', count '${count}': ${inspect(
         quizList,
       )}`,
       { structuredData: true },
