@@ -107,8 +107,8 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       type QuestionResponse = {
         quiz_question_id: string;
         question_body: string;
-        difficulty: string;
-        topic_id: number;
+        difficulty: string | null;
+        topic_id: number | null;
         cert_id: number;
         user_answer_id: string; // ID of the ExamUserAnswers record
         selected_option_id: string | null;

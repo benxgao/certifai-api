@@ -101,19 +101,19 @@ model UserCertification {
 model QuizQuestions {
   quiz_question_id String @id @default(uuid())
   cert_id          Int
-  topic_id         Int
+  topic_id         Int?
 
-  difficulty    String
+  difficulty    String?
   question_body String
   answerOptions AnswerOption[]
   explanations  String?
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  // TODO: isDeprecated Boolean @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  isDeprecated Boolean  @default(false)
 
-  certification Certifications    @relation(fields: [cert_id], references: [cert_id], onDelete: Cascade) // ADDED: Relation to Certifications
-  topic         Topic             @relation(fields: [topic_id], references: [id], onDelete: Cascade) // ADDED: Relation to Topic
+  certification Certifications    @relation(fields: [cert_id], references: [cert_id], onDelete: Cascade)
+  topic         Topic?            @relation(fields: [topic_id], references: [id], onDelete: Cascade)
   examEntries   ExamUserAnswers[]
 
   @@index([cert_id])
@@ -133,14 +133,25 @@ model AnswerOption {
   selectedInExams ExamUserAnswers[]
 }
 
+enum ExamStatus {
+  PENDING_QUESTIONS
+  QUESTIONS_GENERATING
+  READY
+  IN_PROGRESS
+  COMPLETED
+  QUESTION_GENERATION_FAILED
+}
+
 model Exams {
   exam_id String @id @default(uuid())
   user_id String
   cert_id Int // Foreign Key
 
-  score        Float?
-  started_at   DateTime  @default(now())
-  submitted_at DateTime?
+  exam_status     ExamStatus @default(PENDING_QUESTIONS)
+  total_questions Int?
+  score           Float?
+  started_at      DateTime   @default(now())
+  submitted_at    DateTime?
 
   user          Users             @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
   certification Certifications    @relation(fields: [cert_id], references: [cert_id], onDelete: Cascade)

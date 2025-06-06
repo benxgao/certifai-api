@@ -37,6 +37,7 @@ const QuizSchema = z.object({
   answerIndex: z.number(),
   topic: z.string().optional(),
   explanation: z.string(),
+  exam_id: z.string(),
 });
 
 type QuizItem = z.infer<typeof QuizSchema>;
@@ -49,14 +50,19 @@ const QuizGeneratorInput = z.object({
   count: z
     .number()
     .min(1)
-    .max(20)
+    .max(50) // Increased from 20 to 50 to handle larger batches
     .describe('Number of quiz items to generate')
     .default(3),
+  exam_id: z
+    .string()
+    .describe(
+      'Unique exam identifier that will be associated with each quiz item',
+    ),
 });
 
 type QuizGeneratorInputType = z.infer<typeof QuizGeneratorInput>;
 
-const quizGeneratorPromise = aiInstancePromise.then((ai) => {
+export const quizGeneratorPromise = aiInstancePromise.then((ai) => {
   return ai.defineFlow(
     {
       name: 'quizGenerator',
@@ -69,7 +75,7 @@ const quizGeneratorPromise = aiInstancePromise.then((ai) => {
       { sendChunk }: FlowSideChannel<string>,
     ): Promise<QuizItem[]> => {
       try {
-        const { subject, count } = input;
+        const { subject, count, exam_id } = input;
         const prompt = `Generate ${count} realistic ${subject} certification exam questions.
 REQUIREMENTS:
 1. Scenario-based workplace situations
@@ -99,7 +105,7 @@ JSON format:
 Explanation: why correct answer is best, why others inadequate.`;
 
         logger.info(
-          `Starting quiz generation for subject: ${subject}, count: ${count}`,
+          `Starting quiz generation for subject: ${subject}, count: ${count}, exam_id: ${exam_id}`,
         );
 
         const { response, stream } = ai.generateStream({
@@ -125,19 +131,29 @@ Explanation: why correct answer is best, why others inadequate.`;
         if (!actualQuizItems || actualQuizItems.length === 0) {
           logger.warn(
             'Genkit response was null, empty, or not in the expected format.',
-            { subject, count },
+            { subject, count, exam_id },
           );
           throw new Error('No valid quiz items generated.');
         }
 
+        // Associate exam_id with each quiz item
+        const quizItemsWithExamId = actualQuizItems.map((item) => ({
+          ...item,
+          exam_id,
+        }));
+
         logger.info(
-          `Generated quiz items: ${JSON.stringify(actualQuizItems, null, 2)}`,
+          `Generated quiz items: ${JSON.stringify(
+            quizItemsWithExamId,
+            null,
+            2,
+          )}`,
           { structuredData: true },
         );
-        return actualQuizItems;
+        return quizItemsWithExamId;
       } catch (error) {
         logger.error(
-          `Error in quizGenerator for subject '${input.subject}', count '${input.count}':`,
+          `Error in quizGenerator for subject '${input.subject}', count '${input.count}', exam_id '${input.exam_id}':`,
           error as any,
         );
         // Re-throw a more specific error or handle as needed
@@ -158,15 +174,28 @@ export const quizGeneratorHandler = async (req: Request, res: Response) => {
 
     const cert_name = req.body.cert_name || 'Google Cloud';
     const count = req.body.count || 3; // Default to 3 if not provided
+    const exam_id = req.body.exam_id;
+
+    if (!exam_id) {
+      res.status(400).json({
+        success: false,
+        error: 'exam_id is required',
+      });
+      return;
+    }
 
     logger.info(
-      `Handling /genkit request with cert_name: ${cert_name}, count: ${count}`,
+      `Handling /genkit request with cert_name: ${cert_name}, count: ${count}, exam_id: ${exam_id}`,
     );
 
-    const quizList = await quizGenerator({ subject: cert_name, count });
+    const quizList = await quizGenerator({
+      subject: cert_name,
+      count,
+      exam_id,
+    });
 
     logger.info(
-      `Genkit handler response for cert_name '${cert_name}', count '${count}': ${inspect(
+      `Genkit handler response for cert_name '${cert_name}', count '${count}', exam_id '${exam_id}': ${inspect(
         quizList,
       )}`,
       { structuredData: true },
