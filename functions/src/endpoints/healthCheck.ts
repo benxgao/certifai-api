@@ -2,7 +2,7 @@ import { Router as createRouter } from 'express';
 // import fetch from 'node-fetch';
 import logger from '../services/firebase/logger';
 import { getSecret } from '../services/gcp/secret_manager';
-import prismaInstance from '../services/prisma';
+// import prismaInstance from '../services/prisma';
 
 const router = createRouter();
 
@@ -16,19 +16,19 @@ router.get('/', async (req, res) => {
   //   | status: ${response.status}
   //   | data: ${JSON.stringify(data)}`);
 
-  const newProduct = await prismaInstance.product.create({
-    data: {
-      name: `Test Product - ${Date.now()}`,
-      description: 'Test Product Description',
-      price: 10.99,
-    },
-  });
+  // const newProduct = await prismaInstance.product.create({
+  //   data: {
+  //     name: `Test Product - ${Date.now()}`,
+  //     description: 'Test Product Description',
+  //     price: 10.99,
+  //   },
+  // });
 
-  const products = await prismaInstance.product.findMany();
+  // const products = await prismaInstance.product.findMany();
 
-  logger.info(`Healthcheck: PRISMA
-    | newProduct: ${JSON.stringify(newProduct)}
-    | products: ${JSON.stringify(products)}`);
+  // logger.info(`Healthcheck: PRISMA
+  //   | newProduct: ${JSON.stringify(newProduct)}
+  //   | products: ${JSON.stringify(products)}`);
 
   logger.info(`Healthcheck endpoint hit
  secret_manager:NEXT_PUBLIC_FIREBASE_BACKEND_URL: ${JSON.stringify(testSecret)}

@@ -1,4 +1,5 @@
 {
+  "$schema": "https://json.schemastore.org/package.json",
   "name": "functions",
   "version": "1.0.0",
   "description": "Firebase Functions for Co-Workout",
