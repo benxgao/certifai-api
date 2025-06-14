@@ -1,6 +1,6 @@
 import { Router as createRouter } from 'express';
 import ai from './ai';
-import { verifyFirebaseToken } from '../../middlewares/firebase_auth';
+import { verifyFirebaseToken } from '../../middlewares/authCheck';
 import protectedResources from './protected_resources';
 import authRegister from './auth/register';
 import authLogin from './auth/login';

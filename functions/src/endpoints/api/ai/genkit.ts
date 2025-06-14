@@ -9,7 +9,7 @@ import { genkit, z, FlowSideChannel, Genkit } from 'genkit';
 import { Request, Response } from 'express';
 import { googleAI, gemini20Flash } from '@genkit-ai/googleai';
 import logger from '../../../services/firebase/logger';
-import { getSecret } from '../../../services/gcp/secret_manager';
+import { getSecret } from '../../../services/gcp/secretManager';
 
 const initializeAiInstance = async (): Promise<Genkit> => {
   try {

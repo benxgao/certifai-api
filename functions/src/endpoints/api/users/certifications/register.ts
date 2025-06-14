@@ -1,8 +1,10 @@
 import { Response } from 'express';
 import logger from '../../../../services/firebase/logger';
 import { CustomRequest } from '../../../../types';
-import { CertificationStatus } from '../../../../../src/generated/prisma/client';
-import prismaInstance from '../../../../services/prisma';
+
+import prismaInstance, {
+  CertificationStatus,
+} from '../../../../services/prisma';
 
 const handler = async (req: any | CustomRequest, res: Response) => {
   try {

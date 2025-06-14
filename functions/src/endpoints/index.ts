@@ -6,7 +6,7 @@ import compression from 'compression';
 
 import healthcheck from './healthCheck';
 import api from './api';
-import { verifyFirebaseToken } from '../middlewares/firebase_auth';
+import { verifyFirebaseToken } from '../middlewares/authCheck';
 
 const app = express();
 

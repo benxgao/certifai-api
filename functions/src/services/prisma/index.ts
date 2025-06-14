@@ -1,4 +1,7 @@
-import { PrismaClient } from '../../../src/generated/prisma/client';
+import {
+  PrismaClient,
+  CertificationStatus,
+} from '../../../src/generated/prisma/client';
 
 // Extend the NodeJS global type to allow for the prisma instance
 // This prevents multiple instances during development with hot-reloading.
@@ -15,5 +18,7 @@ export const prisma =
 
 // In development, store the prisma instance globally to prevent creating new instances on hot reloads.
 if (process.env.NODE_ENV !== 'production') globalWithPrisma.prisma = prisma;
+
+export { CertificationStatus };
 
 export default prisma;

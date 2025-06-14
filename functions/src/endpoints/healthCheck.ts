@@ -1,7 +1,7 @@
 import { Router as createRouter } from 'express';
 // import fetch from 'node-fetch';
 import logger from '../services/firebase/logger';
-import { getSecret } from '../services/gcp/secret_manager';
+import { getSecret } from '../services/gcp/secretManager';
 // import prismaInstance from '../services/prisma';
 
 const router = createRouter();

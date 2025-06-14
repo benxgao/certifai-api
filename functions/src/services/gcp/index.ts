@@ -8,4 +8,4 @@
 export * from './pubsub';
 
 // Secret Manager Service (if available)
-export * from './secret_manager';
+export * from './secretManager';

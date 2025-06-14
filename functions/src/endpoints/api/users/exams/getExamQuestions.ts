@@ -3,6 +3,27 @@ import logger from '../../../../services/firebase/logger';
 import { CustomRequest } from '../../../../types';
 import prismaInstance from '../../../../services/prisma';
 
+// Define a type for the question response structure for clarity
+type AnswerOptionResponse = {
+  option_id: string;
+  option_text: string;
+  is_correct?: boolean;
+};
+
+type QuestionResponse = {
+  quiz_question_id: string;
+  question_body: string;
+  difficulty: string | null;
+  topic_id: number | null;
+  cert_id: number;
+  user_answer_id: string; // ID of the ExamUserAnswers record
+  selected_option_id: string | null;
+  explanations?: string | null;
+  user_answer_is_correct?: boolean | null;
+  answerOptions: AnswerOptionResponse[];
+  // Potentially add other QuizQuestion fields like createdAt, updatedAt if needed
+};
+
 const handler = async (req: any | CustomRequest, res: Response) => {
   try {
     const { user_id, exam_id } = req.params;
@@ -96,27 +117,6 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       const { quizQuestion } = eau;
       const isExamSubmittedAndScored =
         exam.score !== null && exam.submitted_at !== null;
-
-      // Define a type for the question response structure for clarity
-      type AnswerOptionResponse = {
-        option_id: string;
-        option_text: string;
-        is_correct?: boolean;
-      };
-
-      type QuestionResponse = {
-        quiz_question_id: string;
-        question_body: string;
-        difficulty: string | null;
-        topic_id: number | null;
-        cert_id: number;
-        user_answer_id: string; // ID of the ExamUserAnswers record
-        selected_option_id: string | null;
-        explanations?: string | null;
-        user_answer_is_correct?: boolean | null;
-        answerOptions: AnswerOptionResponse[];
-        // Potentially add other QuizQuestion fields like createdAt, updatedAt if needed
-      };
 
       const questionResponse: QuestionResponse = {
         quiz_question_id: quizQuestion.quiz_question_id,
