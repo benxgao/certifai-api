@@ -55,7 +55,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       | questions: ${numberOfQuestions}`);
 
     // 1. Find the user by the provided user_id (internal UUID)
-    const user = await prismaInstance.users.findUnique({
+    const user = await prismaInstance.user.findUnique({
       where: { user_id: user_id },
     });
 
@@ -82,7 +82,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
     }
 
     // 3. Verify the certification exists
-    const certification = await prismaInstance.certifications.findUnique({
+    const certification = await prismaInstance.certification.findUnique({
       where: { cert_id: cert_id },
     });
 
@@ -95,7 +95,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
     }
 
     // 4. Fetch quiz questions for the target certification
-    const questions = await prismaInstance.quizQuestions.findMany({
+    const questions = await prismaInstance.quizQuestion.findMany({
       where: { cert_id: cert_id },
       take: numberOfQuestions,
       select: { quiz_question_id: true },
@@ -118,7 +118,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
     }
 
     // 5. Create the exam and link answers
-    const newExam = await prismaInstance.exams.create({
+    const newExam = await prismaInstance.examAttempt.create({
       data: {
         user: {
           connect: { user_id: user.user_id },

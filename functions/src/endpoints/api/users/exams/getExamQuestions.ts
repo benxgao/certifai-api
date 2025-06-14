@@ -41,7 +41,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
     const take = pageSize;
 
     // Verify exam exists and belongs to the user
-    const exam = await prismaInstance.exams.findUnique({
+    const exam = await prismaInstance.examAttempt.findUnique({
       where: { exam_id: exam_id },
     });
 
@@ -65,7 +65,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       `Fetching questions for exam_id: ${exam_id}, user_id: ${user_id}, page: ${page}, pageSize: ${pageSize}`,
     );
 
-    const examUserAnswers = await prismaInstance.examUserAnswers.findMany({
+    const examUserAnswers = await prismaInstance.examUserAnswer.findMany({
       where: { exam_id: exam_id },
       include: {
         quizQuestion: {
@@ -85,10 +85,10 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       skip: skip,
       take: take,
       // Ensuring consistent question order for pagination and user experience.
-      orderBy: { quizQuestion: { createdAt: 'asc' } },
+      orderBy: { quizQuestion: { created_at: 'asc' } },
     });
 
-    const totalQuestions = await prismaInstance.examUserAnswers.count({
+    const totalQuestions = await prismaInstance.examUserAnswer.count({
       where: { exam_id: exam_id },
     });
 
@@ -120,7 +120,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
 
       const questionResponse: QuestionResponse = {
         quiz_question_id: quizQuestion.quiz_question_id,
-        question_body: quizQuestion.question_body,
+        question_body: quizQuestion.question_text,
         difficulty: quizQuestion.difficulty,
         topic_id: quizQuestion.topic_id,
         cert_id: quizQuestion.cert_id,

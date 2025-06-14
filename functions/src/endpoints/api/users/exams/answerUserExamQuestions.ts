@@ -41,7 +41,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
 
     // Check if the specific exam question entry exists for this exam
     const existingExamUserAnswer =
-      await prismaInstance.examUserAnswers.findUnique({
+      await prismaInstance.examUserAnswer.findUnique({
         where: {
           exam_id_quiz_question_id: {
             exam_id: exam_id,
@@ -55,7 +55,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
               answerOptions: true,
             },
           },
-          exam: true, // Include the parent exam to check its status
+          examAttempt: true, // Include the parent exam to check its status
         },
       });
 
@@ -68,7 +68,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
     }
 
     // Check if the exam has already been submitted
-    if (existingExamUserAnswer.exam.submitted_at) {
+    if (existingExamUserAnswer.examAttempt.submitted_at) {
       res.status(403).json({
         success: false,
         error: 'Exam has already been submitted. Answers cannot be changed.',
@@ -98,7 +98,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
     const is_correct = selectedOption ? selectedOption.is_correct : false;
 
     // Update the existing answer
-    const updatedAnswer = await prismaInstance.examUserAnswers.update({
+    const updatedAnswer = await prismaInstance.examUserAnswer.update({
       where: {
         user_answer_id: existingExamUserAnswer?.user_answer_id,
       },

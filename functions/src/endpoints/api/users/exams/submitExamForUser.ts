@@ -9,7 +9,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
     const certIdFromParams = req.params.cert_id; // Keep as string initially for parsing check
 
     // 1. Collect all submitted answers for this exam to count correct ones
-    const allSubmittedAnswers = await prismaInstance.examUserAnswers.findMany({
+    const allSubmittedAnswers = await prismaInstance.examUserAnswer.findMany({
       where: { exam_id: exam_id },
       select: { is_correct: true },
     });
@@ -33,7 +33,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
     if (parsedCertId !== undefined) {
       try {
         totalQuestionsInExamDefinition =
-          await prismaInstance.quizQuestions.count({
+          await prismaInstance.quizQuestion.count({
             where: { cert_id: parsedCertId },
           });
         logger.info(
@@ -86,7 +86,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
     // If totalQuestionsInExamDefinition is 0 and allSubmittedAnswers.length is 0, score remains 0.
 
     // 4. Update the exam record with the new score and submission timestamp
-    await prismaInstance.exams.update({
+    await prismaInstance.examAttempt.update({
       where: { exam_id: exam_id },
       data: {
         score: parseFloat(currentScore.toFixed(2)), // Store score as a float

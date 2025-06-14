@@ -11,7 +11,7 @@ async function main() {
   ];
 
   for (const user of users) {
-    await prismaInstance.users.create({
+    await prismaInstance.user.create({
       data: user,
     });
   }

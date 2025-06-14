@@ -10,7 +10,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       `req.firebase_user_info: ${JSON.stringify(req.firebase_user_info)}`,
     );
 
-    const certifications = await prismaInstance.certifications.findMany();
+    const certifications = await prismaInstance.certification.findMany();
 
     res.status(200).json({
       success: true,

@@ -26,12 +26,12 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       });
     }
 
-    const user = await prismaInstance.users.upsert({
+    const user = await prismaInstance.user.upsert({
       where: {
         firebase_user_id: firebaseUserId,
       },
       update: {
-        updatedAt: new Date(),
+        updated_at: new Date(),
       },
       create: {
         firebase_user_id: firebaseUserId,

@@ -30,7 +30,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       whereClause.cert_id = cert_id as string;
     }
 
-    const examsFromDb = await prismaInstance.exams.findMany({
+    const examsFromDb = await prismaInstance.examAttempt.findMany({
       where: whereClause, // Use the dynamically built whereClause
       include: {
         certification: true, // Include certification details

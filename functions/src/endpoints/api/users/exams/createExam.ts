@@ -57,7 +57,7 @@ const handler = async (
     );
 
     // 1. Find the user by the provided user_id (internal UUID)
-    const user = await prismaInstance.users.findUnique({
+    const user = await prismaInstance.user.findUnique({
       where: { user_id: user_id },
     });
 
@@ -82,7 +82,7 @@ const handler = async (
     }
 
     // 3. Verify the certification exists
-    const certification = await prismaInstance.certifications.findUnique({
+    const certification = await prismaInstance.certification.findUnique({
       where: { cert_id: cert_id },
     });
 
@@ -95,7 +95,7 @@ const handler = async (
     }
 
     // 4. Create the exam with PENDING_QUESTIONS status
-    const newExam = await prismaInstance.exams.create({
+    const newExam = await prismaInstance.examAttempt.create({
       data: {
         user: { connect: { user_id: user.user_id } },
         certification: { connect: { cert_id: cert_id } },

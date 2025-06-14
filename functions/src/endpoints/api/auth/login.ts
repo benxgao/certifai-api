@@ -26,12 +26,12 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       });
     }
 
-    const user = await prismaInstance.users.update({
+    const user = await prismaInstance.user.update({
       where: {
         firebase_user_id: firebaseUserId,
       },
       data: {
-        updatedAt: new Date(), // Update the updatedAt field to the current time
+        updated_at: new Date(), // Update the updatedAt field to the current time
       },
       select: {
         user_id: true,
