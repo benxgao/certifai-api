@@ -152,18 +152,14 @@ async function main() {
   ];
 
   for (const cert of certifications) {
-    await prismaInstance.certifications.create({
+    await prismaInstance.certification.create({
       data: {
         name: cert.name,
         exam_guide_url: cert.exam_guide_url,
         min_quiz_counts: cert.min_quiz_counts,
         max_quiz_counts: cert.max_quiz_counts,
         pass_score: cert.pass_score,
-        cert_category: {
-          connect: {
-            cert_category_id: cert.cert_category_id,
-          },
-        },
+        // cert_category_id: cert.cert_category_id,
       },
     });
   }

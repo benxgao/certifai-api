@@ -20,18 +20,18 @@ enum CertificationStatus {
   INTERESTED
 }
 
-model Product {
-  id          String   @id @default(uuid())
-  name        String
-  description String?
-  price       Float
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-}
+// model Product {
+//   id          String   @id @default(uuid())
+//   name        String
+//   description String?
+//   price       Float
+//   createdAt   DateTime @default(now())
+//   updatedAt   DateTime @updatedAt
+// }
 
-model Certifications {
-  cert_id          Int @id @default(autoincrement())
-  cert_category_id Int // Foreign Key
+model Certification {
+  cert_id Int @id @default(autoincrement())
+  // cert_category_id Int // Foreign Key
 
   name            String
   exam_guide_url  String?
@@ -39,45 +39,45 @@ model Certifications {
   max_quiz_counts Int
   pass_score      Float
 
-  cert_category      CertCategories      @relation(fields: [cert_category_id], references: [cert_category_id])
-  certTopics         CertTopic[]
-  quizQuestions      QuizQuestions[]
-  exams              Exams[]
+  // cert_category      CertCategory        @relation(fields: [cert_category_id], references: [cert_category_id])
+  // certTopics         CertTopic[]
+  quizQuestions      QuizQuestion[]
+  examAttempts       ExamAttempt[]
   userCertifications UserCertification[]
 }
 
-model CertCategories {
-  cert_category_id Int    @id @default(autoincrement())
-  name             String
+// model CertCategory {
+//   cert_category_id Int    @id @default(autoincrement())
+//   name             String
 
-  certifications Certifications[]
-}
+//   certifications Certification[]
+// }
 
-model Topic {
-  id            Int             @id @default(autoincrement())
-  name          String          @unique
-  certTopics    CertTopic[]
-  quizQuestions QuizQuestions[]
-}
+// model Topic {
+//   id            Int            @id @default(autoincrement())
+//   name          String         @unique
+//   certTopics    CertTopic[]
+//   quizQuestions QuizQuestion[]
+// }
 
-model CertTopic {
-  cert_id  Int
-  topic_id Int
+// model CertTopic {
+//   cert_id  Int
+//   topic_id Int
 
-  certification Certifications @relation(fields: [cert_id], references: [cert_id], onDelete: Cascade)
-  topic         Topic          @relation(fields: [topic_id], references: [id], onDelete: Cascade)
+//   certification Certification @relation(fields: [cert_id], references: [cert_id], onDelete: Cascade)
+//   topic         Topic         @relation(fields: [topic_id], references: [id], onDelete: Cascade)
 
-  @@id([cert_id, topic_id])
-}
+//   @@id([cert_id, topic_id])
+// }
 
-model Users {
+model User {
   user_id          String  @id @default(uuid())
   firebase_user_id String? @unique
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @default(now())
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
 
-  exams              Exams[]
+  examAttempts       ExamAttempt[]
   userCertifications UserCertification[] // Relation to the join table
 }
 
@@ -85,12 +85,12 @@ model UserCertification {
   user_id String // Foreign Key
   cert_id Int // Foreign Key
 
-  status     CertificationStatus
-  assignedAt DateTime            @default(now())
-  updatedAt  DateTime            @updatedAt
+  status      CertificationStatus
+  assigned_at DateTime            @default(now())
+  updated_at  DateTime            @updatedAt
 
-  user          Users          @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
-  certification Certifications @relation(fields: [cert_id], references: [cert_id], onDelete: Cascade)
+  user          User          @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+  certification Certification @relation(fields: [cert_id], references: [cert_id], onDelete: Cascade)
 
   // @@index([status])
   // @@index([cert_id, status])
@@ -98,23 +98,23 @@ model UserCertification {
   @@id([user_id, cert_id])
 }
 
-model QuizQuestions {
+model QuizQuestion {
   quiz_question_id String @id @default(uuid())
   cert_id          Int
   topic_id         Int?
 
   difficulty    String?
-  question_body String
-  answerOptions AnswerOption[]
+  question_text String
   explanations  String?
 
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  isDeprecated Boolean  @default(false)
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+  is_deprecated Boolean  @default(false)
 
-  certification Certifications    @relation(fields: [cert_id], references: [cert_id], onDelete: Cascade)
-  topic         Topic?            @relation(fields: [topic_id], references: [id], onDelete: Cascade)
-  examEntries   ExamUserAnswers[]
+  answerOptions AnswerOption[]
+  certification Certification    @relation(fields: [cert_id], references: [cert_id], onDelete: Cascade)
+  // topic         Topic?           @relation(fields: [topic_id], references: [id], onDelete: Cascade)
+  examEntries   ExamUserAnswer[]
 
   @@index([cert_id])
   @@index([topic_id])
@@ -126,11 +126,11 @@ model AnswerOption {
   option_text      String
   is_correct       Boolean
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
 
-  quizQuestion    QuizQuestions     @relation(fields: [quiz_question_id], references: [quiz_question_id], onDelete: Cascade)
-  selectedInExams ExamUserAnswers[]
+  quizQuestion    QuizQuestion     @relation(fields: [quiz_question_id], references: [quiz_question_id], onDelete: Cascade)
+  selectedInExams ExamUserAnswer[]
 }
 
 enum ExamStatus {
@@ -142,7 +142,7 @@ enum ExamStatus {
   QUESTION_GENERATION_FAILED
 }
 
-model Exams {
+model ExamAttempt {
   exam_id String @id @default(uuid())
   user_id String
   cert_id Int // Foreign Key
@@ -153,12 +153,12 @@ model Exams {
   started_at      DateTime   @default(now())
   submitted_at    DateTime?
 
-  user          Users             @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
-  certification Certifications    @relation(fields: [cert_id], references: [cert_id], onDelete: Cascade)
-  answers       ExamUserAnswers[]
+  user          User             @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+  certification Certification    @relation(fields: [cert_id], references: [cert_id], onDelete: Cascade)
+  answers       ExamUserAnswer[]
 }
 
-model ExamUserAnswers {
+model ExamUserAnswer {
   user_answer_id   String @id @default(uuid())
   exam_id          String // Foreign Key
   quiz_question_id String // Foreign Key
@@ -166,8 +166,8 @@ model ExamUserAnswers {
   selected_option_id String?
   is_correct         Boolean?
 
-  exam           Exams         @relation(fields: [exam_id], references: [exam_id], onDelete: Cascade)
-  quizQuestion   QuizQuestions @relation(fields: [quiz_question_id], references: [quiz_question_id], onDelete: Cascade)
+  examAttempt    ExamAttempt   @relation(fields: [exam_id], references: [exam_id], onDelete: Cascade)
+  quizQuestion   QuizQuestion  @relation(fields: [quiz_question_id], references: [quiz_question_id], onDelete: Cascade)
   selectedOption AnswerOption? @relation(fields: [selected_option_id], references: [option_id], onDelete: SetNull)
 
   @@unique([exam_id, quiz_question_id])
