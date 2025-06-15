@@ -14,14 +14,13 @@ type QuestionResponse = {
   quiz_question_id: string;
   question_body: string;
   difficulty: string | null;
-  topic_id: number | null;
+  generated_from: string | null;
   cert_id: number;
   user_answer_id: string; // ID of the ExamUserAnswers record
   selected_option_id: string | null;
   explanations?: string | null;
   user_answer_is_correct?: boolean | null;
   answerOptions: AnswerOptionResponse[];
-  // Potentially add other QuizQuestion fields like createdAt, updatedAt if needed
 };
 
 const handler = async (req: any | CustomRequest, res: Response) => {
@@ -122,7 +121,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
         quiz_question_id: quizQuestion.quiz_question_id,
         question_body: quizQuestion.question_text,
         difficulty: quizQuestion.difficulty,
-        topic_id: quizQuestion.topic_id,
+        generated_from: quizQuestion.generated_from,
         cert_id: quizQuestion.cert_id,
 
         user_answer_id: eau.user_answer_id,

@@ -20,6 +20,12 @@ enum CertificationStatus {
   INTERESTED
 }
 
+enum DifficultyLevel {
+  EASY
+  ADVANCED
+  EXPERT
+}
+
 // model Product {
 //   id          String   @id @default(uuid())
 //   name        String
@@ -99,11 +105,11 @@ model UserCertification {
 }
 
 model QuizQuestion {
-  quiz_question_id String @id @default(uuid())
+  quiz_question_id String  @id @default(uuid())
   cert_id          Int
-  topic_id         Int?
+  generated_from   String?
 
-  difficulty    String?
+  difficulty    DifficultyLevel?
   question_text String
   explanations  String?
 
@@ -113,11 +119,9 @@ model QuizQuestion {
 
   answerOptions AnswerOption[]
   certification Certification    @relation(fields: [cert_id], references: [cert_id], onDelete: Cascade)
-  // topic         Topic?           @relation(fields: [topic_id], references: [id], onDelete: Cascade)
   examEntries   ExamUserAnswer[]
 
   @@index([cert_id])
-  @@index([topic_id])
 }
 
 model AnswerOption {

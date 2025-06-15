@@ -72,7 +72,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
             cert_id,
             question_text: question.question,
             explanations: question.explanation,
-            topic_id: null, // You might want to map this if you have topics
+            generated_from: exam_id,
             difficulty: null, // You might want to set this
           },
         });

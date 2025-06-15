@@ -1,5 +1,5 @@
 import logger from '../../firebase/logger';
-import prismaInstance from '../../prisma';
+import prismaInstance, { DifficultyLevel } from '../../prisma';
 import { quizGeneratorPromise } from '../../quizGenerator';
 
 type QuizItem = {
@@ -157,7 +157,7 @@ export const handleExamQuestionsGeneration = async (
       const newQuizQuestion = await prismaInstance.quizQuestion.create({
         data: {
           question_text: item.question,
-          difficulty: 'medium', // Default difficulty
+          difficulty: DifficultyLevel.EASY,
           explanations: item.explanation,
           cert_id: cert_id,
           // topic_id: questionTopic.id,
