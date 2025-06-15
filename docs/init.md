@@ -5,21 +5,29 @@
 Create .env
 
 Create secrets/envvars on Github Actions
-  - secrets.GCP_CREDENTIALS_JSON
-  - secrets.DATABASE_URL
-  - vars.GCP_PROJECT_NUMBER
+
+- secrets.GCP_CREDENTIALS_JSON
+- secrets.DATABASE_URL
+- vars.GCP_PROJECT_NUMBER
 
 Update admin IAM roles
-  - compute
-    - Secret Manager Secret Accessor (otherwise it would report SecretManager access error when /healthcheck of prod is requested locally) 
-  - adminsdk
-    - Editor
-    - Secret Manager Secret Accessor (otherwise it would report SecretManager access error when /healthcheck of prod is requested locally) 
-    - Cloud Functions Admin
-    - Service Account Token Creator
-    - Vertex AI administrator
-  - apphosting
-    - Secret Manager Secret Accessor
+
+- compute
+
+  - Secret Manager Secret Accessor (otherwise it would report SecretManager access error when /healthcheck of prod is requested locally)
+  - Cloud Run Invoker (otherwise Cloud-tasks requests would have 401 error)
+
+- adminsdk
+
+  - Editor
+  - Secret Manager Secret Accessor (otherwise it would report SecretManager access error when /healthcheck of prod is requested locally)
+  - Cloud Functions Admin
+  - Service Account Token Creator
+  - Vertex AI administrator
+  - Cloud Tasks Enqueuer
+
+- apphosting
+  - Secret Manager Secret Accessor
 
 Generate API API key - https://aistudio.google.com/app/apikey
 Add GOOGLE_GENAI_API_KEY to secret manager

@@ -1,6 +1,6 @@
 import logger from '../../firebase/logger';
 import prismaInstance from '../../prisma';
-import { quizGeneratorPromise } from '../../../endpoints/api/ai/quizGenerator';
+import { quizGeneratorPromise } from '../../quizGenerator';
 
 type QuizItem = {
   question: string;

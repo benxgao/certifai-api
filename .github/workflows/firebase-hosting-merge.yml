@@ -35,6 +35,11 @@ jobs:
       - name: Create file - .env
         run: |
           echo "GCP_PROJECT_NUMBER=${{ vars.GCP_PROJECT_NUMBER }}" >> .env
+          echo "GCP_PROJECT_ID=${{ vars.GCP_PROJECT_ID }}" >> .env
+          echo "GCP_REGION=${{ vars.GCP_REGION }}" >> .env
+          echo "GCP_TASKS_HOST=${{ vars.GCP_TASKS_HOST }}" >> .env
+          echo "GCP_TASKS_SERVICE_ACCOUNT=${{ vars.GCP_TASKS_SERVICE_ACCOUNT }}" >> .env
+
           echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> .env
         working-directory: functions
 

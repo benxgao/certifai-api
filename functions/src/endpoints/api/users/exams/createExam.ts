@@ -2,18 +2,11 @@ import { Response } from 'express';
 import logger from '../../../../services/firebase/logger';
 import { CustomRequest } from '../../../../types';
 import prismaInstance from '../../../../services/prisma';
-import { publishPubSubMessages } from '../../../../services/gcp/pubsub/publish';
+import { createCloudTask } from '../../../../services/gcp/cloudTasks';
 
 const DEFAULT_NUMBER_OF_QUESTIONS = 20;
 const MAX_NUMBER_OF_QUESTIONS = 100; // Set a reasonable max
-const EXAM_QUESTIONS_GENERATION_TOPIC_NAME = 'generate-exam-questions-topic';
-
-interface QuestionGenerationMessage {
-  exam_id: string;
-  cert_id: number;
-  certification_name: string;
-  number_of_questions_to_generate: number;
-}
+const QUESTIONS_PER_BATCH = 10; // Number of questions to generate per task
 
 const handler = async (
   req: any | CustomRequest,
@@ -94,34 +87,61 @@ const handler = async (
       return;
     }
 
-    // 4. Create the exam with PENDING_QUESTIONS status
+    // 4. Create the exam with QUESTIONS_GENERATING status
     const newExam = await prismaInstance.examAttempt.create({
       data: {
         user: { connect: { user_id: user.user_id } },
         certification: { connect: { cert_id: cert_id } },
-        exam_status: 'PENDING_QUESTIONS',
+        exam_status: 'QUESTIONS_GENERATING',
         total_questions: requestedNumberOfQuestions,
       },
     });
 
     logger.info(
-      `Successfully created exam record ID: ${newExam.exam_id} for user ${user.user_id}. Status: PENDING_QUESTIONS.`,
+      `Successfully created exam record ID: ${newExam.exam_id} for user ${user.user_id}. Status: QUESTIONS_GENERATING.`,
     );
 
-    // 5. Publish message to trigger question generation
-    const message: QuestionGenerationMessage = {
+    // 5. Calculate batches and start question generation via Cloud Tasks
+    const totalBatches = Math.ceil(
+      requestedNumberOfQuestions / QUESTIONS_PER_BATCH,
+    );
+
+    logger.info(
+      `Starting question generation for exam ${newExam.exam_id}: ${requestedNumberOfQuestions} questions in ${totalBatches} batches`,
+    );
+
+    // Create the first task to start the recursive generation
+    const firstBatchPayload = {
       exam_id: newExam.exam_id,
       cert_id: certification.cert_id,
       certification_name: certification.name,
-      number_of_questions_to_generate: requestedNumberOfQuestions,
+      questions_to_generate: Math.min(
+        QUESTIONS_PER_BATCH,
+        requestedNumberOfQuestions,
+      ),
+      batch_number: 1,
+      total_batches: totalBatches,
     };
 
-    await publishPubSubMessages(EXAM_QUESTIONS_GENERATION_TOPIC_NAME, [
-      message,
-    ]);
-    logger.info(
-      `Published question generation task for exam ${newExam.exam_id} to topic ${EXAM_QUESTIONS_GENERATION_TOPIC_NAME}.`,
+    const taskName = await createCloudTask(
+      'exam-questions-queue',
+      `${process.env.GCP_TASKS_HOST}/delegators/tasks/take`,
+      firstBatchPayload,
     );
+
+    if (!taskName) {
+      // If task creation fails, update exam status to failed
+      await prismaInstance.examAttempt.update({
+        where: { exam_id: newExam.exam_id },
+        data: { exam_status: 'QUESTION_GENERATION_FAILED' },
+      });
+
+      res.status(500).json({
+        success: false,
+        error: 'Failed to start question generation process.',
+      });
+      return;
+    }
 
     res.status(202).json({
       success: true,
@@ -131,8 +151,9 @@ const handler = async (
         exam_id: newExam.exam_id,
         user_id: newExam.user_id,
         cert_id: newExam.cert_id,
-        status: 'PENDING_QUESTIONS',
+        status: 'QUESTIONS_GENERATING',
         total_questions: requestedNumberOfQuestions,
+        total_batches: totalBatches,
       },
     });
   } catch (error) {

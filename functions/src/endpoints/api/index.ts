@@ -9,7 +9,7 @@ import getUserExams from './users/exams/getUserExams';
 
 import registerCert from './users/certifications/register';
 import getUserExamQuizQuestions from './users/exams/getExamQuestions';
-import createExamForUser from './users/exams/createExamForUser';
+import createExam from './users/exams/createExam';
 import getUserCertifications from './users/certifications/getUserCertifications';
 import answerUserExamQuestions from './users/exams/answerUserExamQuestions';
 import submitExamForUser from './users/exams/submitExamForUser';
@@ -51,7 +51,7 @@ router.get(
 /** *********************** EXAMS ******************************** */
 
 // Create a new user exam
-router.post('/users/:user_id/exams', verifyFirebaseToken, createExamForUser);
+router.post('/users/:user_id/exams', verifyFirebaseToken, createExam);
 
 // Show a list of exams for a user
 router.get('/users/:user_id/exams', verifyFirebaseToken, getUserExams);
