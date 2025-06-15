@@ -12,7 +12,7 @@ type AnswerOptionResponse = {
 
 type QuestionResponse = {
   quiz_question_id: string;
-  question_body: string;
+  question_text: string;
   difficulty: string | null;
   generated_from: string | null;
   cert_id: number;
@@ -119,7 +119,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
 
       const questionResponse: QuestionResponse = {
         quiz_question_id: quizQuestion.quiz_question_id,
-        question_body: quizQuestion.question_text,
+        question_text: quizQuestion.question_text,
         difficulty: quizQuestion.difficulty,
         generated_from: quizQuestion.generated_from,
         cert_id: quizQuestion.cert_id,
