@@ -4,6 +4,10 @@ import { CustomRequest } from '../../types';
 import { quizGeneratorPromise } from '../../services/quizGenerator';
 import prismaInstance from '../../services/prisma';
 import { createCloudTask } from '../../services/gcp/cloudTasks';
+import {
+  associateQuestionsWithExam,
+  updateExamAfterQuestionAssociation,
+} from '../../utils/examQuestionAssociation';
 
 interface TaskPayload {
   exam_id: string;
@@ -90,12 +94,44 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       }
 
       // Check if this is the last batch
+      let associationResult = null;
       if (batch_number >= total_batches) {
-        // All batches completed, update exam status to READY
-        await prismaInstance.examAttempt.update({
+        logger.info(
+          `All batches completed for exam ${exam_id}, batch ${batch_number}`,
+        );
+
+        // Get existing exam user answers to avoid duplicates
+        const existingAnswers = await prismaInstance.examUserAnswer.findMany({
           where: { exam_id },
-          data: { exam_status: 'READY' },
+          select: { quiz_question_id: true },
         });
+
+        const existingQuestionIds = new Set(
+          existingAnswers.map((answer) => answer.quiz_question_id),
+        );
+
+        // Use the reusable question association utility
+        associationResult = await associateQuestionsWithExam({
+          exam_id,
+          cert_id,
+          targetQuestionCount: exam.total_questions || undefined,
+          existingQuestionIds,
+        });
+
+        if (!associationResult.success) {
+          logger.error(
+            `Failed to associate questions with exam ${exam_id}: ${associationResult.error}`,
+          );
+
+          // Update exam status to failed
+          await updateExamAfterQuestionAssociation(exam_id, associationResult);
+          throw new Error(
+            associationResult.error || 'Failed to associate questions',
+          );
+        }
+
+        // Update exam with successful association results
+        await updateExamAfterQuestionAssociation(exam_id, associationResult);
 
         logger.info(
           `Question generation completed for exam ${exam_id}. Status updated to READY.`,
@@ -148,6 +184,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
           batch_number,
           total_batches,
           questions_generated: generatedQuestions.length,
+          questions_associated: associationResult?.associatedQuestionCount || 0,
           is_final_batch: batch_number >= total_batches,
         },
       });

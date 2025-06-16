@@ -2,6 +2,10 @@ import { Response } from 'express';
 import logger from '../../../../services/firebase/logger';
 import { CustomRequest } from '../../../../types';
 import prismaInstance from '../../../../services/prisma';
+import {
+  associateQuestionsWithExam,
+  updateExamAfterQuestionAssociation,
+} from '../../../../utils/examQuestionAssociation';
 
 // Define a type for the question response structure for clarity
 type AnswerOptionResponse = {
@@ -85,6 +89,84 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       `Fetching questions for exam_id: ${exam_id}, user_id: ${user_id}, page: ${page}, pageSize: ${pageSize}`,
     );
 
+    // First, check if exam has any associated questions
+    const totalQuestions = await prismaInstance.examUserAnswer.count({
+      where: { exam_id: exam_id },
+    });
+
+    // If no questions are associated, automatically associate them using the same logic as updateExam
+    if (totalQuestions === 0) {
+      logger.info(
+        `No questions associated with exam ${exam_id}. Automatically associating questions...`,
+      );
+
+      try {
+        // Get exam with certification details
+        const examWithCert = await prismaInstance.examAttempt.findUnique({
+          where: { exam_id },
+          include: {
+            certification: {
+              select: {
+                cert_id: true,
+                name: true,
+                min_quiz_counts: true,
+                max_quiz_counts: true,
+              },
+            },
+          },
+        });
+
+        if (!examWithCert) {
+          res.status(404).json({ success: false, error: 'Exam not found.' });
+          return;
+        }
+
+        const { cert_id } = examWithCert.certification;
+
+        // Use the reusable question association utility
+        const associationResult = await associateQuestionsWithExam({
+          exam_id,
+          cert_id,
+          targetQuestionCount: examWithCert.total_questions || undefined,
+          existingQuestionIds: new Set(), // No existing questions since totalQuestions === 0
+        });
+
+        if (!associationResult.success) {
+          logger.warn(
+            `No questions available for exam ${exam_id} (certification: ${examWithCert.certification.name})`,
+          );
+
+          res.status(200).json({
+            success: true,
+            message: 'No questions available for this certification yet.',
+            data: {
+              questions: [],
+            },
+            pagination: {
+              currentPage: page,
+              pageSize: pageSize,
+              totalItems: 0,
+              totalPages: 0,
+            },
+          });
+          return;
+        }
+
+        // Update exam with successful association results
+        await updateExamAfterQuestionAssociation(exam_id, associationResult);
+
+        logger.info(
+          `Successfully associated ${associationResult.associatedQuestionCount} questions with exam ${exam_id}`,
+        );
+      } catch (associationError) {
+        logger.error(
+          `Error associating questions with exam ${exam_id}:`,
+          associationError as any,
+        );
+        // Continue with the original flow even if association fails
+      }
+    }
+
     const examUserAnswers = await prismaInstance.examUserAnswer.findMany({
       where: { exam_id: exam_id },
       include: {
@@ -108,7 +190,8 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       orderBy: { quizQuestion: { created_at: 'asc' } },
     });
 
-    const totalQuestions = await prismaInstance.examUserAnswer.count({
+    // Get updated total count after potential question association
+    const finalTotalQuestions = await prismaInstance.examUserAnswer.count({
       where: { exam_id: exam_id },
     });
 
@@ -155,8 +238,8 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       pagination: {
         currentPage: page,
         pageSize: pageSize,
-        totalItems: totalQuestions,
-        totalPages: Math.ceil(totalQuestions / pageSize),
+        totalItems: finalTotalQuestions,
+        totalPages: Math.ceil(finalTotalQuestions / pageSize),
       },
     });
   } catch (error) {
