@@ -14,6 +14,7 @@ import createExam from './users/exams/createExam';
 import getUserCertifications from './users/certifications/getUserCertifications';
 import answerUserExamQuestions from './users/exams/answerUserExamQuestions';
 import submitExamForUser from './users/exams/submitExamForUser';
+import getUserProfile from './users/getUserProfile';
 
 const router = createRouter();
 
@@ -34,6 +35,11 @@ router.post('/auth/login', verifyFirebaseToken, authLogin);
 
 // Show a list of certifications
 router.get('/certifications', verifyFirebaseToken, getCertifications);
+
+/** ******************* USERS ************************* */
+
+// Get user profile (including credit tokens)
+router.get('/users/:user_id/profile', verifyFirebaseToken, getUserProfile);
 
 // Register a certification for a user
 router.post(

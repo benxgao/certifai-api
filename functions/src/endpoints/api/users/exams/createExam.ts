@@ -87,13 +87,29 @@ const handler = async (
       return;
     }
 
-    // 4. Create the exam with QUESTIONS_GENERATING status
+    // 4. Calculate token cost and check if user has enough credit tokens
+    const tokenCost = requestedNumberOfQuestions * 2;
+
+    if (user.credit_tokens < tokenCost) {
+      res.status(400).json({
+        success: false,
+        error: `Insufficient credit tokens. Required: ${tokenCost}, Available: ${user.credit_tokens}`,
+      });
+      return;
+    }
+
+    logger.info(
+      `User ${user.user_id} has sufficient credit tokens. Required: ${tokenCost}, Available: ${user.credit_tokens}`,
+    );
+
+    // 5. Create the exam with QUESTIONS_GENERATING status and store token cost
     const newExam = await prismaInstance.examAttempt.create({
       data: {
         user: { connect: { user_id: user.user_id } },
         certification: { connect: { cert_id: cert_id } },
         exam_status: 'QUESTIONS_GENERATING',
         total_questions: requestedNumberOfQuestions,
+        token_cost: tokenCost,
       },
     });
 
@@ -153,6 +169,7 @@ const handler = async (
         cert_id: newExam.cert_id,
         status: 'QUESTIONS_GENERATING',
         total_questions: requestedNumberOfQuestions,
+        token_cost: tokenCost,
         total_batches: totalBatches,
       },
     });

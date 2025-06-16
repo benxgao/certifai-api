@@ -23,6 +23,39 @@ const handler = async (
       return;
     }
 
+    // 0. Get the exam details to check token cost and current status
+    const examAttempt = await prismaInstance.examAttempt.findUnique({
+      where: { exam_id: exam_id },
+      include: {
+        user: true,
+      },
+    });
+
+    if (!examAttempt) {
+      res.status(404).json({
+        success: false,
+        error: 'Exam not found',
+      });
+      return;
+    }
+
+    if (examAttempt.user_id !== user_id) {
+      res.status(403).json({
+        success: false,
+        error: 'Unauthorized to submit this exam',
+      });
+      return;
+    }
+
+    // Check if exam has already been submitted
+    if (examAttempt.submitted_at) {
+      res.status(400).json({
+        success: false,
+        error: 'Exam has already been submitted',
+      });
+      return;
+    }
+
     // 1. Collect all submitted answers for this exam BY THIS SPECIFIC USER to count correct ones
     const allSubmittedAnswers = await prismaInstance.examUserAnswer.findMany({
       where: {
@@ -105,27 +138,62 @@ const handler = async (
     }
     // If totalQuestionsInExamDefinition is 0 and allSubmittedAnswers.length is 0, score remains 0.
 
-    // 4. Update the exam record with the new score and submission timestamp for this user
-    await prismaInstance.examAttempt.update({
-      where: {
-        exam_id: exam_id,
-      },
-      data: {
-        score: parseFloat(currentScore.toFixed(2)), // Store score as a float
-        submitted_at: new Date(), // Update submitted_at to the current time of this answer submission
-      },
+    // 4. Deduct credit tokens from user's account
+    const tokenCost = examAttempt.token_cost;
+
+    if (examAttempt.user.credit_tokens < tokenCost) {
+      res.status(400).json({
+        success: false,
+        error: `Insufficient credit tokens to submit exam. Required: ${tokenCost}, Available: ${examAttempt.user.credit_tokens}`,
+      });
+      return;
+    }
+
+    // Calculate energy tokens to award (2x the number of correct answers)
+    const energyTokensToAward = correctlyAnsweredCount * 2;
+
+    // Use a transaction to ensure both user credit deduction, energy token award, and exam update happen atomically
+    await prismaInstance.$transaction(async (prisma) => {
+      // Deduct credit tokens and award energy tokens to user
+      await prisma.user.update({
+        where: { user_id: user_id },
+        data: {
+          credit_tokens: {
+            decrement: tokenCost,
+          },
+          energy_tokens: {
+            increment: energyTokensToAward,
+          },
+        },
+      });
+
+      // Update the exam record with the new score and submission timestamp
+      await prisma.examAttempt.update({
+        where: { exam_id: exam_id },
+        data: {
+          score: parseFloat(currentScore.toFixed(2)),
+          submitted_at: new Date(),
+          exam_status: 'COMPLETED',
+        },
+      });
     });
 
     logger.info(
-      `Exam score updated for exam_id: ${exam_id}. Score: ${currentScore.toFixed(
+      `Exam submitted successfully for exam_id: ${exam_id}. Score: ${currentScore.toFixed(
         2,
-      )}%. Correct answers: ${correctlyAnsweredCount}/${
+      )}%. Credit tokens deducted: ${tokenCost}. Energy tokens awarded: ${energyTokensToAward}. Correct answers: ${correctlyAnsweredCount}/${
         scoreDenominator > 0 ? scoreDenominator : 'N/A (check definition)'
       }.`,
     );
 
     res.status(200).json({
       success: true,
+      data: {
+        score: parseFloat(currentScore.toFixed(2)),
+        tokens_deducted: tokenCost,
+        energy_tokens_awarded: energyTokensToAward,
+        correct_answers: correctlyAnsweredCount,
+      },
     });
   } catch (error) {
     logger.error('Error in answerUserExamQuizQuestions handler:', error as any);

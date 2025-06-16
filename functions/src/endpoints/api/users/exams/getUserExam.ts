@@ -112,6 +112,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       exam_status: examFromDb.exam_status,
       total_questions: examFromDb.total_questions,
       score: examFromDb.score,
+      token_cost: examFromDb.token_cost,
       started_at: examFromDb.started_at,
       submitted_at: examFromDb.submitted_at,
       status,

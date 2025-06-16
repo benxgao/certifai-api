@@ -109,6 +109,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
           current_questions: currentQuestionCount,
           target_questions: targetQuestionCount,
           status: exam.exam_status,
+          token_cost: exam.token_cost,
         },
       });
       return;
@@ -166,6 +167,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
           final_questions: finalAnswers.length,
           target_questions: targetQuestionCount,
           status: 'READY',
+          token_cost: exam.token_cost,
           certification: {
             cert_id,
             name: exam.certification.name,
@@ -231,6 +233,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
         final_questions: finalAnswers.length,
         target_questions: targetQuestionCount,
         status: finalQuestionCount > 0 ? 'READY' : 'QUESTION_GENERATION_FAILED',
+        token_cost: exam.token_cost,
         certification: {
           cert_id,
           name: exam.certification.name,
