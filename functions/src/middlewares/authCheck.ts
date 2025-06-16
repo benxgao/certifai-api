@@ -12,9 +12,6 @@ export const verifyFirebaseToken = async (
   const authHeader = req.headers['authorization'];
   const token: string = authHeader && authHeader.split(' ')[1];
 
-  logger.info(
-    `verifyFirebaseToken: req.headers: ${JSON.stringify(req.headers)}`,
-  );
   logger.info(`verifyFirebaseToken: token received: ${token}`);
 
   if (!token) {

@@ -34,13 +34,14 @@ const QuizGeneratorInput = z.object({
 const initializeAiInstance = async (): Promise<Genkit> => {
   try {
     const apiKey = await getSecret('GOOGLE_GENAI_API_KEY');
-    logger.info('Successfully fetched GOOGLE_GENAI_API_KEY.');
 
     const ai = genkit({
       plugins: [googleAI({ apiKey })],
       model: gemini20Flash,
     });
+
     logger.info('Genkit AI instance initialized successfully.');
+
     return ai;
   } catch (error) {
     logger.error('Failed to initialize Genkit AI instance:', error as any);

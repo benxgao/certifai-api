@@ -3,14 +3,34 @@ import logger from '../../../../services/firebase/logger';
 import { CustomRequest } from '../../../../types';
 import prismaInstance from '../../../../services/prisma';
 
-const handler = async (req: any | CustomRequest, res: Response) => {
+const handler = async (
+  req: any | CustomRequest,
+  res: Response,
+): Promise<void> => {
   try {
-    const { exam_id } = req.params;
-    const certIdFromParams = req.params.cert_id; // Keep as string initially for parsing check
+    const { user_id, cert_id, exam_id } = req.params;
 
-    // 1. Collect all submitted answers for this exam to count correct ones
+    logger.info(
+      `Received request to submit exam for user_id: ${user_id}, exam_id: ${exam_id}, cert_id: ${cert_id}`,
+    );
+
+    // Validate user authentication
+    if (!user_id) {
+      res.status(401).json({
+        success: false,
+        error: 'User not authenticated',
+      });
+      return;
+    }
+
+    // 1. Collect all submitted answers for this exam BY THIS SPECIFIC USER to count correct ones
     const allSubmittedAnswers = await prismaInstance.examUserAnswer.findMany({
-      where: { exam_id: exam_id },
+      where: {
+        exam_id: exam_id,
+        examAttempt: {
+          user_id, // Filter by current user through the exam attempt
+        },
+      },
       select: { is_correct: true },
     });
 
@@ -22,11 +42,11 @@ const handler = async (req: any | CustomRequest, res: Response) => {
     let totalQuestionsInExamDefinition = 0;
     let parsedCertId: number | undefined;
 
-    if (certIdFromParams && !isNaN(parseInt(certIdFromParams, 10))) {
-      parsedCertId = parseInt(certIdFromParams, 10);
+    if (cert_id && !isNaN(parseInt(cert_id, 10))) {
+      parsedCertId = parseInt(cert_id, 10);
     } else {
       logger.warn(
-        `Invalid or missing cert_id in request params for exam_id: ${exam_id}. Param value: '${certIdFromParams}'. Total questions from definition will be 0. Fallback scoring may apply.`,
+        `Invalid or missing cert_id in request params for exam_id: ${exam_id}. Param value: '${cert_id}'. Total questions from definition will be 0. Fallback scoring may apply.`,
       );
     }
 
@@ -85,9 +105,11 @@ const handler = async (req: any | CustomRequest, res: Response) => {
     }
     // If totalQuestionsInExamDefinition is 0 and allSubmittedAnswers.length is 0, score remains 0.
 
-    // 4. Update the exam record with the new score and submission timestamp
+    // 4. Update the exam record with the new score and submission timestamp for this user
     await prismaInstance.examAttempt.update({
-      where: { exam_id: exam_id },
+      where: {
+        exam_id: exam_id,
+      },
       data: {
         score: parseFloat(currentScore.toFixed(2)), // Store score as a float
         submitted_at: new Date(), // Update submitted_at to the current time of this answer submission

@@ -4,9 +4,6 @@ import { CustomRequest } from '../../types';
 
 const handler = async (req: any | CustomRequest, res: Response) => {
   try {
-    logger.info(`
-     `);
-
     res.status(200).json({});
   } catch (error) {
     logger.error('Error in  handler:', error as any);

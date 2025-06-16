@@ -6,6 +6,7 @@ import authRegister from './auth/register';
 import authLogin from './auth/login';
 import getCertifications from './certifications/getList';
 import getUserExams from './users/exams/getUserExams';
+import getUserExam from './users/exams/getUserExam';
 
 import registerCert from './users/certifications/register';
 import getUserExamQuizQuestions from './users/exams/getExamQuestions';
@@ -62,6 +63,9 @@ router.get(
   verifyFirebaseToken,
   getUserExamQuizQuestions,
 );
+
+// Show a list of questions for a specific exam
+router.get('/users/:user_id/exams/:exam_id', verifyFirebaseToken, getUserExam);
 
 // Answer a specific question in a user exam
 router.put(

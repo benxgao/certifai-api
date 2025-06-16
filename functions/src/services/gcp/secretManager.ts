@@ -1,5 +1,4 @@
 import { SecretManagerServiceClient } from '@google-cloud/secret-manager';
-import logger from '../firebase/logger';
 
 /**
  * Retrieves a secret from Google Cloud Secret Manager.
@@ -13,9 +12,6 @@ export async function getSecret(
   secretName: string,
   version?: string,
 ): Promise<string> {
-  // logger.info(`getSecret 1:
-  //   ${JSON.stringify(process.env, null, 2)}`);
-
   const client = new SecretManagerServiceClient();
 
   const name = `projects/${
@@ -31,8 +27,6 @@ export async function getSecret(
   }
 
   const secret = secretVersion.payload.data.toString();
-
-  logger.info(`Secret value: ${secretVersion.payload.data}`);
 
   return secret;
 }
