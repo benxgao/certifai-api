@@ -20,3 +20,12 @@ export type FirebaseJwtToken = {
 export type CustomRequest = Request & {
   firebase_user_info: FirebaseJwtToken;
 };
+
+// Re-export pagination types for convenience
+export {
+  PaginationParams,
+  PaginationMeta,
+  PaginatedResponse,
+  PaginationOptions,
+  PrismaFindManyWithCount,
+} from '../utils/pagination';

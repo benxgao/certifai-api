@@ -6,6 +6,10 @@ import {
   associateQuestionsWithExam,
   updateExamAfterQuestionAssociation,
 } from '../../../../utils/examQuestionAssociation';
+import {
+  extractPaginationParams,
+  createPaginatedResponse,
+} from '../../../../utils/pagination';
 
 // Define a type for the question response structure for clarity
 type AnswerOptionResponse = {
@@ -30,7 +34,6 @@ type QuestionResponse = {
 const handler = async (req: any | CustomRequest, res: Response) => {
   try {
     const { user_id, exam_id } = req.params;
-    const { page: pageQuery, pageSize: pageSizeQuery } = req.query;
 
     if (!user_id) {
       res.status(400).json({
@@ -48,21 +51,11 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       return;
     }
 
-    let page = parseInt(pageQuery as string, 10);
-    let pageSize = parseInt(pageSizeQuery as string, 10);
-
-    if (isNaN(page) || page <= 0) {
-      page = 1;
-    }
-    if (isNaN(pageSize) || pageSize <= 0) {
-      pageSize = 10; // Default page size
-    }
-    if (pageSize > 100) {
-      pageSize = 100; // Max page size
-    }
-
-    const skip = (page - 1) * pageSize;
-    const take = pageSize;
+    // Extract pagination parameters using our utility
+    const paginationParams = extractPaginationParams(req, {
+      defaultPageSize: 10,
+      maxPageSize: 100,
+    });
 
     // Verify exam exists and belongs to the user
     const exam = await prismaInstance.examAttempt.findUnique({
@@ -86,7 +79,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
     }
 
     logger.info(
-      `Fetching questions for exam_id: ${exam_id}, user_id: ${user_id}, page: ${page}, pageSize: ${pageSize}`,
+      `Fetching questions for exam_id: ${exam_id}, user_id: ${user_id}, page: ${paginationParams.page}, pageSize: ${paginationParams.pageSize}`,
     );
 
     // First, check if exam has any associated questions
@@ -143,8 +136,8 @@ const handler = async (req: any | CustomRequest, res: Response) => {
               questions: [],
             },
             pagination: {
-              currentPage: page,
-              pageSize: pageSize,
+              currentPage: paginationParams.page,
+              pageSize: paginationParams.pageSize,
               totalItems: 0,
               totalPages: 0,
             },
@@ -184,8 +177,8 @@ const handler = async (req: any | CustomRequest, res: Response) => {
         },
         // selected_option_id and is_correct (for the user's answer) from ExamUserAnswers are included by default
       },
-      skip: skip,
-      take: take,
+      skip: paginationParams.skip,
+      take: paginationParams.take,
       // Ensuring consistent question order for pagination and user experience.
       orderBy: { quizQuestion: { created_at: 'asc' } },
     });
@@ -230,18 +223,14 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       return questionResponse;
     });
 
-    res.status(200).json({
-      success: true,
-      data: {
-        questions: questions,
-      },
-      pagination: {
-        currentPage: page,
-        pageSize: pageSize,
-        totalItems: finalTotalQuestions,
-        totalPages: Math.ceil(finalTotalQuestions / pageSize),
-      },
-    });
+    // Create paginated response using our utility
+    const response = createPaginatedResponse(
+      { questions: questions },
+      finalTotalQuestions,
+      paginationParams,
+    );
+
+    res.status(200).json(response);
   } catch (error) {
     logger.error('Error in get_questions handler:', error as any);
     res

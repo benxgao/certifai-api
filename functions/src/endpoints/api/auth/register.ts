@@ -8,7 +8,10 @@ const handler = async (req: any | CustomRequest, res: Response) => {
   try {
     const firebaseUser: FirebaseJwtToken = req.firebase_user_info;
 
-    logger.info(`req.firebase_user_info: ${JSON.stringify(firebaseUser)}`);
+    logger.info(`/auth/register started:
+      | req.body: ${JSON.stringify(req.body)}
+      | req.params: ${JSON.stringify(req.params)}
+      | firebaseUser: ${JSON.stringify(firebaseUser)}`);
 
     if (!firebaseUser) {
       res.status(401).json({
@@ -46,7 +49,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
 
     res.status(200).json({
       success: true,
-      user_id: user.user_id,
+      api_user_id: user.user_id,
     });
   } catch (error) {
     logger.error('Error in register endpoint:', error as any);

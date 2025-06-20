@@ -2,6 +2,11 @@ import { Response } from 'express';
 import logger from '../../../../services/firebase/logger';
 import { CustomRequest } from '../../../../types';
 import prismaInstance from '../../../../services/prisma';
+import {
+  extractPaginationParams,
+  createPaginatedResponse,
+  findManyWithCount,
+} from '../../../../utils/pagination';
 
 const handler = async (req: any | CustomRequest, res: Response) => {
   try {
@@ -22,6 +27,12 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       }`,
     );
 
+    // Extract pagination parameters
+    const paginationParams = extractPaginationParams(req, {
+      defaultPageSize: 10,
+      maxPageSize: 50,
+    });
+
     const whereClause: any = {
       user_id: user_id,
     };
@@ -30,12 +41,21 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       whereClause.cert_id = cert_id as string;
     }
 
-    const examsFromDb = await prismaInstance.examAttempt.findMany({
-      where: whereClause, // Use the dynamically built whereClause
-      include: {
-        certification: true, // Include certification details
-      },
-    });
+    // Execute findMany and count in parallel
+    const { data: examsFromDb, total } = await findManyWithCount(
+      prismaInstance.examAttempt.findMany({
+        where: whereClause,
+        include: {
+          certification: true, // Include certification details
+        },
+        skip: paginationParams.skip,
+        take: paginationParams.take,
+        orderBy: { started_at: 'desc' },
+      }),
+      prismaInstance.examAttempt.count({
+        where: whereClause,
+      }),
+    );
 
     // findMany returns an empty array if no records are found, so a 404 might not be appropriate here.
     // Sending a 200 with an empty array is common practice.
@@ -67,10 +87,10 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       };
     });
 
-    res.status(200).json({
-      success: true,
-      data: exams,
-    });
+    // Create paginated response
+    const response = createPaginatedResponse(exams, total, paginationParams);
+
+    res.status(200).json(response);
   } catch (error) {
     logger.error('Error in getUserExams handler:', error as any);
     res

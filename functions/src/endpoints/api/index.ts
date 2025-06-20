@@ -1,6 +1,7 @@
 import { Router as createRouter } from 'express';
 import ai from './ai';
 import { verifyFirebaseToken } from '../../middlewares/authCheck';
+import { mediumPagePagination } from '../../middlewares/pagination';
 import protectedResources from './protected_resources';
 import authRegister from './auth/register';
 import authLogin from './auth/login';
@@ -34,7 +35,12 @@ router.post('/auth/login', verifyFirebaseToken, authLogin);
 /** ******************* CERTIFICATIONS ************************* */
 
 // Show a list of certifications
-router.get('/certifications', verifyFirebaseToken, getCertifications);
+router.get(
+  '/certifications',
+  verifyFirebaseToken,
+  mediumPagePagination,
+  getCertifications,
+);
 
 /** ******************* USERS ************************* */
 
@@ -52,6 +58,7 @@ router.post(
 router.get(
   '/users/:user_id/certifications',
   verifyFirebaseToken,
+  mediumPagePagination,
   getUserCertifications,
 );
 
@@ -61,12 +68,18 @@ router.get(
 router.post('/users/:user_id/exams', verifyFirebaseToken, createExam);
 
 // Show a list of exams for a user
-router.get('/users/:user_id/exams', verifyFirebaseToken, getUserExams);
+router.get(
+  '/users/:user_id/exams',
+  verifyFirebaseToken,
+  mediumPagePagination,
+  getUserExams,
+);
 
 // Show a list of questions for a specific exam
 router.get(
   '/users/:user_id/exams/:exam_id/questions',
   verifyFirebaseToken,
+  mediumPagePagination,
   getUserExamQuizQuestions,
 );
 

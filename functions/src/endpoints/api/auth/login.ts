@@ -47,7 +47,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
 
     res.status(200).json({
       success: true,
-      user_id: user?.user_id,
+      api_user_id: user?.user_id,
     });
   } catch (error) {
     logger.error('Error in /api/auth/login:', error as any);
