@@ -35,8 +35,25 @@ enum DifficultyLevel {
 //   updatedAt   DateTime @updatedAt
 // }
 
+model Firm {
+  firm_id     Int     @id @default(autoincrement())
+  name        String  @unique
+  code        String  @unique // Short code like "AWS", "GCP", "IBM"
+  description String?
+  website_url String?
+  logo_url    String?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  certifications Certification[]
+
+  @@index([code])
+}
+
 model Certification {
   cert_id Int @id @default(autoincrement())
+  firm_id Int // Foreign Key
   // cert_category_id Int // Foreign Key
 
   name            String
@@ -45,11 +62,14 @@ model Certification {
   max_quiz_counts Int
   pass_score      Float
 
+  firm               Firm                @relation(fields: [firm_id], references: [firm_id], onDelete: Cascade)
   // cert_category      CertCategory        @relation(fields: [cert_category_id], references: [cert_category_id])
   // certTopics         CertTopic[]
   quizQuestions      QuizQuestion[]
   examAttempts       ExamAttempt[]
   userCertifications UserCertification[]
+
+  @@index([firm_id])
 }
 
 // model CertCategory {

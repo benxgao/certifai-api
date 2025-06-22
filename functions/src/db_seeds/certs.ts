@@ -152,6 +152,68 @@ async function main() {
   ];
 
   for (const cert of certifications) {
+    // Get firm_id based on certification name
+    let firmCode = 'GENERIC'; // Default fallback
+
+    if (
+      cert.name.toLowerCase().includes('aws') ||
+      cert.name.toLowerCase().includes('amazon')
+    ) {
+      firmCode = 'AWS';
+    } else if (
+      cert.name.toLowerCase().includes('google') ||
+      cert.name.toLowerCase().includes('gcp')
+    ) {
+      firmCode = 'GCP';
+    } else if (
+      cert.name.toLowerCase().includes('azure') ||
+      cert.name.toLowerCase().includes('microsoft')
+    ) {
+      firmCode = 'AZURE';
+    } else if (cert.name.toLowerCase().includes('ibm')) {
+      firmCode = 'IBM';
+    } else if (cert.name.toLowerCase().includes('oracle')) {
+      firmCode = 'ORACLE';
+    } else if (cert.name.toLowerCase().includes('salesforce')) {
+      firmCode = 'SFDC';
+    } else if (cert.name.toLowerCase().includes('vmware')) {
+      firmCode = 'VMWARE';
+    } else if (cert.name.toLowerCase().includes('cisco')) {
+      firmCode = 'CISCO';
+    } else if (cert.name.toLowerCase().includes('red hat')) {
+      firmCode = 'REDHAT';
+    } else if (cert.name.toLowerCase().includes('docker')) {
+      firmCode = 'DOCKER';
+    } else if (
+      cert.name.toLowerCase().includes('kubernetes') ||
+      cert.name.toLowerCase().includes('k8s')
+    ) {
+      firmCode = 'K8S';
+    } else if (cert.name.toLowerCase().includes('comptia')) {
+      firmCode = 'COMPTIA';
+    } else if (
+      cert.name.toLowerCase().includes('pmp') ||
+      cert.name.toLowerCase().includes('project management')
+    ) {
+      firmCode = 'PMI';
+    } else if (cert.name.toLowerCase().includes('itil')) {
+      firmCode = 'ITIL';
+    } else if (cert.name.toLowerCase().includes('togaf')) {
+      firmCode = 'TOGAF';
+    }
+
+    // Find the firm
+    const firm = await prismaInstance.firm.findUnique({
+      where: { code: firmCode },
+    });
+
+    if (!firm) {
+      console.error(
+        `Firm with code ${firmCode} not found for certification: ${cert.name}`,
+      );
+      continue;
+    }
+
     await prismaInstance.certification.create({
       data: {
         name: cert.name,
@@ -159,6 +221,7 @@ async function main() {
         min_quiz_counts: cert.min_quiz_counts,
         max_quiz_counts: cert.max_quiz_counts,
         pass_score: 75.0,
+        firm_id: firm.firm_id,
         // cert_category_id: cert.cert_category_id,
       },
     });

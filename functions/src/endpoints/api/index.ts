@@ -16,6 +16,14 @@ import getUserCertifications from './users/certifications/getUserCertifications'
 import answerUserExamQuestions from './users/exams/answerUserExamQuestions';
 import submitExamForUser from './users/exams/submitExamForUser';
 import getUserProfile from './users/getUserProfile';
+import {
+  getFirms,
+  getFirmById,
+  searchFirms,
+  createFirm,
+  updateFirm,
+  deleteFirm,
+} from './firms';
 
 const router = createRouter();
 
@@ -41,6 +49,26 @@ router.get(
   mediumPagePagination,
   getCertifications,
 );
+
+/** ******************* FIRMS ************************* */
+
+// Get all firms
+router.get('/firms', getFirms);
+
+// Search firms
+router.get('/firms/search', searchFirms);
+
+// Get a specific firm
+router.get('/firms/:firmId', getFirmById);
+
+// Create a new firm (protected)
+router.post('/firms', verifyFirebaseToken, createFirm);
+
+// Update a firm (protected)
+router.put('/firms/:firmId', verifyFirebaseToken, updateFirm);
+
+// Delete a firm (protected)
+router.delete('/firms/:firmId', verifyFirebaseToken, deleteFirm);
 
 /** ******************* USERS ************************* */
 

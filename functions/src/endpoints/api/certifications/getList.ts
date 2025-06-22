@@ -26,6 +26,9 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       prismaInstance.certification.findMany({
         skip: paginationParams.skip,
         take: paginationParams.take,
+        include: {
+          firm: true,
+        },
         orderBy: { cert_id: 'asc' },
       }),
       prismaInstance.certification.count(),
