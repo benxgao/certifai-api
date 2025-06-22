@@ -1,32 +1,79 @@
 import { Request, Response } from 'express';
+import logger from '../../../services/firebase/logger';
+import { CustomRequest } from '../../../types';
+import prismaInstance from '../../../services/prisma';
+import {
+  extractPaginationParams,
+  createPaginatedResponse,
+  findManyWithCount,
+} from '../../../utils/pagination';
 import firmService from '../../../services/firms';
 
 /**
- * Get all firms
+ * Get all firms with pagination
  */
-export const getFirms = async (req: Request, res: Response) => {
+export const getFirms = async (
+  req: any | CustomRequest,
+  res: Response,
+): Promise<void> => {
   try {
+    logger.info(
+      `Getting firms list, firebase_user_info: ${JSON.stringify(
+        req.firebase_user_info,
+      )}`,
+    );
+
     const includeCount = req.query.includeCount === 'true';
 
+    // Extract pagination parameters
+    const paginationParams = extractPaginationParams(req, {
+      defaultPageSize: 10,
+      maxPageSize: 50,
+    });
+
     if (includeCount) {
-      const firms = await firmService.getFirmsWithCertificationCounts();
-      res.status(200).json({
-        success: true,
-        data: firms,
-      });
+      // Execute findMany and count in parallel for firms with certification counts
+      const { data: firms, total } = await findManyWithCount(
+        prismaInstance.firm.findMany({
+          skip: paginationParams.skip,
+          take: paginationParams.take,
+          include: {
+            _count: {
+              select: {
+                certifications: true,
+              },
+            },
+          },
+          orderBy: { name: 'asc' },
+        }),
+        prismaInstance.firm.count(),
+      );
+
+      // Create paginated response
+      const response = createPaginatedResponse(firms, total, paginationParams);
+
+      res.status(200).json(response);
     } else {
-      const firms = await firmService.getAllFirms();
-      res.status(200).json({
-        success: true,
-        data: firms,
-      });
+      // Execute findMany and count in parallel for basic firms
+      const { data: firms, total } = await findManyWithCount(
+        prismaInstance.firm.findMany({
+          skip: paginationParams.skip,
+          take: paginationParams.take,
+          orderBy: { name: 'asc' },
+        }),
+        prismaInstance.firm.count(),
+      );
+
+      // Create paginated response
+      const response = createPaginatedResponse(firms, total, paginationParams);
+
+      res.status(200).json(response);
     }
   } catch (error) {
-    console.error('Error fetching firms:', error);
+    logger.error('Error in /api/firms:', error as any);
     res.status(500).json({
       success: false,
-      message: 'Failed to fetch firms',
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: error instanceof Error ? error.message : 'Unknown error occurred',
     });
   }
 };
@@ -34,7 +81,10 @@ export const getFirms = async (req: Request, res: Response) => {
 /**
  * Get a specific firm by ID
  */
-export const getFirmById = async (req: Request, res: Response) => {
+export const getFirmById = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
   try {
     const { firmId } = req.params;
     const includeCertifications = req.query.includeCertifications === 'true';
@@ -43,7 +93,7 @@ export const getFirmById = async (req: Request, res: Response) => {
     if (isNaN(firmIdNum)) {
       res.status(400).json({
         success: false,
-        message: 'Invalid firm ID',
+        error: 'Invalid firm ID. Must be a number.',
       });
       return;
     }
@@ -53,7 +103,7 @@ export const getFirmById = async (req: Request, res: Response) => {
       if (!firm) {
         res.status(404).json({
           success: false,
-          message: 'Firm not found',
+          error: 'Firm not found',
         });
         return;
       }
@@ -66,7 +116,7 @@ export const getFirmById = async (req: Request, res: Response) => {
       if (!firm) {
         res.status(404).json({
           success: false,
-          message: 'Firm not found',
+          error: 'Firm not found',
         });
         return;
       }
@@ -76,41 +126,78 @@ export const getFirmById = async (req: Request, res: Response) => {
       });
     }
   } catch (error) {
-    console.error('Error fetching firm:', error);
+    logger.error('Error in /api/firms/:firmId:', error as any);
     res.status(500).json({
       success: false,
-      message: 'Failed to fetch firm',
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: error instanceof Error ? error.message : 'Unknown error occurred',
     });
   }
 };
 
 /**
- * Search firms
+ * Search firms with pagination
  */
-export const searchFirms = async (req: Request, res: Response) => {
+export const searchFirms = async (
+  req: any | CustomRequest,
+  res: Response,
+): Promise<void> => {
   try {
     const { q } = req.query;
 
     if (!q || typeof q !== 'string') {
       res.status(400).json({
         success: false,
-        message: 'Search query is required',
+        error: 'Search query is required',
       });
       return;
     }
 
-    const firms = await firmService.searchFirms(q);
-    res.status(200).json({
-      success: true,
-      data: firms,
+    logger.info(
+      `Searching firms with query: ${q}, firebase_user_info: ${JSON.stringify(
+        req.firebase_user_info,
+      )}`,
+    );
+
+    // Extract pagination parameters
+    const paginationParams = extractPaginationParams(req, {
+      defaultPageSize: 10,
+      maxPageSize: 50,
     });
+
+    // Execute findMany and count in parallel
+    const { data: firms, total } = await findManyWithCount(
+      prismaInstance.firm.findMany({
+        where: {
+          OR: [
+            { name: { contains: q, mode: 'insensitive' } },
+            { code: { contains: q, mode: 'insensitive' } },
+            { description: { contains: q, mode: 'insensitive' } },
+          ],
+        },
+        skip: paginationParams.skip,
+        take: paginationParams.take,
+        orderBy: { name: 'asc' },
+      }),
+      prismaInstance.firm.count({
+        where: {
+          OR: [
+            { name: { contains: q, mode: 'insensitive' } },
+            { code: { contains: q, mode: 'insensitive' } },
+            { description: { contains: q, mode: 'insensitive' } },
+          ],
+        },
+      }),
+    );
+
+    // Create paginated response
+    const response = createPaginatedResponse(firms, total, paginationParams);
+
+    res.status(200).json(response);
   } catch (error) {
-    console.error('Error searching firms:', error);
+    logger.error('Error in /api/firms/search:', error as any);
     res.status(500).json({
       success: false,
-      message: 'Failed to search firms',
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: error instanceof Error ? error.message : 'Unknown error occurred',
     });
   }
 };
@@ -278,3 +365,5 @@ export const deleteFirm = async (req: Request, res: Response) => {
     });
   }
 };
+
+export { getCertificationsByFirmId } from './certifications';

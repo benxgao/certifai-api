@@ -160,6 +160,16 @@ export class FirmService {
       count: firm._count.certifications,
     }));
   }
+
+  /**
+   * Get certifications by firm ID
+   */
+  async getCertificationsByFirmId(firm_id: number): Promise<Certification[]> {
+    return await prismaInstance.certification.findMany({
+      where: { firm_id },
+      orderBy: { name: 'asc' },
+    });
+  }
 }
 
 export default new FirmService();
