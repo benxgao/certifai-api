@@ -6,7 +6,7 @@ import protectedResources from './protected_resources';
 import authRegister from './auth/register';
 import authLogin from './auth/login';
 import getCertifications from './certifications/getList';
-import getCertificationsByFirmId from './certifications/getByFirmId';
+import getCertificationsByFirm from './certifications/getByFirm';
 import getUserExams from './users/exams/getUserExams';
 import getUserExam from './users/exams/getUserExam';
 
@@ -24,7 +24,6 @@ import {
   createFirm,
   updateFirm,
   deleteFirm,
-  getCertificationsByFirmId as getFirmCertifications,
 } from './firms';
 
 const router = createRouter();
@@ -52,30 +51,28 @@ router.get(
   getCertifications,
 );
 
-// Get certifications by firm ID
-router.get(
-  '/certifications/firms/:firmId',
-  verifyFirebaseToken,
-  mediumPagePagination,
-  getCertificationsByFirmId,
-);
-
 /** ******************* FIRMS ************************* */
 
-// Get all firms
-router.get('/firms', mediumPagePagination, getFirms);
+// Get all firms (protected)
+router.get('/firms', verifyFirebaseToken, mediumPagePagination, getFirms);
 
-// Search firms
-router.get('/firms/search', mediumPagePagination, searchFirms);
+// Search firms (protected)
+router.get(
+  '/firms/search',
+  verifyFirebaseToken,
+  mediumPagePagination,
+  searchFirms,
+);
 
-// Get a specific firm
-router.get('/firms/:firmId', getFirmById);
+// Get a specific firm (protected)
+router.get('/firms/:firmId', verifyFirebaseToken, getFirmById);
 
-// Get certifications for a specific firm (paginated)
+// Get certifications for a specific firm (protected)
 router.get(
   '/firms/:firmId/certifications',
+  verifyFirebaseToken,
   mediumPagePagination,
-  getFirmCertifications,
+  getCertificationsByFirm,
 );
 
 // Create a new firm (protected)

@@ -12,7 +12,7 @@ import firmService from '../../../services/firms';
 /**
  * Get certifications by firm ID with pagination
  */
-export const getCertificationsByFirmId = async (
+const getCertificationsByFirm = async (
   req: any | CustomRequest,
   res: Response,
 ): Promise<void> => {
@@ -58,6 +58,9 @@ export const getCertificationsByFirmId = async (
         },
         skip: paginationParams.skip,
         take: paginationParams.take,
+        include: {
+          firm: true,
+        },
         orderBy: { name: 'asc' },
       }),
       prismaInstance.certification.count({
@@ -76,10 +79,17 @@ export const getCertificationsByFirmId = async (
 
     res.status(200).json(response);
   } catch (error) {
-    logger.error('Error in /api/firms/:firmId/certifications:', error as any);
-    res.status(500).json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error occurred',
-    });
+    logger.error('Error in /api/certifications/firms/:firmId:', error as any);
+    res
+      .status(
+        error instanceof Error && error.message === 'Unauthorized' ? 401 : 500,
+      )
+      .json({
+        success: false,
+        error:
+          error instanceof Error ? error.message : 'Unknown error occurred',
+      });
   }
 };
+
+export default getCertificationsByFirm;

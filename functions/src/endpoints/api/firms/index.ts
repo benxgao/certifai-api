@@ -365,5 +365,3 @@ export const deleteFirm = async (req: Request, res: Response) => {
     });
   }
 };
-
-export { getCertificationsByFirmId } from './certifications';

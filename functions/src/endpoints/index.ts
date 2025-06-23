@@ -2,7 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
-// import rateLimitModule from 'express-rate-limit';
+import rateLimitModule from 'express-rate-limit';
 
 import healthcheck from './healthCheck';
 import api from './api';
@@ -19,11 +19,11 @@ app.use(helmet());
 app.use(compression());
 
 // Rate limiting middleware
-// const limiter = rateLimitModule({
-//   windowMs: 15 * 60 * 1000, // 15 minutes
-//   max: 100, // limit each IP to 100 requests per windowMs
-// });
-// app.use(limiter);
+const limiter = rateLimitModule({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+});
+app.use(limiter);
 
 app.use(cors());
 
