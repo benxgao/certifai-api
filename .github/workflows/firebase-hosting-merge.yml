@@ -41,6 +41,7 @@ jobs:
           echo "GCP_TASKS_SERVICE_ACCOUNT=${{ vars.GCP_TASKS_SERVICE_ACCOUNT }}" >> .env
 
           echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> .env
+          echo "PUBLIC_JWT_SECRET=${{ secrets.PUBLIC_JWT_SECRET }}" >> .env
         working-directory: functions
 
       - name: Deploy Firebase Functions

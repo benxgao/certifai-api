@@ -5,10 +5,13 @@ import { mediumPagePagination } from '../../middlewares/pagination';
 import protectedResources from './protected_resources';
 import authRegister from './auth/register';
 import authLogin from './auth/login';
+import { generateToken } from './auth/generateToken';
+import { generateServiceToken } from './auth/generateServiceToken';
 import getCertifications from './certifications/getList';
 import getCertificationsByFirm from './certifications/getByFirm';
 import getUserExams from './users/exams/getUserExams';
 import getUserExam from './users/exams/getUserExam';
+import publicRoutes from './public';
 
 import registerCert from './users/certifications/register';
 import getUserExamQuizQuestions from './users/exams/getExamQuestions';
@@ -28,6 +31,10 @@ import {
 
 const router = createRouter();
 
+/** ******************* PUBLIC ROUTES ************************* */
+
+router.use('/public', publicRoutes);
+
 /** ******************* TO BE DEPRECATED ************************* */
 
 router.use('/ai', verifyFirebaseToken, ai);
@@ -40,6 +47,12 @@ router.post('/auth/register', verifyFirebaseToken, authRegister);
 
 // User login
 router.post('/auth/login', verifyFirebaseToken, authLogin);
+
+// Generate JWT token for public API access
+router.post('/auth/generate-token', verifyFirebaseToken, generateToken);
+
+// Generate service JWT token for marketing/public access (no Firebase auth required)
+router.post('/auth/generate-service-token', generateServiceToken);
 
 /** ******************* CERTIFICATIONS ************************* */
 
