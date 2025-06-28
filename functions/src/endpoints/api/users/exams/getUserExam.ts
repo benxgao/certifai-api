@@ -63,7 +63,9 @@ const handler = async (req: any | CustomRequest, res: Response) => {
     }
 
     // Calculate exam status
-    let status = 'IN_PROGRESS';
+    let status: string = examFromDb.exam_status; // Use the actual exam_status from database
+
+    // Override status based on submission and scoring for completed exams
     if (examFromDb.submitted_at) {
       if (
         examFromDb.score !== null &&
@@ -76,6 +78,9 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       } else {
         status = 'COMPLETED'; // Submitted but score or pass_score is not available
       }
+    } else if (examFromDb.exam_status === 'READY' && examFromDb.started_at) {
+      // If exam is ready and has been started, it's in progress
+      status = 'IN_PROGRESS';
     }
 
     // Calculate additional exam metrics

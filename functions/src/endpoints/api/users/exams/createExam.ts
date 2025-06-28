@@ -1,7 +1,7 @@
 import { Response } from 'express';
 import logger from '../../../../services/firebase/logger';
 import { CustomRequest } from '../../../../types';
-import prismaInstance from '../../../../services/prisma';
+import prismaInstance, { ExamStatus } from '../../../../services/prisma';
 import { createCloudTask } from '../../../../services/gcp/cloudTasks';
 
 const DEFAULT_NUMBER_OF_QUESTIONS = 20;
@@ -15,7 +15,8 @@ const QUESTIONS_PER_BATCH = 10; // Number of questions to generate per task
  * POST /api/users/{user_id}/exams
  * {
  *   "cert_id": 123,
- *   "numberOfQuestions": 25
+ *   "numberOfQuestions": 25,
+ *   "customPromptText": "Focus on cloud security and best practices"
  * }
  *
  * Response:
@@ -29,7 +30,8 @@ const QUESTIONS_PER_BATCH = 10; // Number of questions to generate per task
  *     "status": "QUESTIONS_GENERATING",
  *     "total_questions": 25,
  *     "token_cost": 50,
- *     "total_batches": 3
+ *     "total_batches": 3,
+ *     "custom_prompt": "Focus on cloud security and best practices"
  *   }
  * }
  */
@@ -38,8 +40,8 @@ const handler = async (
   res: Response,
 ): Promise<void> => {
   try {
-    const { user_id } = req.params;
-    const { cert_id, numberOfQuestions: numQuestionsBody } = req.body;
+    const { user_id, cert_id } = req.params;
+    const { numberOfQuestions: numQuestionsBody, customPromptText } = req.body;
     const firebaseUserIdFromToken = req.firebase_user_info?.user_id;
 
     if (!user_id) {
@@ -57,13 +59,15 @@ const handler = async (
       return;
     }
 
-    if (typeof cert_id !== 'number') {
+    if (!cert_id || isNaN(parseInt(cert_id))) {
       res.status(400).json({
         success: false,
-        error: 'cert_id (number) is required in body.',
+        error: 'cert_id is required in path and must be a valid number.',
       });
       return;
     }
+
+    const certIdNumber = parseInt(cert_id, 10);
 
     const requestedNumberOfQuestions =
       typeof numQuestionsBody === 'number' && numQuestionsBody > 0
@@ -71,7 +75,7 @@ const handler = async (
         : DEFAULT_NUMBER_OF_QUESTIONS;
 
     logger.info(
-      `createExamAndQueueQuestions: initialized for user_id: ${user_id}, cert_id: ${cert_id}, questions: ${requestedNumberOfQuestions}`,
+      `createExamAndQueueQuestions: initialized for user_id: ${user_id}, cert_id: ${certIdNumber}, questions: ${requestedNumberOfQuestions}`,
     );
 
     // 1. Find the user by the provided user_id (internal UUID)
@@ -101,13 +105,13 @@ const handler = async (
 
     // 3. Verify the certification exists
     const certification = await prismaInstance.certification.findUnique({
-      where: { cert_id: cert_id },
+      where: { cert_id: certIdNumber },
     });
 
     if (!certification) {
       res.status(404).json({
         success: false,
-        error: `Certification with ID: ${cert_id} not found.`,
+        error: `Certification with ID: ${certIdNumber} not found.`,
       });
       return;
     }
@@ -131,8 +135,8 @@ const handler = async (
     const newExam = await prismaInstance.examAttempt.create({
       data: {
         user: { connect: { user_id: user.user_id } },
-        certification: { connect: { cert_id: cert_id } },
-        exam_status: 'QUESTIONS_GENERATING',
+        certification: { connect: { cert_id: certIdNumber } },
+        exam_status: ExamStatus.QUESTIONS_GENERATING,
         total_questions: requestedNumberOfQuestions,
         token_cost: tokenCost,
       },
@@ -162,6 +166,7 @@ const handler = async (
       ),
       batch_number: 1,
       total_batches: totalBatches,
+      custom_prompt_text: customPromptText || '',
     };
 
     const taskName = await createCloudTask(
@@ -174,7 +179,7 @@ const handler = async (
       // If task creation fails, update exam status to failed
       await prismaInstance.examAttempt.update({
         where: { exam_id: newExam.exam_id },
-        data: { exam_status: 'QUESTION_GENERATION_FAILED' },
+        data: { exam_status: ExamStatus.QUESTION_GENERATION_FAILED },
       });
 
       res.status(500).json({
@@ -192,10 +197,11 @@ const handler = async (
         exam_id: newExam.exam_id,
         user_id: newExam.user_id,
         cert_id: newExam.cert_id,
-        status: 'QUESTIONS_GENERATING',
+        status: ExamStatus.QUESTIONS_GENERATING,
         total_questions: requestedNumberOfQuestions,
         token_cost: tokenCost,
         total_batches: totalBatches,
+        custom_prompt: customPromptText || '',
       },
     });
   } catch (error) {

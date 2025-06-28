@@ -120,7 +120,11 @@ router.get(
 /** *********************** EXAMS ******************************** */
 
 // Create a new user exam
-router.post('/users/:user_id/exams', verifyFirebaseToken, createExam);
+router.post(
+  '/users/:user_id/certifications/:cert_id/exams',
+  verifyFirebaseToken,
+  createExam,
+);
 
 // Show a list of exams for a user
 router.get(

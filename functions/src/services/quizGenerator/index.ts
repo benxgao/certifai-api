@@ -7,7 +7,7 @@ const QuizSchema = z.object({
   question: z.string(),
   choices: z.array(z.string()),
   answerIndex: z.number(),
-  // topic: z.string().optional(),
+  topic: z.string().optional(),
   explanation: z.string(),
   exam_id: z.string(),
 });
@@ -30,6 +30,12 @@ const QuizGeneratorInput = z.object({
     .describe(
       'Unique exam identifier that will be associated with each quiz item',
     ),
+  customPromptText: z
+    .string()
+    .optional()
+    .describe(
+      'Optional custom prompt text to focus on specific topics or requirements',
+    ),
 });
 const initializeAiInstance = async (): Promise<Genkit> => {
   try {
@@ -49,11 +55,47 @@ const initializeAiInstance = async (): Promise<Genkit> => {
   }
 };
 
+// Helper function to build the quiz generation prompt
+const buildQuizPrompt = (
+  subject: string,
+  count: number,
+  customPromptText?: string,
+): string => {
+  const basePrompt = `Generate ${count} realistic ${subject} certification exam questions.
+    REQUIREMENTS:
+    1. Sophisticated distractors requiring expertise
+    2. All 4 choices plausible and technically accurate
+    3. Wrong answers: common misconceptions, not obvious fakes
+    4. Make questions text simple and clear, avoiding unnecessary complexity
+
+    CONSTRUCTION:
+    - Business scenarios with specific constraints
+    - Exact 4 options, consistent grammar
+  `;
+
+  const customSection = customPromptText?.trim()
+    ? `ADDITIONAL FOCUS:${customPromptText.trim()}`
+    : '';
+
+  const formatSection = `JSON format:[{
+    "question": "string",
+    "choices": ["string", "string", "string", "string"],
+    "answerIndex": 0,
+    "explanation": "string",
+    "topic": "string"
+    }]
+    Explanation: why correct answer is best, why others inadequate.
+  `;
+
+  return basePrompt + customSection + formatSection;
+};
+
 // Create a singleton promise for the AI instance to ensure it's initialized only once.
 const aiInstancePromise: Promise<Genkit> = initializeAiInstance();
 
 type QuizGeneratorInputType = z.infer<typeof QuizGeneratorInput>;
 
+// MARKED pass in users prompt text
 export const quizGeneratorPromise = aiInstancePromise.then((ai) => {
   return ai.defineFlow(
     {
@@ -67,32 +109,16 @@ export const quizGeneratorPromise = aiInstancePromise.then((ai) => {
       { sendChunk }: FlowSideChannel<string>,
     ): Promise<QuizItem[]> => {
       try {
-        const { subject, count, exam_id } = input;
-        const prompt = `
-Generate ${count} realistic ${subject} certification exam questions.
-REQUIREMENTS:
-1. Sophisticated distractors requiring expertise
-2. All 4 choices plausible and technically accurate
-3. Wrong answers: common misconceptions, not obvious fakes
-4. Test understanding, not memorization
+        const { subject, count, exam_id, customPromptText } = input;
 
-CONSTRUCTION:
-- Business scenarios with specific constraints
-- Exact 4 options, consistent grammar
-
-JSON format:
-[{
-  "question": "string",
-  "choices": ["string", "string", "string", "string"],
-  "answerIndex": 0,
-  "explanation": "string"
-}]
-
-Explanation: why correct answer is best, why others inadequate.
-`;
+        const prompt = buildQuizPrompt(subject, count, customPromptText);
 
         logger.info(
-          `Starting quiz generation for subject: ${subject}, count: ${count}, exam_id: ${exam_id}`,
+          `Starting quiz generation for subject: ${subject}, count: ${count}, exam_id: ${exam_id}${
+            customPromptText
+              ? `, custom_prompt: ${customPromptText.substring(0, 100)}...`
+              : ''
+          }`,
         );
 
         const { response, stream } = ai.generateStream({

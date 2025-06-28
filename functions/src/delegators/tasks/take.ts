@@ -2,7 +2,7 @@ import { Response } from 'express';
 import logger from '../../services/firebase/logger';
 import { CustomRequest } from '../../types';
 import { quizGeneratorPromise } from '../../services/quizGenerator';
-import prismaInstance from '../../services/prisma';
+import prismaInstance, { ExamStatus } from '../../services/prisma';
 import { createCloudTask } from '../../services/gcp/cloudTasks';
 import {
   associateQuestionsWithExam,
@@ -16,6 +16,7 @@ interface TaskPayload {
   questions_to_generate: number;
   batch_number: number;
   total_batches: number;
+  custom_prompt_text?: string;
 }
 
 const handler = async (req: any | CustomRequest, res: Response) => {
@@ -28,6 +29,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       questions_to_generate,
       batch_number,
       total_batches,
+      custom_prompt_text,
     } = payload;
 
     logger.info(
@@ -45,7 +47,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       return;
     }
 
-    if (exam.exam_status !== 'QUESTIONS_GENERATING') {
+    if (exam.exam_status !== ExamStatus.QUESTIONS_GENERATING) {
       logger.warn(
         `Exam ${exam_id} is not in QUESTIONS_GENERATING status, current status: ${exam.exam_status}`,
       );
@@ -60,9 +62,11 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       // Generate questions using the quiz generator
       const quizGenerator = await quizGeneratorPromise;
       const generatedQuestions = await quizGenerator({
+        // MARKED collect topics in a batch and pass to the next batch, to get better topic distribution
         subject: certification_name,
         count: questions_to_generate,
         exam_id,
+        customPromptText: custom_prompt_text,
       });
 
       logger.info(
@@ -138,6 +142,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
         );
       } else {
         // Create next batch task
+        // MARKED
         const nextBatchPayload = {
           exam_id,
           cert_id,
@@ -148,6 +153,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
           ),
           batch_number: batch_number + 1,
           total_batches,
+          custom_prompt_text,
         };
 
         const nextTaskName = await createCloudTask(
@@ -165,7 +171,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
           // Update exam status to failed
           await prismaInstance.examAttempt.update({
             where: { exam_id },
-            data: { exam_status: 'QUESTION_GENERATION_FAILED' },
+            data: { exam_status: ExamStatus.QUESTION_GENERATION_FAILED },
           });
         } else {
           logger.info(
@@ -197,7 +203,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       // Update exam status to failed
       await prismaInstance.examAttempt.update({
         where: { exam_id },
-        data: { exam_status: 'QUESTION_GENERATION_FAILED' },
+        data: { exam_status: ExamStatus.QUESTION_GENERATION_FAILED },
       });
 
       res.status(500).json({

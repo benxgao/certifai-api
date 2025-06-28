@@ -1,7 +1,7 @@
 import { Response } from 'express';
 import logger from '../../../../services/firebase/logger';
 import { CustomRequest } from '../../../../types';
-import prismaInstance from '../../../../services/prisma';
+import prismaInstance, { ExamStatus } from '../../../../services/prisma';
 
 const handler = async (
   req: any | CustomRequest,
@@ -173,7 +173,7 @@ const handler = async (
         data: {
           score: parseFloat(currentScore.toFixed(2)),
           submitted_at: new Date(),
-          exam_status: 'COMPLETED',
+          exam_status: ExamStatus.COMPLETED,
         },
       });
     });

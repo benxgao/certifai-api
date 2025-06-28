@@ -1,5 +1,5 @@
 import logger from '../services/firebase/logger';
-import prismaInstance from '../services/prisma';
+import prismaInstance, { ExamStatus } from '../services/prisma';
 
 export interface QuestionAssociationOptions {
   exam_id: string;
@@ -195,8 +195,8 @@ export async function updateExamAfterQuestionAssociation(
   try {
     const examStatus =
       associationResult.success && associationResult.associatedQuestionCount > 0
-        ? 'READY'
-        : 'QUESTION_GENERATION_FAILED';
+        ? ExamStatus.READY
+        : ExamStatus.QUESTION_GENERATION_FAILED;
 
     await prismaInstance.examAttempt.update({
       where: { exam_id },

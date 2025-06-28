@@ -1,4 +1,4 @@
-import prismaInstance from '../services/prisma';
+import prismaInstance, { CertificationStatus } from '../services/prisma';
 
 async function main() {
   const users = [
@@ -23,7 +23,7 @@ async function main() {
             cert_id: 2,
           },
         },
-        status: 'IN_PROGRESS', // Added status
+        status: CertificationStatus.IN_PROGRESS, // Added status
       },
     });
   }

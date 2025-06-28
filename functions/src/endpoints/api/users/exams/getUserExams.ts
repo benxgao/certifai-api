@@ -69,21 +69,28 @@ const handler = async (req: any | CustomRequest, res: Response) => {
     // }
 
     const exams = examsFromDb.map((exam) => {
-      let status = 'IN_PROGRESS';
+      let computedStatus: string = exam.exam_status; // Use the actual exam_status from database
+
+      // Override status based on submission and scoring for completed exams
       if (exam.submitted_at) {
         if (
           exam.score !== null &&
           exam.certification?.pass_score !== undefined
         ) {
-          status =
+          computedStatus =
             exam.score >= exam.certification.pass_score ? 'PASSED' : 'FAILED';
         } else {
-          status = 'COMPLETED'; // Submitted but score or pass_score is not available
+          computedStatus = 'COMPLETED'; // Submitted but score or pass_score is not available
         }
+      } else if (exam.exam_status === 'READY' && exam.started_at) {
+        // If exam is ready and has been started, it's in progress
+        computedStatus = 'IN_PROGRESS';
       }
+
       return {
         ...exam,
-        status,
+        status: computedStatus,
+        exam_status: exam.exam_status, // Include the actual database status for reference
       };
     });
 
