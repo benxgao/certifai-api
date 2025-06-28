@@ -2,13 +2,12 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
-// import rateLimitModule from 'express-rate-limit';
 
 import tasks from './tasks';
 
 const app = express();
 
-app.set('trust proxy', 1);
+app.set('trust proxy', true);
 
 app.use(helmet());
 

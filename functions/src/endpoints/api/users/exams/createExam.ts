@@ -8,6 +8,31 @@ const DEFAULT_NUMBER_OF_QUESTIONS = 20;
 const MAX_NUMBER_OF_QUESTIONS = 100; // Set a reasonable max
 const QUESTIONS_PER_BATCH = 10; // Number of questions to generate per task
 
+/**
+ * Creates a new exam and queues questions for generation
+ *
+ * Sample payload:
+ * POST /api/users/{user_id}/exams
+ * {
+ *   "cert_id": 123,
+ *   "numberOfQuestions": 25
+ * }
+ *
+ * Response:
+ * {
+ *   "success": true,
+ *   "message": "Exam creation initiated. Questions are being generated asynchronously.",
+ *   "data": {
+ *     "exam_id": "uuid",
+ *     "user_id": "uuid",
+ *     "cert_id": 123,
+ *     "status": "QUESTIONS_GENERATING",
+ *     "total_questions": 25,
+ *     "token_cost": 50,
+ *     "total_batches": 3
+ *   }
+ * }
+ */
 const handler = async (
   req: any | CustomRequest,
   res: Response,

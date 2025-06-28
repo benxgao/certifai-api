@@ -71,20 +71,14 @@ export const quizGeneratorPromise = aiInstancePromise.then((ai) => {
         const prompt = `
 Generate ${count} realistic ${subject} certification exam questions.
 REQUIREMENTS:
-1. Scenario-based workplace situations
+1. Sophisticated distractors requiring expertise
 2. All 4 choices plausible and technically accurate
 3. Wrong answers: common misconceptions, not obvious fakes
-4. Use real service names and proper terminology
-5. Test understanding, not memorization
-6. Sophisticated distractors requiring expertise
+4. Test understanding, not memorization
 
 CONSTRUCTION:
 - Business scenarios with specific constraints
-- Company context (size, budget, compliance)
-- Decision-making focus
-- Best practices and architecture
 - Exact 4 options, consistent grammar
-- Similar detail length across choices
 
 JSON format:
 [{
