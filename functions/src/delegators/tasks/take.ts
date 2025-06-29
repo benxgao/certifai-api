@@ -33,7 +33,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
     } = payload;
 
     logger.info(
-      `Processing question generation task for exam ${exam_id}, batch ${batch_number}/${total_batches}, generating ${questions_to_generate} questions`,
+      `EXAM_BATCH_PROCESS: exam_id=${exam_id}, batch=${batch_number}/${total_batches}, questions=${questions_to_generate}`,
     );
 
     // Verify exam exists and is in the correct state
@@ -70,7 +70,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       });
 
       logger.info(
-        `Successfully generated ${generatedQuestions.length} questions for exam ${exam_id}, batch ${batch_number}`,
+        `EXAM_BATCH_SUCCESS: exam_id=${exam_id}, batch=${batch_number}, generated=${generatedQuestions.length}`,
       );
 
       // Store questions in database
@@ -137,9 +137,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
         // Update exam with successful association results
         await updateExamAfterQuestionAssociation(exam_id, associationResult);
 
-        logger.info(
-          `Question generation completed for exam ${exam_id}. Status updated to READY.`,
-        );
+        logger.info(`EXAM_READY: exam_id=${exam_id}, status=READY`);
       } else {
         // Create next batch task
         // MARKED
@@ -173,9 +171,13 @@ const handler = async (req: any | CustomRequest, res: Response) => {
             where: { exam_id },
             data: { exam_status: ExamStatus.QUESTION_GENERATION_FAILED },
           });
+
+          logger.info(
+            `EXAM_GENERATION_FAILED: exam_id=${exam_id}, reason=task_creation_failed`,
+          );
         } else {
           logger.info(
-            `Created next batch task for exam ${exam_id}, batch ${
+            `EXAM_BATCH_NEXT: exam_id=${exam_id}, next_batch=${
               batch_number + 1
             }/${total_batches}`,
           );
@@ -205,6 +207,10 @@ const handler = async (req: any | CustomRequest, res: Response) => {
         where: { exam_id },
         data: { exam_status: ExamStatus.QUESTION_GENERATION_FAILED },
       });
+
+      logger.info(
+        `EXAM_GENERATION_FAILED: exam_id=${exam_id}, reason=question_generation_error`,
+      );
 
       res.status(500).json({
         success: false,

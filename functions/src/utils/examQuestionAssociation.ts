@@ -1,5 +1,6 @@
 import logger from '../services/firebase/logger';
 import prismaInstance, { ExamStatus } from '../services/prisma';
+import { validateMultipleQuestionsExamConstraint } from './questionExamConstraint';
 
 export interface QuestionAssociationOptions {
   exam_id: string;
@@ -142,6 +143,30 @@ export async function associateQuestionsWithExam(
         selectedQuestionIds: [],
         certification,
         error: `No questions available for certification ${certification.name}`,
+      };
+    }
+
+    // Validate that all selected questions can be associated with this exam
+    const validationResult = await validateMultipleQuestionsExamConstraint(
+      selectedQuestions,
+      exam_id,
+    );
+
+    if (!validationResult.isValid) {
+      logger.error(
+        `associateQuestionsWithExam: Question-exam constraint validation failed for exam ${exam_id}: ${validationResult.errors.join(
+          '; ',
+        )}`,
+      );
+
+      return {
+        success: false,
+        associatedQuestionCount: 0,
+        selectedQuestionIds: [],
+        certification,
+        error: `Question-exam constraint validation failed: ${validationResult.errors.join(
+          '; ',
+        )}`,
       };
     }
 

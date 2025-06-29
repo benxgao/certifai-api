@@ -11,7 +11,7 @@ const handler = async (
     const { user_id, cert_id, exam_id } = req.params;
 
     logger.info(
-      `Received request to submit exam for user_id: ${user_id}, exam_id: ${exam_id}, cert_id: ${cert_id}`,
+      `EXAM_SUBMIT_INIT: user_id=${user_id}, exam_id=${exam_id}, cert_id=${cert_id}`,
     );
 
     // Validate user authentication
@@ -179,11 +179,9 @@ const handler = async (
     });
 
     logger.info(
-      `Exam submitted successfully for exam_id: ${exam_id}. Score: ${currentScore.toFixed(
+      `EXAM_SUBMIT_SUCCESS: exam_id=${exam_id}, score=${currentScore.toFixed(
         2,
-      )}%. Credit tokens deducted: ${tokenCost}. Energy tokens awarded: ${energyTokensToAward}. Correct answers: ${correctlyAnsweredCount}/${
-        scoreDenominator > 0 ? scoreDenominator : 'N/A (check definition)'
-      }.`,
+      )}%, correct=${correctlyAnsweredCount}/${scoreDenominator}, tokens_deducted=${tokenCost}, energy_awarded=${energyTokensToAward}`,
     );
 
     res.status(200).json({

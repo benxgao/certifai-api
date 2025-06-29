@@ -129,7 +129,7 @@ model UserCertification {
 model QuizQuestion {
   quiz_question_id String  @id @default(uuid())
   cert_id          Int
-  generated_from   String?
+  generated_from   String? // References ExamAttempt.exam_id
 
   difficulty    DifficultyLevel?
   question_text String
@@ -139,11 +139,13 @@ model QuizQuestion {
   updated_at    DateTime @updatedAt
   is_deprecated Boolean  @default(false)
 
-  answerOptions AnswerOption[]
-  certification Certification    @relation(fields: [cert_id], references: [cert_id], onDelete: Cascade)
-  examEntries   ExamUserAnswer[]
+  answerOptions     AnswerOption[]
+  certification     Certification    @relation(fields: [cert_id], references: [cert_id], onDelete: Cascade)
+  examEntries       ExamUserAnswer[]
+  generatedFromExam ExamAttempt?     @relation("GeneratedQuestions", fields: [generated_from], references: [exam_id], onDelete: SetNull)
 
   @@index([cert_id])
+  @@index([generated_from])
 }
 
 model AnswerOption {
@@ -180,9 +182,10 @@ model ExamAttempt {
   started_at      DateTime   @default(now())
   submitted_at    DateTime?
 
-  user          User             @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
-  certification Certification    @relation(fields: [cert_id], references: [cert_id], onDelete: Cascade)
-  answers       ExamUserAnswer[]
+  user               User             @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+  certification      Certification    @relation(fields: [cert_id], references: [cert_id], onDelete: Cascade)
+  answers            ExamUserAnswer[]
+  generatedQuestions QuizQuestion[]   @relation("GeneratedQuestions")
 }
 
 model ExamUserAnswer {
@@ -196,6 +199,8 @@ model ExamUserAnswer {
   examAttempt    ExamAttempt   @relation(fields: [exam_id], references: [exam_id], onDelete: Cascade)
   quizQuestion   QuizQuestion  @relation(fields: [quiz_question_id], references: [quiz_question_id], onDelete: Cascade)
   selectedOption AnswerOption? @relation(fields: [selected_option_id], references: [option_id], onDelete: SetNull)
+  // Application-level constraint enforced: quizQuestion.generated_from must be null or equal exam_id
+  // This ensures questions can only be used in exams they were generated for, or general questions (generated_from = null)
 
   @@unique([exam_id, quiz_question_id])
 }

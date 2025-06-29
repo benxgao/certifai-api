@@ -2,6 +2,7 @@ import { Response } from 'express';
 import logger from '../../../../services/firebase/logger';
 import { CustomRequest } from '../../../../types';
 import prismaInstance from '../../../../services/prisma';
+import { validateQuestionExamConstraint } from '../../../../utils/questionExamConstraint';
 
 /**
  * Handles the request to answer a specific quiz question within an exam for a user.
@@ -34,10 +35,9 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       });
     }
 
-    logger.info(`Answer exam question: init
-      | user_id: ${user_id}
-      | exam_id: ${exam_id}
-      | question_id: ${quiz_question_id}`);
+    logger.info(
+      `EXAM_ANSWER_INIT: user_id=${user_id}, exam_id=${exam_id}, question_id=${quiz_question_id}`,
+    );
 
     // Check if the specific exam question entry exists for this exam
     const existingExamUserAnswer =
@@ -65,6 +65,23 @@ const handler = async (req: any | CustomRequest, res: Response) => {
         error: 'Exam question not found for this user and exam.',
       });
       return; // Added return
+    }
+
+    // Validate question-exam constraint before allowing the answer
+    const constraintValidation = await validateQuestionExamConstraint(
+      quiz_question_id,
+      exam_id,
+    );
+
+    if (!constraintValidation.isValid) {
+      logger.warn(
+        `Question-exam constraint violation: ${constraintValidation.error}`,
+      );
+      res.status(400).json({
+        success: false,
+        error: `Invalid question-exam association: ${constraintValidation.error}`,
+      });
+      return;
     }
 
     // Check if the exam has already been submitted
@@ -109,12 +126,9 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       },
     });
 
-    logger.info(`Answer exam question: done
-      | user_id: ${user_id}
-      | exam_id: ${exam_id}
-      | question_id: ${quiz_question_id}
-      | answer_option_id: ${answer_option_id}
-      | is_correct: ${is_correct}`);
+    logger.info(
+      `EXAM_ANSWER_SUCCESS: user_id=${user_id}, exam_id=${exam_id}, question_id=${quiz_question_id}, option_id=${answer_option_id}, correct=${is_correct}`,
+    );
 
     res.status(200).json({
       success: true,

@@ -75,7 +75,7 @@ const handler = async (
         : DEFAULT_NUMBER_OF_QUESTIONS;
 
     logger.info(
-      `createExamAndQueueQuestions: initialized for user_id: ${user_id}, cert_id: ${certIdNumber}, questions: ${requestedNumberOfQuestions}`,
+      `EXAM_CREATE_INIT: user_id=${user_id}, cert_id=${certIdNumber}, questions=${requestedNumberOfQuestions}`,
     );
 
     // 1. Find the user by the provided user_id (internal UUID)
@@ -143,7 +143,7 @@ const handler = async (
     });
 
     logger.info(
-      `Successfully created exam record ID: ${newExam.exam_id} for user ${user.user_id}. Status: QUESTIONS_GENERATING.`,
+      `EXAM_CREATE_SUCCESS: exam_id=${newExam.exam_id}, user_id=${user.user_id}, status=QUESTIONS_GENERATING`,
     );
 
     // 5. Calculate batches and start question generation via Cloud Tasks
@@ -152,7 +152,7 @@ const handler = async (
     );
 
     logger.info(
-      `Starting question generation for exam ${newExam.exam_id}: ${requestedNumberOfQuestions} questions in ${totalBatches} batches`,
+      `EXAM_BATCH_START: exam_id=${newExam.exam_id}, total_questions=${requestedNumberOfQuestions}, batches=${totalBatches}`,
     );
 
     // Create the first task to start the recursive generation
@@ -181,6 +181,10 @@ const handler = async (
         where: { exam_id: newExam.exam_id },
         data: { exam_status: ExamStatus.QUESTION_GENERATION_FAILED },
       });
+
+      logger.info(
+        `EXAM_CREATE_FAILED: exam_id=${newExam.exam_id}, reason=task_creation_failed`,
+      );
 
       res.status(500).json({
         success: false,
