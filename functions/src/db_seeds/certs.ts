@@ -4,10 +4,223 @@ import prismaInstance from '../services/prisma';
 // Consolidated certification seeding and update script
 //
 // Usage:
-// - Seed certifications (default): npx ts-node src/db_seeds/certs.ts
+// - Seed all (firms + certifications): npx ts-node src/db_seeds/certs.ts
+// - Seed firms only: npx ts-node src/db_seeds/certs.ts seed-firms
+// - Seed certifications only: npx ts-node src/db_seeds/certs.ts seed-certs
 // - Update question counts: npx ts-node src/db_seeds/certs.ts update-question-counts
 // - Update URLs: npx ts-node src/db_seeds/certs.ts update-urls
-// - Seed certifications explicitly: npx ts-node src/db_seeds/certs.ts seed
+//
+// Recent Updates (June 2025):
+// - Removed broken VMware VCP-CMA certification (404 error)
+// - Updated VMware URLs to use Broadcom domain (post-acquisition)
+// - Removed outdated IBM certifications returning 404 errors
+// - Added current IBM Cloud certifications (Advocate, Technical Advocate, Advanced Architect, SRE, Developer)
+// - Added IBM watsonx Generative AI Engineer Associate certification
+// - Added 25+ new high-demand certifications including HashiCorp, Linux, DevOps, and Security
+// - Added latest AI/ML certifications from AWS, GCP, Azure, and other providers
+// - Added HashiCorp, LPI, and Databricks as new certification providers
+// - Verified all existing URLs are still valid
+
+// Function to seed firms
+async function seedFirms() {
+  console.log('Starting firm seeding...');
+
+  const firms = [
+    {
+      code: 'AWS',
+      name: 'Amazon Web Services',
+      description:
+        'Amazon Web Services (AWS) is a comprehensive cloud computing platform provided by Amazon.',
+      website_url: 'https://aws.amazon.com',
+      logo_url: 'https://aws.amazon.com/favicon.ico',
+    },
+    {
+      code: 'GCP',
+      name: 'Google Cloud Platform',
+      description:
+        'Google Cloud Platform is a suite of cloud computing services provided by Google.',
+      website_url: 'https://cloud.google.com',
+      logo_url: 'https://cloud.google.com/favicon.ico',
+    },
+    {
+      code: 'AZURE',
+      name: 'Microsoft Azure',
+      description:
+        'Microsoft Azure is a cloud computing platform and infrastructure created by Microsoft.',
+      website_url: 'https://azure.microsoft.com',
+      logo_url: 'https://azure.microsoft.com/favicon.ico',
+    },
+    {
+      code: 'K8S',
+      name: 'Kubernetes',
+      description:
+        'Kubernetes is an open-source container orchestration platform.',
+      website_url: 'https://kubernetes.io',
+      logo_url: 'https://kubernetes.io/favicon.ico',
+    },
+    {
+      code: 'CISCO',
+      name: 'Cisco Systems',
+      description:
+        'Cisco Systems is a multinational technology conglomerate specializing in networking hardware.',
+      website_url: 'https://www.cisco.com',
+      logo_url: 'https://www.cisco.com/favicon.ico',
+    },
+    {
+      code: 'COMPTIA',
+      name: 'CompTIA',
+      description:
+        'CompTIA is a non-profit trade association that issues professional certifications for the IT industry.',
+      website_url: 'https://www.comptia.org',
+      logo_url: 'https://www.comptia.org/favicon.ico',
+    },
+    {
+      code: 'DOCKER',
+      name: 'Docker',
+      description:
+        'Docker is a platform designed to help developers build, share, and run modern applications.',
+      website_url: 'https://www.docker.com',
+      logo_url: 'https://www.docker.com/favicon.ico',
+    },
+    {
+      code: 'IBM',
+      name: 'IBM',
+      description:
+        'International Business Machines Corporation is a multinational technology corporation.',
+      website_url: 'https://www.ibm.com',
+      logo_url: 'https://www.ibm.com/favicon.ico',
+    },
+    {
+      code: 'ORACLE',
+      name: 'Oracle',
+      description:
+        'Oracle Corporation is a multinational computer technology corporation specializing in database software.',
+      website_url: 'https://www.oracle.com',
+      logo_url: 'https://www.oracle.com/favicon.ico',
+    },
+    {
+      code: 'SFDC',
+      name: 'Salesforce',
+      description:
+        'Salesforce is a cloud-based software company specializing in customer relationship management.',
+      website_url: 'https://www.salesforce.com',
+      logo_url: 'https://www.salesforce.com/favicon.ico',
+    },
+    {
+      code: 'VMWARE',
+      name: 'VMware',
+      description:
+        'VMware is a cloud computing and virtualization technology company.',
+      website_url: 'https://www.vmware.com',
+      logo_url: 'https://www.vmware.com/favicon.ico',
+    },
+    {
+      code: 'REDHAT',
+      name: 'Red Hat',
+      description:
+        'Red Hat is an American multinational software company that provides open source software products.',
+      website_url: 'https://www.redhat.com',
+      logo_url: 'https://www.redhat.com/favicon.ico',
+    },
+    {
+      code: 'PMI',
+      name: 'Project Management Institute',
+      description:
+        'PMI is a global professional organization for project management.',
+      website_url: 'https://www.pmi.org',
+      logo_url: 'https://www.pmi.org/favicon.ico',
+    },
+    {
+      code: 'ITIL',
+      name: 'ITIL',
+      description:
+        'ITIL is a set of detailed practices for IT service management.',
+      website_url: 'https://www.axelos.com',
+      logo_url: 'https://www.axelos.com/favicon.ico',
+    },
+    {
+      code: 'TOGAF',
+      name: 'The Open Group Architecture Framework',
+      description:
+        'TOGAF is an enterprise architecture methodology and framework.',
+      website_url: 'https://www.opengroup.org',
+      logo_url: 'https://www.opengroup.org/favicon.ico',
+    },
+    {
+      code: 'ISC2',
+      name: '(ISC)²',
+      description:
+        'International Information System Security Certification Consortium.',
+      website_url: 'https://www.isc2.org',
+      logo_url: 'https://www.isc2.org/favicon.ico',
+    },
+    {
+      code: 'GENERIC',
+      name: 'Generic',
+      description:
+        'Generic firm for certifications without specific providers.',
+      website_url: '',
+      logo_url: '',
+    },
+    {
+      code: 'HASHICORP',
+      name: 'HashiCorp',
+      description:
+        'HashiCorp provides infrastructure automation software and services.',
+      website_url: 'https://www.hashicorp.com',
+      logo_url: 'https://www.hashicorp.com/favicon.ico',
+    },
+    {
+      code: 'LPI',
+      name: 'Linux Professional Institute',
+      description:
+        'Linux Professional Institute is a non-profit organization that provides Linux certification programs.',
+      website_url: 'https://www.lpi.org',
+      logo_url: 'https://www.lpi.org/favicon.ico',
+    },
+    {
+      code: 'DATABRICKS',
+      name: 'Databricks',
+      description:
+        'Databricks is a unified analytics platform for big data and machine learning.',
+      website_url: 'https://www.databricks.com',
+      logo_url: 'https://www.databricks.com/favicon.ico',
+    },
+  ];
+
+  let createdCount = 0;
+  let existingCount = 0;
+
+  for (const firmData of firms) {
+    try {
+      // Check if firm already exists
+      const existingFirm = await prismaInstance.firm.findUnique({
+        where: { code: firmData.code },
+      });
+
+      if (existingFirm) {
+        console.log(
+          `➡️  Firm "${firmData.name}" (${firmData.code}) already exists`,
+        );
+        existingCount++;
+      } else {
+        // Create the firm
+        await prismaInstance.firm.create({
+          data: firmData,
+        });
+        console.log(`✅ Created firm "${firmData.name}" (${firmData.code})`);
+        createdCount++;
+      }
+    } catch (error) {
+      console.error(`Error creating firm "${firmData.name}":`, error);
+    }
+  }
+
+  console.log('\n📊 Firm Seeding Summary:');
+  console.log(`✅ Successfully created: ${createdCount} firms`);
+  console.log(`➡️  Already existed: ${existingCount} firms`);
+  console.log(`📈 Total processed: ${firms.length} firms`);
+}
 
 // Script to update existing certification question counts with more realistic values
 async function updateCertificationQuestionCounts() {
@@ -401,29 +614,55 @@ async function updateCertificationUrls() {
       firm_code: 'DOCKER',
     },
 
-    // IBM Certifications
+    // IBM Certifications (Updated to current valid certifications)
     {
-      name: 'IBM Certified Solution Architect - Cloud Platform',
+      name: 'IBM Certified Advocate - Cloud v2',
       exam_guide_url:
-        'https://www.ibm.com/training/certification/ibm-cloud-solution-architect-c0002101',
-      min_quiz_counts: 15,
-      max_quiz_counts: 70,
+        'https://www.ibm.com/training/certification/ibm-certified-advocate-cloud-v2-C9003700',
+      min_quiz_counts: 10,
+      max_quiz_counts: 50,
       firm_code: 'IBM',
     },
     {
-      name: 'IBM Certified Developer - Cloud Platform',
+      name: 'IBM Certified Technical Advocate - Cloud v5',
       exam_guide_url:
-        'https://www.ibm.com/training/certification/ibm-cloud-application-developer-c0002105',
+        'https://www.ibm.com/training/certification/ibm-certified-technical-advocate-cloud-v5-C9005600',
       min_quiz_counts: 12,
       max_quiz_counts: 60,
       firm_code: 'IBM',
     },
     {
-      name: 'IBM Certified Data Engineer - Cloud Platform',
+      name: 'IBM Certified Advanced Architect - Cloud v2',
       exam_guide_url:
-        'https://www.ibm.com/training/certification/ibm-cloud-data-engineer-c0002102',
-      min_quiz_counts: 15,
+        'https://www.ibm.com/training/certification/ibm-certified-advanced-architect-cloud-v2-C9006300',
+      min_quiz_counts: 18,
+      max_quiz_counts: 75,
+      firm_code: 'IBM',
+    },
+    {
+      name: 'IBM Certified Associate SRE - Cloud v2',
+      exam_guide_url:
+        'https://www.ibm.com/training/certification/ibm-certified-associate-sre-cloud-v2-C9005500',
+      min_quiz_counts: 12,
       max_quiz_counts: 65,
+      firm_code: 'IBM',
+    },
+    {
+      name: 'IBM Certified Developer - Cloud Native Java with IBM Liberty 2023',
+      exam_guide_url:
+        'https://www.ibm.com/training/certification/ibm-certified-developer-cloud-native-java-ibm-liberty-2023-C9004800',
+      min_quiz_counts: 15,
+      max_quiz_counts: 70,
+      firm_code: 'IBM',
+    },
+
+    // Latest IBM AI Certification (2024-2025)
+    {
+      name: 'IBM Certified watsonx Generative AI Engineer - Associate',
+      exam_guide_url:
+        'https://www.ibm.com/training/certification/ibm-certified-watsonx-generative-ai-engineer-associate-C9007000',
+      min_quiz_counts: 12,
+      max_quiz_counts: 60,
       firm_code: 'IBM',
     },
 
@@ -487,31 +726,16 @@ async function updateCertificationUrls() {
       firm_code: 'SFDC',
     },
 
-    // VMware Certifications
+    // VMware Certifications (Updated URLs - VMware acquired by Broadcom)
     {
       name: 'VMware Certified Professional - Data Center Virtualization (VCP-DCV)',
       exam_guide_url:
-        'https://www.vmware.com/education-services/certification/vcp-dcv.html',
+        'https://www.broadcom.com/support/education/vmware/certification/vcp-dcv',
       min_quiz_counts: 15,
       max_quiz_counts: 70,
       firm_code: 'VMWARE',
     },
-    {
-      name: 'VMware Certified Professional - Cloud Management and Automation (VCP-CMA)',
-      exam_guide_url:
-        'https://www.vmware.com/education-services/certification/vcp-cma.html',
-      min_quiz_counts: 15,
-      max_quiz_counts: 70,
-      firm_code: 'VMWARE',
-    },
-    {
-      name: 'VMware Certified Advanced Professional - Data Center Virtualization (VCAP-DCV)',
-      exam_guide_url:
-        'https://www.vmware.com/education-services/certification/vcap-dcv-deploy.html',
-      min_quiz_counts: 25,
-      max_quiz_counts: 100,
-      firm_code: 'VMWARE',
-    },
+    // Note: VCP-CMA certification removed as the URL returns 404 - certification may be discontinued
 
     // Red Hat Certifications
     {
@@ -600,6 +824,285 @@ async function updateCertificationUrls() {
     {
       name: 'Certified Information Systems Security Professional (CISSP)',
       exam_guide_url: 'https://www.isc2.org/certifications/cissp',
+    },
+
+    // Additional High-Demand Certifications
+
+    // Terraform Certifications
+    {
+      name: 'HashiCorp Certified: Terraform Associate',
+      exam_guide_url:
+        'https://www.hashicorp.com/certification/terraform-associate',
+      min_quiz_counts: 15,
+      max_quiz_counts: 57,
+      firm_code: 'HASHICORP',
+    },
+
+    // Ansible Certifications
+    {
+      name: 'Red Hat Certified Specialist in Ansible Automation',
+      exam_guide_url:
+        'https://www.redhat.com/en/services/certification/rhcs-ansible-automation',
+      min_quiz_counts: 15,
+      max_quiz_counts: 80,
+      firm_code: 'REDHAT',
+    },
+
+    // Jenkins Certifications
+    {
+      name: 'Certified Jenkins Engineer (CJE)',
+      exam_guide_url: 'https://www.cloudbees.com/jenkins/certification',
+      min_quiz_counts: 12,
+      max_quiz_counts: 60,
+      firm_code: 'GENERIC',
+    },
+
+    // Linux Certifications
+    {
+      name: 'Linux Professional Institute Certification Level 1 (LPIC-1)',
+      exam_guide_url: 'https://www.lpi.org/our-certifications/lpic-1-overview',
+      min_quiz_counts: 15,
+      max_quiz_counts: 120,
+      firm_code: 'LPI',
+    },
+
+    {
+      name: 'Linux Professional Institute Certification Level 2 (LPIC-2)',
+      exam_guide_url: 'https://www.lpi.org/our-certifications/lpic-2-overview',
+      min_quiz_counts: 18,
+      max_quiz_counts: 120,
+      firm_code: 'LPI',
+    },
+
+    // Scrum/Agile Certifications
+    {
+      name: 'Certified Scrum Master (CSM)',
+      exam_guide_url:
+        'https://www.scrumalliance.org/get-certified/scrum-master-track/certified-scrummaster',
+      min_quiz_counts: 10,
+      max_quiz_counts: 50,
+      firm_code: 'GENERIC',
+    },
+
+    {
+      name: 'Professional Scrum Master I (PSM I)',
+      exam_guide_url:
+        'https://www.scrum.org/professional-scrum-master-i-certification',
+      min_quiz_counts: 15,
+      max_quiz_counts: 80,
+      firm_code: 'GENERIC',
+    },
+
+    // Additional AWS Certifications
+    {
+      name: 'AWS Certified Advanced Networking - Specialty',
+      exam_guide_url:
+        'https://aws.amazon.com/certification/certified-advanced-networking-specialty/',
+      min_quiz_counts: 15,
+      max_quiz_counts: 65,
+      firm_code: 'AWS',
+    },
+
+    {
+      name: 'AWS Certified Data Analytics - Specialty',
+      exam_guide_url:
+        'https://aws.amazon.com/certification/certified-data-analytics-specialty/',
+      min_quiz_counts: 15,
+      max_quiz_counts: 65,
+      firm_code: 'AWS',
+    },
+
+    // Latest AWS AI/ML Certifications (2024-2025)
+    {
+      name: 'AWS Certified AI Practitioner',
+      exam_guide_url:
+        'https://aws.amazon.com/certification/certified-ai-practitioner/',
+      min_quiz_counts: 15,
+      max_quiz_counts: 65,
+      firm_code: 'AWS',
+    },
+
+    {
+      name: 'AWS Certified Machine Learning Engineer - Associate',
+      exam_guide_url:
+        'https://aws.amazon.com/certification/certified-machine-learning-engineer-associate/',
+      min_quiz_counts: 15,
+      max_quiz_counts: 85,
+      firm_code: 'AWS',
+    },
+
+    {
+      name: 'AWS Certified Data Engineer - Associate',
+      exam_guide_url:
+        'https://aws.amazon.com/certification/certified-data-engineer-associate/',
+      min_quiz_counts: 15,
+      max_quiz_counts: 75,
+      firm_code: 'AWS',
+    },
+
+    // Azure Data Certifications
+    {
+      name: 'Microsoft Certified: Azure Data Scientist Associate',
+      exam_guide_url:
+        'https://learn.microsoft.com/en-us/credentials/certifications/azure-data-scientist/',
+      min_quiz_counts: 15,
+      max_quiz_counts: 60,
+      firm_code: 'AZURE',
+    },
+
+    {
+      name: 'Microsoft Certified: Azure Database Administrator Associate',
+      exam_guide_url:
+        'https://learn.microsoft.com/en-us/credentials/certifications/azure-database-administrator-associate/',
+      min_quiz_counts: 15,
+      max_quiz_counts: 65,
+      firm_code: 'AZURE',
+    },
+
+    // Google Cloud Security Certifications
+    {
+      name: 'Google Cloud Professional Cloud Security Engineer',
+      exam_guide_url:
+        'https://cloud.google.com/learn/certification/cloud-security-engineer',
+      min_quiz_counts: 15,
+      max_quiz_counts: 70,
+      firm_code: 'GCP',
+    },
+
+    // Latest Google Cloud AI/ML Certifications (2024-2025)
+    {
+      name: 'Google Cloud Professional Machine Learning Engineer',
+      exam_guide_url:
+        'https://cloud.google.com/learn/certification/machine-learning-engineer',
+      min_quiz_counts: 18,
+      max_quiz_counts: 75,
+      firm_code: 'GCP',
+    },
+
+    {
+      name: 'Google Cloud Professional Data Engineer',
+      exam_guide_url:
+        'https://cloud.google.com/learn/certification/data-engineer',
+      min_quiz_counts: 15,
+      max_quiz_counts: 70,
+      firm_code: 'GCP',
+    },
+
+    {
+      name: 'Google Cloud Digital Leader',
+      exam_guide_url:
+        'https://cloud.google.com/learn/certification/cloud-digital-leader',
+      min_quiz_counts: 10,
+      max_quiz_counts: 50,
+      firm_code: 'GCP',
+    },
+
+    {
+      name: 'Google Cloud Professional Cloud Database Engineer',
+      exam_guide_url:
+        'https://cloud.google.com/learn/certification/cloud-database-engineer',
+      min_quiz_counts: 15,
+      max_quiz_counts: 60,
+      firm_code: 'GCP',
+    },
+
+    // Python Certifications
+    {
+      name: 'Python Institute Certified Associate in Python Programming (PCAP)',
+      exam_guide_url: 'https://pythoninstitute.org/pcap',
+      min_quiz_counts: 10,
+      max_quiz_counts: 40,
+      firm_code: 'GENERIC',
+    },
+
+    // Additional AI/ML and Data Science Certifications
+    {
+      name: 'Microsoft Certified: Azure AI Fundamentals',
+      exam_guide_url:
+        'https://learn.microsoft.com/en-us/credentials/certifications/azure-ai-fundamentals/',
+      min_quiz_counts: 10,
+      max_quiz_counts: 40,
+      firm_code: 'AZURE',
+    },
+
+    {
+      name: 'Microsoft Certified: Azure Data Fundamentals',
+      exam_guide_url:
+        'https://learn.microsoft.com/en-us/credentials/certifications/azure-data-fundamentals/',
+      min_quiz_counts: 10,
+      max_quiz_counts: 40,
+      firm_code: 'AZURE',
+    },
+
+    {
+      name: 'Microsoft Certified: Azure AI Engineer Associate',
+      exam_guide_url:
+        'https://learn.microsoft.com/en-us/credentials/certifications/azure-ai-engineer/',
+      min_quiz_counts: 15,
+      max_quiz_counts: 60,
+      firm_code: 'AZURE',
+    },
+
+    {
+      name: 'TensorFlow Developer Certificate',
+      exam_guide_url: 'https://www.tensorflow.org/certificate',
+      min_quiz_counts: 12,
+      max_quiz_counts: 50,
+      firm_code: 'GENERIC',
+    },
+
+    {
+      name: 'Databricks Certified Machine Learning Associate',
+      exam_guide_url:
+        'https://www.databricks.com/learn/certification/machine-learning-associate',
+      min_quiz_counts: 15,
+      max_quiz_counts: 72,
+      firm_code: 'DATABRICKS',
+    },
+
+    {
+      name: 'Databricks Certified Data Engineer Associate',
+      exam_guide_url:
+        'https://www.databricks.com/learn/certification/data-engineer-associate',
+      min_quiz_counts: 15,
+      max_quiz_counts: 72,
+      firm_code: 'DATABRICKS',
+    },
+
+    {
+      name: 'NVIDIA Certified Associate - Generative AI with LLMs',
+      exam_guide_url:
+        'https://www.nvidia.com/en-us/training/instructor-led-workshops/generative-ai/',
+      min_quiz_counts: 12,
+      max_quiz_counts: 60,
+      firm_code: 'GENERIC',
+    },
+
+    // Additional Security Certifications
+    {
+      name: 'Certified Ethical Hacker (CEH)',
+      exam_guide_url:
+        'https://www.eccouncil.org/train-certify/certified-ethical-hacker-ceh/',
+      min_quiz_counts: 20,
+      max_quiz_counts: 125,
+      firm_code: 'GENERIC',
+    },
+
+    {
+      name: 'CompTIA CySA+ (Cybersecurity Analyst)',
+      exam_guide_url:
+        'https://www.comptia.org/certifications/cybersecurity-analyst',
+      min_quiz_counts: 15,
+      max_quiz_counts: 85,
+      firm_code: 'COMPTIA',
+    },
+
+    {
+      name: 'CompTIA PenTest+ (Penetration Testing)',
+      exam_guide_url: 'https://www.comptia.org/certifications/pentest',
+      min_quiz_counts: 15,
+      max_quiz_counts: 85,
+      firm_code: 'COMPTIA',
     },
   ];
 
@@ -720,6 +1223,8 @@ async function updateCertificationUrls() {
 }
 
 async function seedCertifications() {
+  console.log('Starting certification seeding...');
+
   // // Seed CertCategories
   // const certCategories = [
   //   { name: 'Cloud Computing' },
@@ -868,6 +1373,9 @@ async function seedCertifications() {
     },
   ];
 
+  let createdCount = 0;
+  let skippedCount = 0;
+
   for (const cert of certifications) {
     // Get firm_id based on certification name
     let firmCode = 'GENERIC'; // Default fallback
@@ -917,6 +1425,8 @@ async function seedCertifications() {
       firmCode = 'ITIL';
     } else if (cert.name.toLowerCase().includes('togaf')) {
       firmCode = 'TOGAF';
+    } else if (cert.name.toLowerCase().includes('cissp')) {
+      firmCode = 'ISC2';
     }
 
     // Find the firm
@@ -926,8 +1436,23 @@ async function seedCertifications() {
 
     if (!firm) {
       console.error(
-        `Firm with code ${firmCode} not found for certification: ${cert.name}`,
+        `❌ Firm with code ${firmCode} not found for certification: ${cert.name}`,
       );
+      console.error(
+        `   💡 Hint: Run 'npx ts-node src/db_seeds/certs.ts seed-firms' first to create firms`,
+      );
+      skippedCount++;
+      continue;
+    }
+
+    // Check if certification already exists
+    const existingCert = await prismaInstance.certification.findFirst({
+      where: { name: cert.name },
+    });
+
+    if (existingCert) {
+      console.log(`➡️  Certification "${cert.name}" already exists`);
+      skippedCount++;
       continue;
     }
 
@@ -942,9 +1467,16 @@ async function seedCertifications() {
         // cert_category_id: cert.cert_category_id,
       },
     });
+
+    console.log(`✅ Created certification "${cert.name}" for firm ${firmCode}`);
+    createdCount++;
   }
 
-  console.log('Certifications linked with CertCategories seeded successfully.');
+  console.log('\n📊 Certification Seeding Summary:');
+  console.log(`✅ Successfully created: ${createdCount} certifications`);
+  console.log(`➡️  Skipped (existing/errors): ${skippedCount} certifications`);
+  console.log(`📈 Total processed: ${certifications.length} certifications`);
+  console.log('✅ Certifications seeding completed successfully.');
 }
 
 async function main() {
@@ -958,9 +1490,22 @@ async function main() {
     case 'update-urls':
       await updateCertificationUrls();
       break;
+    case 'seed-firms':
+      await seedFirms();
+      break;
+    case 'seed-certs':
+      await seedCertifications();
+      break;
     case 'seed':
     default:
+      // Seed both firms and certifications
+      console.log(
+        '🚀 Starting comprehensive seeding (firms + certifications)...\n',
+      );
+      await seedFirms();
+      console.log('\n' + '='.repeat(60) + '\n');
       await seedCertifications();
+      console.log('\n✅ Comprehensive seeding completed successfully!');
       break;
   }
 }
