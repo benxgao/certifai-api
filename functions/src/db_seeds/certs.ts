@@ -1435,12 +1435,6 @@ async function seedCertifications() {
     });
 
     if (!firm) {
-      console.error(
-        `❌ Firm with code ${firmCode} not found for certification: ${cert.name}`,
-      );
-      console.error(
-        `   💡 Hint: Run 'npx ts-node src/db_seeds/certs.ts seed-firms' first to create firms`,
-      );
       skippedCount++;
       continue;
     }

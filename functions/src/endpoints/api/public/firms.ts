@@ -20,8 +20,8 @@ export const getPublicFirms = async (
 
     // Extract pagination parameters
     const paginationParams = extractPaginationParams(req, {
-      defaultPageSize: 10,
-      maxPageSize: 50,
+      defaultPageSize: 100,
+      maxPageSize: 100,
     });
 
     // Execute findMany and count in parallel

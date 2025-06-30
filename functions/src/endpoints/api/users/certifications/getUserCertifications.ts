@@ -28,9 +28,14 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       maxPageSize: 50,
     });
 
-    const whereClause = {
+    // Support filtering by cert_id if provided as a query parameter
+    const { cert_id } = req.query;
+    const whereClause: any = {
       user_id: user_id,
     };
+    if (cert_id) {
+      whereClause.cert_id = Number(cert_id);
+    }
 
     // Assuming 'certification' is the Prisma model for certifications associated with a user.
     // Adjust the model name if yours is different (e.g., userCertification, achievedCertification).
