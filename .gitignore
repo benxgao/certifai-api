@@ -13,3 +13,4 @@ node_modules
 # Terraform
 .terraform/
 .terraform.lock.hcl
+.trash

@@ -38,7 +38,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
     };
 
     if (cert_id) {
-      whereClause.cert_id = cert_id as string;
+      whereClause.cert_id = parseInt(cert_id as string, 10);
     }
 
     // Execute findMany and count in parallel

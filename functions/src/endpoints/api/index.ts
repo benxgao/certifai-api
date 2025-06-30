@@ -7,8 +7,6 @@ import authRegister from './auth/register';
 import authLogin from './auth/login';
 import { generateToken } from './auth/generateToken';
 import { generateServiceToken } from './auth/generateServiceToken';
-import getCertifications from './certifications/getList';
-import getCertificationsByFirm from './certifications/getByFirm';
 import getUserExams from './users/exams/getUserExams';
 import getUserExam from './users/exams/getUserExam';
 import publicRoutes from './public';
@@ -20,14 +18,6 @@ import getUserCertifications from './users/certifications/getUserCertifications'
 import answerUserExamQuestions from './users/exams/answerUserExamQuestions';
 import submitExamForUser from './users/exams/submitExamForUser';
 import getUserProfile from './users/getUserProfile';
-import {
-  getFirms,
-  getFirmById,
-  searchFirms,
-  createFirm,
-  updateFirm,
-  deleteFirm,
-} from './firms';
 
 const router = createRouter();
 
@@ -53,49 +43,6 @@ router.post('/auth/generate-token', verifyFirebaseToken, generateToken);
 
 // Generate service JWT token for marketing/public access (no Firebase auth required)
 router.post('/auth/generate-service-token', generateServiceToken);
-
-/** ******************* CERTIFICATIONS ************************* */
-
-// Show a list of certifications
-router.get(
-  '/certifications',
-  verifyFirebaseToken,
-  mediumPagePagination,
-  getCertifications,
-);
-
-/** ******************* FIRMS ************************* */
-
-// Get all firms (protected)
-router.get('/firms', verifyFirebaseToken, mediumPagePagination, getFirms);
-
-// Search firms (protected)
-router.get(
-  '/firms/search',
-  verifyFirebaseToken,
-  mediumPagePagination,
-  searchFirms,
-);
-
-// Get a specific firm (protected)
-router.get('/firms/:firmId', verifyFirebaseToken, getFirmById);
-
-// Get certifications for a specific firm (protected)
-router.get(
-  '/firms/:firmId/certifications',
-  verifyFirebaseToken,
-  mediumPagePagination,
-  getCertificationsByFirm,
-);
-
-// Create a new firm (protected)
-router.post('/firms', verifyFirebaseToken, createFirm);
-
-// Update a firm (protected)
-router.put('/firms/:firmId', verifyFirebaseToken, updateFirm);
-
-// Delete a firm (protected)
-router.delete('/firms/:firmId', verifyFirebaseToken, deleteFirm);
 
 /** ******************* USERS ************************* */
 

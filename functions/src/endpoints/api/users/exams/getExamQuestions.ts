@@ -78,6 +78,27 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       return;
     }
 
+    // Check if exam questions are ready - block access if questions are still generating
+    if (exam.exam_status === 'QUESTIONS_GENERATING') {
+      res.status(423).json({
+        success: false,
+        error:
+          'Exam questions are still being generated. Please wait and try again.',
+        exam_status: exam.exam_status,
+      });
+      return;
+    }
+
+    if (exam.exam_status === 'QUESTION_GENERATION_FAILED') {
+      res.status(500).json({
+        success: false,
+        error:
+          'Question generation failed for this exam. Please contact support or create a new exam.',
+        exam_status: exam.exam_status,
+      });
+      return;
+    }
+
     logger.info(
       `Fetching questions for exam_id: ${exam_id}, user_id: ${user_id}, page: ${paginationParams.page}, pageSize: ${paginationParams.pageSize}`,
     );

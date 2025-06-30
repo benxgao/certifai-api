@@ -20,7 +20,7 @@ export const getPublicFirms = async (
 
     // Extract pagination parameters
     const paginationParams = extractPaginationParams(req, {
-      defaultPageSize: 100,
+      defaultPageSize: 10,
       maxPageSize: 100,
     });
 
