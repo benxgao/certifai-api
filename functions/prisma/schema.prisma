@@ -175,12 +175,13 @@ model ExamAttempt {
   user_id String
   cert_id Int // Foreign Key
 
-  exam_status     ExamStatus @default(PENDING_QUESTIONS)
-  total_questions Int?
-  score           Float?
-  token_cost      Int        @default(0)
-  started_at      DateTime   @default(now())
-  submitted_at    DateTime?
+  exam_status        ExamStatus @default(PENDING_QUESTIONS)
+  total_questions    Int?
+  score              Float?
+  token_cost         Int        @default(0)
+  custom_prompt_text String? // Store the custom prompt used for question generation
+  started_at         DateTime   @default(now())
+  submitted_at       DateTime?
 
   user               User             @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
   certification      Certification    @relation(fields: [cert_id], references: [cert_id], onDelete: Cascade)

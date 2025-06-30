@@ -139,6 +139,7 @@ const handler = async (
         exam_status: ExamStatus.QUESTIONS_GENERATING,
         total_questions: requestedNumberOfQuestions,
         token_cost: tokenCost,
+        custom_prompt_text: customPromptText || null,
       },
     });
 
