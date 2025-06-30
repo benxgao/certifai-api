@@ -17,6 +17,7 @@ interface TaskPayload {
   batch_number: number;
   total_batches: number;
   custom_prompt_text?: string;
+  questions_per_batch: number;
 }
 
 const handler = async (req: any | CustomRequest, res: Response) => {
@@ -30,11 +31,45 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       batch_number,
       total_batches,
       custom_prompt_text,
+      questions_per_batch,
     } = payload;
 
     logger.info(
       `EXAM_BATCH_PROCESS: exam_id=${exam_id}, batch=${batch_number}/${total_batches}, questions=${questions_to_generate}`,
     );
+
+    // Validate that questions_to_generate is not negative
+    if (questions_to_generate < 0) {
+      logger.error(
+        `Invalid questions_to_generate value: ${questions_to_generate} for exam ${exam_id}, batch ${batch_number}`,
+      );
+      res.status(400).json({
+        success: false,
+        error: `Invalid questions count: ${questions_to_generate}. Count must be >= 0.`,
+      });
+      return;
+    }
+
+    // Skip processing if no questions to generate
+    if (questions_to_generate === 0) {
+      logger.info(
+        `No questions to generate for exam ${exam_id}, batch ${batch_number}. Marking as complete.`,
+      );
+
+      res.status(200).json({
+        success: true,
+        message: `Batch ${batch_number} completed with 0 questions`,
+        data: {
+          exam_id,
+          batch_number,
+          total_batches,
+          questions_generated: 0,
+          questions_associated: 0,
+          is_final_batch: batch_number >= total_batches,
+        },
+      });
+      return;
+    }
 
     // Verify exam exists and is in the correct state
     const exam = await prismaInstance.examAttempt.findUnique({
@@ -140,18 +175,53 @@ const handler = async (req: any | CustomRequest, res: Response) => {
         logger.info(`EXAM_READY: exam_id=${exam_id}, status=READY`);
       } else {
         // Create next batch task
-        // MARKED
+        // Calculate remaining questions needed, ensuring we never go negative
+        const questionsGenerated = batch_number * questions_per_batch;
+        const remainingQuestions = Math.max(
+          0,
+          (exam.total_questions || 0) - questionsGenerated,
+        );
+        const questionsForNextBatch = Math.min(
+          questions_per_batch,
+          remainingQuestions,
+        );
+
+        // Only create next batch if there are questions remaining
+        if (questionsForNextBatch <= 0) {
+          logger.warn(
+            `No more questions needed for exam ${exam_id}. Total: ${exam.total_questions}, Generated: ${questionsGenerated}`,
+          );
+          // Mark exam as ready since we've generated enough questions
+          await updateExamAfterQuestionAssociation(exam_id, {
+            success: true,
+            associatedQuestionCount: questionsGenerated,
+            selectedQuestionIds: [],
+            certification: null,
+          });
+
+          res.status(200).json({
+            success: true,
+            message: `Exam generation completed. Total questions generated: ${questionsGenerated}`,
+            data: {
+              exam_id,
+              batch_number,
+              total_batches,
+              questions_generated: generatedQuestions.length,
+              is_final_batch: true,
+            },
+          });
+          return;
+        }
+
         const nextBatchPayload = {
           exam_id,
           cert_id,
           certification_name,
-          questions_to_generate: Math.min(
-            10, // Questions per batch
-            (exam.total_questions || 0) - batch_number * 10,
-          ),
+          questions_to_generate: questionsForNextBatch,
           batch_number: batch_number + 1,
           total_batches,
           custom_prompt_text,
+          questions_per_batch,
         };
 
         const nextTaskName = await createCloudTask(

@@ -167,6 +167,7 @@ const handler = async (
       batch_number: 1,
       total_batches: totalBatches,
       custom_prompt_text: customPromptText || '',
+      questions_per_batch: QUESTIONS_PER_BATCH,
     };
 
     const taskName = await createCloudTask(
