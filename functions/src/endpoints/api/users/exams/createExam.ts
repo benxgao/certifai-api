@@ -6,7 +6,7 @@ import { createCloudTask } from '../../../../services/gcp/cloudTasks';
 
 const DEFAULT_NUMBER_OF_QUESTIONS = 20;
 const MAX_NUMBER_OF_QUESTIONS = 100; // Set a reasonable max
-const QUESTIONS_PER_BATCH = 1; // Number of questions to generate per task
+const QUESTIONS_PER_BATCH = 100; // Number of questions to generate per task
 
 /**
  * Creates a new exam and queues questions for generation

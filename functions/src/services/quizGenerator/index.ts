@@ -124,7 +124,7 @@ export const quizGeneratorPromise = aiInstancePromise.then((ai) => {
         const { response, stream } = ai.generateStream({
           prompt: prompt,
           config: {
-            maxOutputTokens: 4096,
+            maxOutputTokens: 4096 * 20,
             temperature: 0.7,
             topP: 0.9,
             topK: 40,

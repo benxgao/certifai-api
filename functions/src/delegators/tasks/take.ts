@@ -181,10 +181,11 @@ const handler = async (req: any | CustomRequest, res: Response) => {
           0,
           (exam.total_questions || 0) - questionsGenerated,
         );
-        const questionsForNextBatch = Math.min(
-          questions_per_batch,
-          remainingQuestions,
-        );
+        // Use total number of remaining questions if it's less than questions_per_batch
+        const questionsForNextBatch =
+          remainingQuestions < questions_per_batch
+            ? remainingQuestions
+            : questions_per_batch;
 
         // Only create next batch if there are questions remaining
         if (questionsForNextBatch <= 0) {

@@ -99,7 +99,7 @@ model Certification {
 model User {
   user_id          String  @id @default(uuid())
   firebase_user_id String? @unique
-  credit_tokens    Int     @default(0)
+  credit_tokens    Int     @default(300)
   energy_tokens    Int     @default(0)
 
   created_at DateTime @default(now())
@@ -178,7 +178,7 @@ model ExamAttempt {
   exam_status        ExamStatus @default(PENDING_QUESTIONS)
   total_questions    Int?
   score              Float?
-  token_cost         Int        @default(0)
+  token_cost         Int        @default(60)
   custom_prompt_text String? // Store the custom prompt used for question generation
   started_at         DateTime   @default(now())
   submitted_at       DateTime?
