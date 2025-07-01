@@ -7,6 +7,12 @@ import {
   getPublicCertificationById,
   getPublicCertificationsByFirm,
 } from './certifications';
+import {
+  getCacheHealth,
+  clearAllCache,
+  clearFirmsCache,
+  clearCertificationsCache,
+} from '../cache';
 
 const router = Router();
 
@@ -41,6 +47,30 @@ router.get(
   '/certifications/:certId',
   verifyJWTToken,
   getPublicCertificationById,
+);
+
+/** ******************* CACHE MANAGEMENT ************************* */
+
+// Get cache health status
+router.get('/cache/health', verifyJWTToken, getCacheHealth);
+
+// Clear all cache (admin function)
+router.delete('/cache', verifyJWTToken, clearAllCache);
+
+// Clear firms cache
+router.delete('/cache/firms', verifyJWTToken, clearFirmsCache);
+router.delete('/cache/firms/:firmId', verifyJWTToken, clearFirmsCache);
+
+// Clear certifications cache
+router.delete(
+  '/cache/certifications',
+  verifyJWTToken,
+  clearCertificationsCache,
+);
+router.delete(
+  '/cache/certifications/:certId',
+  verifyJWTToken,
+  clearCertificationsCache,
 );
 
 export default router;

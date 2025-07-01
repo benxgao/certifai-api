@@ -187,13 +187,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       include: {
         quizQuestion: {
           include: {
-            answerOptions: {
-              select: {
-                option_id: true,
-                option_text: true,
-                is_correct: true, // Always fetch the true correctness of the option
-              },
-            },
+            answerOptions: true, // Include all answer option fields
           },
         },
         // selected_option_id and is_correct (for the user's answer) from ExamUserAnswers are included by default

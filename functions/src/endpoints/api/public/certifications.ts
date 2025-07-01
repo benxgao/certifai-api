@@ -7,6 +7,12 @@ import {
   findManyWithCount,
 } from '../../../utils/pagination';
 import { AuthenticatedRequest } from '../../../middlewares/jwtAuth';
+import {
+  RedisService,
+  CACHE_CONFIG,
+  generatePaginatedCacheKey,
+  generateItemCacheKey,
+} from '../../../services/redis';
 
 /**
  * Get all certifications with pagination (public endpoint)
@@ -26,39 +32,51 @@ export const getPublicCertifications = async (
       maxPageSize: 100,
     });
 
-    // Execute findMany and count in parallel
-    const { data: certifications, total } = await findManyWithCount(
-      prismaInstance.certification.findMany({
-        skip: paginationParams.skip,
-        take: paginationParams.take,
-        select: {
-          cert_id: true,
-          name: true,
-          exam_guide_url: true,
-          min_quiz_counts: true,
-          max_quiz_counts: true,
-          pass_score: true,
-          firm: {
-            select: {
-              firm_id: true,
-              name: true,
-              code: true,
-              logo_url: true,
-            },
-          },
-        },
-        orderBy: {
-          name: 'asc',
-        },
-      }),
-      prismaInstance.certification.count(),
+    // Generate cache key for this specific page and size
+    const cacheKey = generatePaginatedCacheKey(
+      CACHE_CONFIG.KEYS.CERTIFICATIONS_LIST,
+      paginationParams.page,
+      paginationParams.take,
     );
 
-    // Create paginated response
-    const response = createPaginatedResponse(
-      certifications,
-      total,
-      paginationParams,
+    // Try to get from cache first, or fetch and cache
+    const response = await RedisService.getOrSet(
+      cacheKey,
+      async () => {
+        logger.info('Cache miss - fetching certifications from database');
+
+        // Execute findMany and count in parallel
+        const { data: certifications, total } = await findManyWithCount(
+          prismaInstance.certification.findMany({
+            skip: paginationParams.skip,
+            take: paginationParams.take,
+            select: {
+              cert_id: true,
+              name: true,
+              exam_guide_url: true,
+              min_quiz_counts: true,
+              max_quiz_counts: true,
+              pass_score: true,
+              firm: {
+                select: {
+                  firm_id: true,
+                  name: true,
+                  code: true,
+                  logo_url: true,
+                },
+              },
+            },
+            orderBy: {
+              name: 'asc',
+            },
+          }),
+          prismaInstance.certification.count(),
+        );
+
+        // Create paginated response
+        return createPaginatedResponse(certifications, total, paginationParams);
+      },
+      CACHE_CONFIG.CERTIFICATIONS_TTL,
     );
 
     res.status(200).json(response);
@@ -95,36 +113,121 @@ export const getPublicCertificationById = async (
       )}`,
     );
 
-    const certification = await prismaInstance.certification.findUnique({
-      where: {
-        cert_id: certId,
-      },
-      select: {
-        cert_id: true,
-        name: true,
-        exam_guide_url: true,
-        min_quiz_counts: true,
-        max_quiz_counts: true,
-        pass_score: true,
-        firm: {
-          select: {
-            firm_id: true,
-            name: true,
-            code: true,
-            description: true,
-            website_url: true,
-            logo_url: true,
-          },
-        },
-        _count: {
-          select: {
-            userCertifications: true,
-          },
-        },
-      },
-    });
+    // Generate cache key for this specific certification
+    const cacheKey = generateItemCacheKey(
+      CACHE_CONFIG.KEYS.CERTIFICATION_BY_ID,
+      certId,
+    );
 
-    if (!certification) {
+    // Try to get from cache first, or fetch and cache
+    const result = await RedisService.getOrSet(
+      cacheKey,
+      async () => {
+        logger.info(
+          `Cache miss - fetching certification ${certId} from database`,
+        );
+
+        const certification = await prismaInstance.certification.findUnique({
+          where: {
+            cert_id: certId,
+          },
+          select: {
+            cert_id: true,
+            name: true,
+            exam_guide_url: true,
+            min_quiz_counts: true,
+            max_quiz_counts: true,
+            pass_score: true,
+            firm: {
+              select: {
+                firm_id: true,
+                name: true,
+                code: true,
+                description: true,
+                website_url: true,
+                logo_url: true,
+              },
+            },
+            _count: {
+              select: {
+                userCertifications: true,
+              },
+            },
+          },
+        });
+
+        if (!certification) {
+          return null;
+        }
+
+        // Get related certifications from the same firm
+        const relatedCertifications =
+          await prismaInstance.certification.findMany({
+            where: {
+              firm_id: certification.firm.firm_id,
+              cert_id: {
+                not: certId,
+              },
+            },
+            select: {
+              cert_id: true,
+              name: true,
+              exam_guide_url: true,
+              min_quiz_counts: true,
+              max_quiz_counts: true,
+              pass_score: true,
+            },
+            take: 5,
+            orderBy: {
+              name: 'asc',
+            },
+          });
+
+        // Transform the data to match frontend expectations
+        const transformedCertification = {
+          cert_id: certification.cert_id,
+          name: certification.name,
+          description:
+            certification.exam_guide_url ||
+            `Learn about ${certification.name} certification and advance your career.`,
+          min_quiz_counts: certification.min_quiz_counts,
+          max_quiz_counts: certification.max_quiz_counts,
+          pass_score: certification.pass_score,
+          created_at: new Date().toISOString(), // Since schema doesn't have created_at, use current time
+          updated_at: new Date().toISOString(), // Since schema doesn't have updated_at, use current time
+          firm: {
+            id: certification.firm.firm_id,
+            code: certification.firm.code,
+            name: certification.firm.name,
+            description: certification.firm.description || '',
+            website_url: certification.firm.website_url,
+            logo_url: certification.firm.logo_url,
+          },
+          enrollment_count: certification._count.userCertifications || 0,
+          related_certifications: relatedCertifications.map((cert) => ({
+            cert_id: cert.cert_id,
+            name: cert.name,
+            description:
+              cert.exam_guide_url || `Learn about ${cert.name} certification.`,
+            min_quiz_counts: cert.min_quiz_counts,
+            max_quiz_counts: cert.max_quiz_counts,
+            pass_score: cert.pass_score,
+          })),
+        };
+
+        return {
+          success: true,
+          data: transformedCertification,
+          meta: {
+            related_count: relatedCertifications.length,
+            timestamp: new Date().toISOString(),
+          },
+        };
+      },
+      CACHE_CONFIG.CERTIFICATION_BY_ID_TTL,
+    );
+
+    if (!result) {
       res.status(404).json({
         error: 'Not Found',
         message: 'Certification not found',
@@ -132,68 +235,7 @@ export const getPublicCertificationById = async (
       return;
     }
 
-    // Get related certifications from the same firm
-    const relatedCertifications = await prismaInstance.certification.findMany({
-      where: {
-        firm_id: certification.firm.firm_id,
-        cert_id: {
-          not: certId,
-        },
-      },
-      select: {
-        cert_id: true,
-        name: true,
-        exam_guide_url: true,
-        min_quiz_counts: true,
-        max_quiz_counts: true,
-        pass_score: true,
-      },
-      take: 5,
-      orderBy: {
-        name: 'asc',
-      },
-    });
-
-    // Transform the data to match frontend expectations
-    const transformedCertification = {
-      cert_id: certification.cert_id,
-      name: certification.name,
-      description:
-        certification.exam_guide_url ||
-        `Learn about ${certification.name} certification and advance your career.`,
-      min_quiz_counts: certification.min_quiz_counts,
-      max_quiz_counts: certification.max_quiz_counts,
-      pass_score: certification.pass_score,
-      created_at: new Date().toISOString(), // Since schema doesn't have created_at, use current time
-      updated_at: new Date().toISOString(), // Since schema doesn't have updated_at, use current time
-      firm: {
-        id: certification.firm.firm_id,
-        code: certification.firm.code,
-        name: certification.firm.name,
-        description: certification.firm.description || '',
-        website_url: certification.firm.website_url,
-        logo_url: certification.firm.logo_url,
-      },
-      enrollment_count: certification._count.userCertifications || 0,
-      related_certifications: relatedCertifications.map((cert) => ({
-        cert_id: cert.cert_id,
-        name: cert.name,
-        description:
-          cert.exam_guide_url || `Learn about ${cert.name} certification.`,
-        min_quiz_counts: cert.min_quiz_counts,
-        max_quiz_counts: cert.max_quiz_counts,
-        pass_score: cert.pass_score,
-      })),
-    };
-
-    res.status(200).json({
-      success: true,
-      data: transformedCertification,
-      meta: {
-        related_count: relatedCertifications.length,
-        timestamp: new Date().toISOString(),
-      },
-    });
+    res.status(200).json(result);
   } catch (error) {
     logger.error(`Error getting public certification by ID: ${error}`);
     res.status(500).json({
@@ -233,13 +275,74 @@ export const getPublicCertificationsByFirm = async (
       maxPageSize: 50,
     });
 
-    // First check if firm exists
-    const firm = await prismaInstance.firm.findUnique({
-      where: { firm_id: firmId },
-      select: { firm_id: true, name: true, code: true },
-    });
+    // Generate cache key for this specific firm, page and size
+    const cacheKey = generatePaginatedCacheKey(
+      CACHE_CONFIG.KEYS.CERTIFICATIONS_BY_FIRM,
+      paginationParams.page,
+      paginationParams.take,
+      { firmId },
+    );
 
-    if (!firm) {
+    // Try to get from cache first, or fetch and cache
+    const result = await RedisService.getOrSet(
+      cacheKey,
+      async () => {
+        logger.info(
+          `Cache miss - fetching certifications for firm ${firmId} from database`,
+        );
+
+        // First check if firm exists
+        const firm = await prismaInstance.firm.findUnique({
+          where: { firm_id: firmId },
+          select: { firm_id: true, name: true, code: true },
+        });
+
+        if (!firm) {
+          return null;
+        }
+
+        // Execute findMany and count in parallel
+        const { data: certifications, total } = await findManyWithCount(
+          prismaInstance.certification.findMany({
+            where: {
+              firm_id: firmId,
+            },
+            skip: paginationParams.skip,
+            take: paginationParams.take,
+            select: {
+              cert_id: true,
+              name: true,
+              exam_guide_url: true,
+              min_quiz_counts: true,
+              max_quiz_counts: true,
+              pass_score: true,
+              firm: {
+                select: {
+                  firm_id: true,
+                  name: true,
+                  code: true,
+                  logo_url: true,
+                },
+              },
+            },
+            orderBy: {
+              name: 'asc',
+            },
+          }),
+          prismaInstance.certification.count({
+            where: {
+              firm_id: firmId,
+            },
+          }),
+        );
+
+        // Create paginated response
+        return createPaginatedResponse(certifications, total, paginationParams);
+      },
+      CACHE_CONFIG.CERTIFICATIONS_BY_FIRM_TTL,
+    );
+
+    if (!result) {
       res.status(404).json({
         error: 'Not Found',
         message: 'Firm not found',
@@ -247,49 +350,7 @@ export const getPublicCertificationsByFirm = async (
       return;
     }
 
-    // Execute findMany and count in parallel
-    const { data: certifications, total } = await findManyWithCount(
-      prismaInstance.certification.findMany({
-        where: {
-          firm_id: firmId,
-        },
-        skip: paginationParams.skip,
-        take: paginationParams.take,
-        select: {
-          cert_id: true,
-          name: true,
-          exam_guide_url: true,
-          min_quiz_counts: true,
-          max_quiz_counts: true,
-          pass_score: true,
-          firm: {
-            select: {
-              firm_id: true,
-              name: true,
-              code: true,
-              logo_url: true,
-            },
-          },
-        },
-        orderBy: {
-          name: 'asc',
-        },
-      }),
-      prismaInstance.certification.count({
-        where: {
-          firm_id: firmId,
-        },
-      }),
-    );
-
-    // Create paginated response
-    const response = createPaginatedResponse(
-      certifications,
-      total,
-      paginationParams,
-    );
-
-    res.status(200).json(response);
+    res.status(200).json(result);
   } catch (error) {
     logger.error(`Error getting public certifications by firm: ${error}`);
     res.status(500).json({

@@ -42,6 +42,9 @@ jobs:
 
           echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> .env
           echo "PUBLIC_JWT_SECRET=${{ secrets.PUBLIC_JWT_SECRET }}" >> .env
+
+          echo "UPSTASH_REDIS_REST_URL=${{ secrets.UPSTASH_REDIS_REST_URL }}" >> .env
+          echo "UPSTASH_REDIS_REST_TOKEN=${{ secrets.UPSTASH_REDIS_REST_TOKEN }}" >> .env
         working-directory: functions
 
       - name: Deploy Firebase Functions
