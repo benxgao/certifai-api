@@ -115,6 +115,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
             cert_id,
             question_text: question.question,
             explanations: question.explanation,
+            exam_topic: question.examTopic,
             generated_from: exam_id,
             difficulty: null, // You might want to set this
           },

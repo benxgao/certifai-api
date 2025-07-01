@@ -134,6 +134,7 @@ model QuizQuestion {
   difficulty    DifficultyLevel?
   question_text String
   explanations  String?
+  exam_topic    String?
 
   created_at    DateTime @default(now())
   updated_at    DateTime @updatedAt

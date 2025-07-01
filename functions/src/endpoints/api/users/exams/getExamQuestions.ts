@@ -27,6 +27,7 @@ type QuestionResponse = {
   user_answer_id: string; // ID of the ExamUserAnswers record
   selected_option_id: string | null;
   explanations?: string | null;
+  exam_topic?: string | null;
   user_answer_is_correct?: boolean | null;
   answerOptions: AnswerOptionResponse[];
 };
@@ -220,7 +221,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
         difficulty: quizQuestion.difficulty,
         generated_from: quizQuestion.generated_from,
         cert_id: quizQuestion.cert_id,
-
+        exam_topic: quizQuestion.exam_topic || null, // Include exam topic if available
         user_answer_id: eau.user_answer_id,
         selected_option_id: eau.selected_option_id, // Always include user's selection
 

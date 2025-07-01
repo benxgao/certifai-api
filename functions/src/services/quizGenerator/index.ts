@@ -7,8 +7,8 @@ const QuizSchema = z.object({
   question: z.string(),
   choices: z.array(z.string()),
   answerIndex: z.number(),
-  topic: z.string().optional(),
   explanation: z.string(),
+  examTopic: z.string(),
   exam_id: z.string(),
 });
 
@@ -67,10 +67,11 @@ const buildQuizPrompt = (
     2. All 4 choices plausible and technically accurate
     3. Wrong answers: common misconceptions, not obvious fakes
     4. Make questions text simple and clear, avoiding unnecessary complexity
+    5. examTopic should be keyword from exam guide, not a full sentence
 
     CONSTRUCTION:
     - Business scenarios with specific constraints
-    - Exact 4 options, consistent grammar
+    - Exact 4 options, can be commands, code snippets, or concepts
   `;
 
   const customSection = customPromptText?.trim()
@@ -82,7 +83,7 @@ const buildQuizPrompt = (
     "choices": ["string", "string", "string", "string"],
     "answerIndex": 0,
     "explanation": "string",
-    "topic": "string"
+    "examTopic": "string"
     }]
     Explanation: why correct answer is best, why others inadequate.
   `;
