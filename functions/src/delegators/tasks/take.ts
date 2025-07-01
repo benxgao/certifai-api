@@ -108,14 +108,34 @@ const handler = async (req: any | CustomRequest, res: Response) => {
         `EXAM_BATCH_SUCCESS: exam_id=${exam_id}, batch=${batch_number}, generated=${generatedQuestions.length}`,
       );
 
+      // Log examTopic values for debugging
+      const examTopics = generatedQuestions
+        .map((q) => q.examTopic)
+        .filter((t) => t);
+      logger.info(`Generated examTopics: ${JSON.stringify(examTopics)}`, {
+        exam_id,
+        batch_number,
+      });
+
       // Store questions in database
       for (const question of generatedQuestions) {
+        // Validate that examTopic is present before saving
+        if (!question.examTopic || question.examTopic.trim() === '') {
+          logger.warn(
+            `Skipping question with missing examTopic: ${question.question?.substring(
+              0,
+              50,
+            )}...`,
+          );
+          continue;
+        }
+
         const createdQuestion = await prismaInstance.quizQuestion.create({
           data: {
             cert_id,
             question_text: question.question,
             explanations: question.explanation,
-            exam_topic: question.examTopic,
+            exam_topic: question.examTopic.trim().toLowerCase(),
             generated_from: exam_id,
             difficulty: null, // You might want to set this
           },

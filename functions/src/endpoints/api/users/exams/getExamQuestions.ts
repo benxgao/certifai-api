@@ -194,7 +194,6 @@ const handler = async (req: any | CustomRequest, res: Response) => {
                 is_correct: true, // Always fetch the true correctness of the option
               },
             },
-            // explanations field from QuizQuestion is included by default here
           },
         },
         // selected_option_id and is_correct (for the user's answer) from ExamUserAnswers are included by default
@@ -212,6 +211,14 @@ const handler = async (req: any | CustomRequest, res: Response) => {
 
     const questions = examUserAnswers.map((eau) => {
       const { quizQuestion } = eau;
+
+      // Debug log to check exam_topic values
+      if (!quizQuestion.exam_topic) {
+        logger.warn(
+          `Question ${quizQuestion.quiz_question_id} has null exam_topic`,
+        );
+      }
+
       const isExamSubmittedAndScored =
         exam.score !== null && exam.submitted_at !== null;
 
@@ -244,6 +251,16 @@ const handler = async (req: any | CustomRequest, res: Response) => {
 
       return questionResponse;
     });
+
+    // Debug log to check all exam_topic values being returned
+    const examTopics = questions.map((q) => ({
+      id: q.quiz_question_id,
+      topic: q.exam_topic,
+    }));
+    logger.info(
+      `Returning questions with exam_topics: ${JSON.stringify(examTopics)}`,
+      { exam_id },
+    );
 
     // Create paginated response using our utility
     const response = createPaginatedResponse(

@@ -67,11 +67,12 @@ const buildQuizPrompt = (
     2. All 4 choices plausible and technically accurate
     3. Wrong answers: common misconceptions, not obvious fakes
     4. Make questions text simple and clear, avoiding unnecessary complexity
-    5. examTopic should be keyword from exam guide, not a full sentence
+    5. examTopic MUST be a concise keyword or phrase (2-4 words) representing the main topic area (e.g., "IAM Policies", "VPC Networking", "Database Security", "Load Balancing")
 
     CONSTRUCTION:
     - Business scenarios with specific constraints
     - Exact 4 options, can be commands, code snippets, or concepts
+    - Each question MUST have a relevant examTopic that categorizes the question's subject area
   `;
 
   const customSection = customPromptText?.trim()
@@ -83,9 +84,10 @@ const buildQuizPrompt = (
     "choices": ["string", "string", "string", "string"],
     "answerIndex": 0,
     "explanation": "string",
-    "examTopic": "string"
+    "examTopic": "string (REQUIRED - concise topic category)"
     }]
     Explanation: why correct answer is best, why others inadequate.
+    IMPORTANT: Every question MUST include a meaningful examTopic value.
   `;
 
   return basePrompt + customSection + formatSection;
@@ -150,8 +152,35 @@ export const quizGeneratorPromise = aiInstancePromise.then((ai) => {
           throw new Error('No valid quiz items generated.');
         }
 
+        // Validate and filter questions with missing examTopic
+        const validQuizItems = actualQuizItems.filter((item) => {
+          const hasValidTopic = item.examTopic && item.examTopic.trim() !== '';
+          if (!hasValidTopic) {
+            logger.warn(
+              `Question filtered out due to missing examTopic: ${item.question?.substring(
+                0,
+                50,
+              )}...`,
+            );
+          }
+          return hasValidTopic;
+        });
+
+        if (validQuizItems.length === 0) {
+          logger.error('No questions generated with valid examTopic values');
+          throw new Error('No questions generated with valid examTopic values');
+        }
+
+        if (validQuizItems.length < actualQuizItems.length) {
+          logger.warn(
+            `Filtered out ${
+              actualQuizItems.length - validQuizItems.length
+            } questions with missing examTopic`,
+          );
+        }
+
         // Associate exam_id with each quiz item
-        const quizItemsWithExamId = actualQuizItems.map((item) => ({
+        const quizItemsWithExamId = validQuizItems.map((item) => ({
           ...item,
           exam_id,
         }));
