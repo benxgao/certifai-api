@@ -3,10 +3,12 @@ import logger from '../../../../services/firebase/logger';
 import { CustomRequest } from '../../../../types';
 import prismaInstance, { ExamStatus } from '../../../../services/prisma';
 import { createCloudTask } from '../../../../services/gcp/cloudTasks';
+import { checkExamRateLimit } from '../../../../services/examRateLimit';
 
 const DEFAULT_NUMBER_OF_QUESTIONS = 20;
 const MAX_NUMBER_OF_QUESTIONS = 100; // Set a reasonable max
 const QUESTIONS_PER_BATCH = 100; // Number of questions to generate per task
+export const MAX_EXAMS_PER_24_HOURS = 3; // Maximum number of exams allowed per user in 24 hours
 
 /**
  * Creates a new exam and queues questions for generation
@@ -103,7 +105,32 @@ const handler = async (
       return;
     }
 
-    // 3. Verify the certification exists
+    // 3. Check rate limit: Maximum 3 exams per 24 hours
+    const rateLimitResult = await checkExamRateLimit(user_id);
+    if (!rateLimitResult.isAllowed) {
+      logger.warn(
+        `Rate limit exceeded for user ${user_id}: ${rateLimitResult.currentCount}/${MAX_EXAMS_PER_24_HOURS} exams in 24 hours`,
+      );
+      res.status(429).json({
+        success: false,
+        error:
+          rateLimitResult.error ||
+          'Rate limit exceeded. You can create a maximum of 3 exams per 24 hours.',
+        data: {
+          maxExamsAllowed: MAX_EXAMS_PER_24_HOURS,
+          currentCount: rateLimitResult.currentCount,
+          remainingCount: rateLimitResult.remainingCount,
+          resetTime: new Date(rateLimitResult.resetTimeMs).toISOString(),
+        },
+      });
+      return;
+    }
+
+    logger.info(
+      `Rate limit check passed for user ${user_id}: ${rateLimitResult.currentCount}/${MAX_EXAMS_PER_24_HOURS} exams used`,
+    );
+
+    // 4. Verify the certification exists
     const certification = await prismaInstance.certification.findUnique({
       where: { cert_id: certIdNumber },
     });
@@ -116,7 +143,7 @@ const handler = async (
       return;
     }
 
-    // 4. Calculate token cost and check if user has enough credit tokens
+    // 5. Calculate token cost and check if user has enough credit tokens
     const tokenCost = requestedNumberOfQuestions * 2;
 
     if (user.credit_tokens < tokenCost) {
@@ -131,7 +158,7 @@ const handler = async (
       `User ${user.user_id} has sufficient credit tokens. Required: ${tokenCost}, Available: ${user.credit_tokens}`,
     );
 
-    // 5. Create the exam with QUESTIONS_GENERATING status and store token cost
+    // 6. Create the exam with QUESTIONS_GENERATING status and store token cost
     const newExam = await prismaInstance.examAttempt.create({
       data: {
         user: { connect: { user_id: user.user_id } },
@@ -147,7 +174,7 @@ const handler = async (
       `EXAM_CREATE_SUCCESS: exam_id=${newExam.exam_id}, user_id=${user.user_id}, status=QUESTIONS_GENERATING`,
     );
 
-    // 5. Calculate batches and start question generation via Cloud Tasks
+    // 7. Calculate batches and start question generation via Cloud Tasks
     const totalBatches = Math.ceil(
       requestedNumberOfQuestions / QUESTIONS_PER_BATCH,
     );

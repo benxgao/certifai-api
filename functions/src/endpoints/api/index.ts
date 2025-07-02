@@ -18,6 +18,7 @@ import getUserCertifications from './users/certifications/getUserCertifications'
 import answerUserExamQuestions from './users/exams/answerUserExamQuestions';
 import submitExamForUser from './users/exams/submitExamForUser';
 import getUserProfile from './users/getUserProfile';
+import getRateLimit from './users/getRateLimit';
 
 const router = createRouter();
 
@@ -48,6 +49,9 @@ router.post('/auth/generate-service-token', generateServiceToken);
 
 // Get user profile (including credit tokens)
 router.get('/users/:user_id/profile', verifyFirebaseToken, getUserProfile);
+
+// Get user rate limit information
+router.get('/users/:user_id/rate-limit', verifyFirebaseToken, getRateLimit);
 
 // Register a certification for a user
 router.post(
