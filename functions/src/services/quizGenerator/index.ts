@@ -79,15 +79,17 @@ const buildQuizPrompt = (
     ? `ADDITIONAL FOCUS:${customPromptText.trim()}`
     : '';
 
-  const formatSection = `JSON format:[{
-    "question": "string",
-    "choices": ["string", "string", "string", "string"],
-    "answerIndex": 0,
-    "explanation": "string",
-    "examTopic": "string (REQUIRED - concise topic category)"
+  const formatSection = `
+    JSON format:[{
+      "question": "string",
+      "choices": ["string", "string", "string", "string"],
+      "answerIndex": 0,
+      "explanation": "string",
+      "examTopic": "string (REQUIRED - concise topic category)"
     }]
-    Explanation: why correct answer is best, why others inadequate.
-    IMPORTANT: Every question MUST include a meaningful examTopic value.
+
+    Explanation: simple sentences to exlain why correct option is correct and why wrong answers are wrong.
+    IMPORTANT: Each question MUST have a unique examTopic value that is relevant to the question's content.
   `;
 
   return basePrompt + customSection + formatSection;
@@ -127,7 +129,7 @@ export const quizGeneratorPromise = aiInstancePromise.then((ai) => {
         const { response, stream } = ai.generateStream({
           prompt: prompt,
           config: {
-            maxOutputTokens: 4096 * 20,
+            maxOutputTokens: 4096 * 30,
             temperature: 0.7,
             topP: 0.9,
             topK: 40,
