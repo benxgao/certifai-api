@@ -17,6 +17,7 @@ import createExam from './users/exams/createExam';
 import getUserCertifications from './users/certifications/getUserCertifications';
 import answerUserExamQuestions from './users/exams/answerUserExamQuestions';
 import submitExamForUser from './users/exams/submitExamForUser';
+import deleteExam from './users/exams/deleteExam';
 import getUserProfile from './users/getUserProfile';
 import getRateLimit from './users/getRateLimit';
 
@@ -108,6 +109,13 @@ router.post(
   '/users/:user_id/certifications/:cert_id/exams/:exam_id/submit',
   verifyFirebaseToken,
   submitExamForUser,
+);
+
+// Delete a user exam (only failed exams)
+router.delete(
+  '/users/:user_id/exams/:exam_id',
+  verifyFirebaseToken,
+  deleteExam,
 );
 
 export default router;
