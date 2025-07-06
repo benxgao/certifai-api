@@ -4,9 +4,15 @@ import { CustomRequest } from '../../../../types';
 import prismaInstance, { ExamStatus } from '../../../../services/prisma';
 
 /**
- * Deletes an exam that failed question generation
+ * Deletes an exam that failed question generation along with all associated data
  * Only allows deletion of exams with QUESTION_GENERATION_FAILED status
  * to prevent accidental deletion of active or completed exams
+ *
+ * This endpoint deletes:
+ * 1. All quiz questions that were generated specifically for this exam (generated_from = exam_id)
+ * 2. All answer options for those quiz questions
+ * 3. All exam user answers for this exam
+ * 4. The exam attempt record itself
  */
 const handler = async (req: any | CustomRequest, res: Response) => {
   try {
@@ -95,20 +101,45 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       return;
     }
 
-    // Check if exam has any associated user answers (questions that were generated)
-    const examUserAnswers = await prismaInstance.examUserAnswer.count({
-      where: { exam_id },
-    });
+    // Get all quiz questions that were specifically generated for this exam and exam user answers count in parallel
+    const [associatedQuizQuestions, examUserAnswersCount] = await Promise.all([
+      prismaInstance.quizQuestion.findMany({
+        where: { generated_from: exam_id },
+        select: { quiz_question_id: true },
+      }),
+      prismaInstance.examUserAnswer.count({
+        where: { exam_id },
+      }),
+    ]);
+
+    // Extract question IDs once for reuse
+    const questionIds = associatedQuizQuestions.map((q) => q.quiz_question_id);
+
+    logger.info(
+      `deleteExam: Found ${questionIds.length} quiz questions and ${examUserAnswersCount} user answers to delete for exam ${exam_id}`,
+    );
 
     // Use a transaction to ensure all related data is cleaned up atomically
     await prismaInstance.$transaction(async (prisma) => {
       // Delete any exam user answers (if any exist)
-      if (examUserAnswers > 0) {
+      if (examUserAnswersCount > 0) {
         await prisma.examUserAnswer.deleteMany({
           where: { exam_id },
         });
         logger.info(
-          `deleteExam: Deleted ${examUserAnswers} exam user answers for exam ${exam_id}`,
+          `deleteExam: Deleted ${examUserAnswersCount} exam user answers for exam ${exam_id}`,
+        );
+      }
+
+      // Delete quiz questions that were generated specifically for this exam
+      // Answer options will be automatically deleted due to onDelete: Cascade
+      if (questionIds.length > 0) {
+        const deletedQuestions = await prisma.quizQuestion.deleteMany({
+          where: { generated_from: exam_id },
+        });
+
+        logger.info(
+          `deleteExam: Deleted ${deletedQuestions.count} quiz questions (and their answer options) generated for exam ${exam_id}`,
         );
       }
 
@@ -134,7 +165,9 @@ const handler = async (req: any | CustomRequest, res: Response) => {
         exam_status: exam.exam_status,
         total_questions: exam.total_questions,
         token_cost: exam.token_cost,
-        deleted_answers: examUserAnswers,
+        deleted_answers: examUserAnswersCount,
+        deleted_quiz_questions: questionIds.length,
+        deleted_quiz_question_ids: questionIds,
       },
     });
   } catch (error) {

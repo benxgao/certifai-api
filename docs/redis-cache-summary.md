@@ -2,7 +2,7 @@
 
 ## Overview
 
-I have successfully implemented a comprehensive Redis cache layer for the Certifai API using @upstash/redis. This implementation will significantly improve the performance of public firms and certifications endpoints by caching frequently accessed data.
+I have successfully implemented a comprehensive Redis cache layer for the API using @upstash/redis. This implementation will significantly improve the performance of public firms and certifications endpoints by caching frequently accessed data.
 
 ## What Was Implemented
 

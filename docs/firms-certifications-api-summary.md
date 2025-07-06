@@ -1,4 +1,4 @@
-# Certifai API: Firms & Certifications Endpoints Summary
+# API: Firms & Certifications Endpoints Summary
 
 This document provides a simple summary of the main API endpoints related to **firms** and **certifications** in the `certifai-api` project.
 

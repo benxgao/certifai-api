@@ -1,6 +1,6 @@
 # Redis Cache Implementation for Public API
 
-This document explains the Redis cache layer implementation for the Certifai API public endpoints.
+This document explains the Redis cache layer implementation for the API public endpoints.
 
 ## Overview
 

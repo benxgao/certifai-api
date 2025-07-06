@@ -13,4 +13,9 @@ setGlobalOptions({
 
 export const endpoints = onRequest(apiEndpoints);
 
-export const delegators = onRequest(serviceDelegators);
+export const delegators = onRequest(
+  {
+    timeoutSeconds: 180,
+  },
+  serviceDelegators,
+);
