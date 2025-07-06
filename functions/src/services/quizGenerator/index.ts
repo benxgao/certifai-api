@@ -1,7 +1,11 @@
 import { genkit, z, FlowSideChannel, Genkit } from 'genkit';
 import { googleAI, gemini20Flash } from '@genkit-ai/googleai';
+import { enableFirebaseTelemetry } from '@genkit-ai/firebase';
+
 import logger from '../firebase/logger';
 import { getSecret } from '../gcp/secretManager';
+
+enableFirebaseTelemetry();
 
 const QuizSchema = z.object({
   question: z.string(),
