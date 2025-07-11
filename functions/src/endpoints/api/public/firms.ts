@@ -8,11 +8,11 @@ import {
 } from '../../../utils/pagination';
 import { AuthenticatedRequest } from '../../../middlewares/jwtAuth';
 import {
-  RedisService,
   CACHE_CONFIG,
   generatePaginatedCacheKey,
   generateItemCacheKey,
 } from '../../../services/redis';
+import { CacheHierarchyService } from '../../../services/cache/cacheHierarchy';
 
 /**
  * Get all firms with pagination (public endpoint)
@@ -38,7 +38,7 @@ export const getPublicFirms = async (
     );
 
     // Try to get from cache first, or fetch and cache
-    const response = await RedisService.getOrSet(
+    const response = await CacheHierarchyService.getOrSet(
       cacheKey,
       async () => {
         logger.info('Cache miss - fetching firms from database');
@@ -111,7 +111,7 @@ export const getPublicFirmById = async (
     const cacheKey = generateItemCacheKey(CACHE_CONFIG.KEYS.FIRM_BY_ID, firmId);
 
     // Try to get from cache first, or fetch and cache
-    const firm = await RedisService.getOrSet(
+    const firm = await CacheHierarchyService.getOrSet(
       cacheKey,
       async () => {
         logger.info(`Cache miss - fetching firm ${firmId} from database`);

@@ -12,6 +12,7 @@ import {
   formatRateLimitResponse,
 } from '../../../../utils/examRateLimit';
 import { RedisService, CACHE_CONFIG } from '../../../../services/redis';
+import { CacheHierarchyService } from '../../../../services/cache/cacheHierarchy';
 
 /**
  * Handler for getting all exams for a user with enhanced sorting capabilities
@@ -141,7 +142,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
     );
 
     // Try to get from cache first, or fetch and cache
-    const { data: examsFromDb, total } = await RedisService.getOrSet(
+    const { data: examsFromDb, total } = await CacheHierarchyService.getOrSet(
       cacheKey,
       async () => {
         logger.info(
@@ -165,7 +166,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
         );
       },
       CACHE_CONFIG.USER_EXAMS_TTL,
-      true, // Use memory cache for frequently accessed user data
+      { forceMemoryCache: true }, // Use memory cache for frequently accessed user data
     );
 
     console.log('get_user_exams: examsFromDb', examsFromDb);

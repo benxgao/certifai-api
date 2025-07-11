@@ -1,7 +1,74 @@
 import logger from '../firebase/logger';
-import { RedisService } from '../redis';
+import { Redis } from '@upstash/redis';
 import { MemoryCache } from './memoryCache';
 import { PerformanceMonitor } from '../performance';
+
+/**
+ * Simple Redis client for cache hierarchy (avoiding circular dependencies)
+ */
+class SimpleRedisClient {
+  private static redis: Redis;
+
+  static getClient(): Redis {
+    if (!SimpleRedisClient.redis) {
+      SimpleRedisClient.redis = new Redis({
+        url: process.env.UPSTASH_REDIS_REST_URL!,
+        token: process.env.UPSTASH_REDIS_REST_TOKEN!,
+        retry: {
+          retries: 3,
+          backoff: (retryCount: number) => Math.min(1000 * retryCount, 5000),
+        },
+        automaticDeserialization: false,
+      });
+    }
+    return SimpleRedisClient.redis;
+  }
+
+  static async get<T>(key: string): Promise<T | null> {
+    try {
+      const redis = this.getClient();
+      const data = await redis.get(key);
+      if (data === null) {
+        return null;
+      }
+      // Parse JSON string from Redis since automaticDeserialization is false
+      return JSON.parse(data as string) as T;
+    } catch (error) {
+      logger.error(`Redis GET error for key ${key}: ${error}`);
+      return null;
+    }
+  }
+
+  static async set(key: string, data: any, ttl: number): Promise<void> {
+    try {
+      const redis = this.getClient();
+      await redis.setex(key, ttl, JSON.stringify(data));
+    } catch (error) {
+      logger.error(`Redis SET error for key ${key}: ${error}`);
+    }
+  }
+
+  static async del(key: string): Promise<void> {
+    try {
+      const redis = this.getClient();
+      await redis.del(key);
+    } catch (error) {
+      logger.error(`Redis DELETE error for key ${key}: ${error}`);
+    }
+  }
+
+  static async delPattern(pattern: string): Promise<void> {
+    try {
+      const redis = this.getClient();
+      const keys = await redis.keys(pattern);
+      if (keys.length > 0) {
+        await redis.del(...keys);
+      }
+    } catch (error) {
+      logger.error(`Redis DELETE pattern error for ${pattern}: ${error}`);
+    }
+  }
+}
 
 /**
  * Bounded counter map with automatic cleanup to prevent memory leaks
@@ -209,7 +276,7 @@ export class CacheHierarchyService {
     // L2: Check Redis cache with circuit breaker
     try {
       const redisData = await this.redisCircuitBreaker.execute(async () => {
-        return await RedisService.get<T>(key);
+        return await SimpleRedisClient.get<T>(key);
       });
 
       if (redisData !== null) {
@@ -263,7 +330,7 @@ export class CacheHierarchyService {
 
     try {
       // Always store in Redis (L2)
-      await RedisService.set(key, data, ttl);
+      await SimpleRedisClient.set(key, data, ttl);
 
       // Decide whether to store in memory cache (L1)
       const shouldCacheInMemory =
@@ -350,10 +417,10 @@ export class CacheHierarchyService {
       try {
         const redisResults = await this.redisCircuitBreaker.execute(
           async () => {
-            // Note: RedisService.mget needs to be implemented
+            // Note: Batch Redis operations for better performance
             const redisData = new Map<string, T>();
             for (const key of memoryMisses) {
-              const data = await RedisService.get<T>(key);
+              const data = await SimpleRedisClient.get<T>(key);
               if (data !== null) {
                 redisData.set(key, data);
               }
@@ -407,7 +474,7 @@ export class CacheHierarchyService {
     try {
       // Batch Redis operations
       const redisPromises = entries.map((entry) =>
-        RedisService.set(entry.key, entry.data, entry.ttl),
+        SimpleRedisClient.set(entry.key, entry.data, entry.ttl),
       );
       await Promise.allSettled(redisPromises);
 
@@ -447,7 +514,7 @@ export class CacheHierarchyService {
       this.memoryCache.delete(key);
 
       // Remove from L2 (Redis)
-      await RedisService.del(key);
+      await SimpleRedisClient.del(key);
 
       // Clear hit/miss counters
       this.hitCounters.delete(key);
@@ -502,7 +569,7 @@ export class CacheHierarchyService {
       }
 
       // Clear Redis pattern
-      await RedisService.delPattern(pattern);
+      await SimpleRedisClient.delPattern(pattern);
 
       // Clear relevant hit/miss counters based on pattern
       this.clearCountersByPattern(pattern);
@@ -582,7 +649,7 @@ export class CacheHierarchyService {
       // Promote frequently hit items to memory cache
       for (const [key, hitCount] of this.hitCounters.entries()) {
         if (hitCount >= this.PROMOTION_THRESHOLD) {
-          const redisData = await RedisService.get(key);
+          const redisData = await SimpleRedisClient.get(key);
           if (redisData !== null) {
             this.memoryCache.set(key, redisData, 300); // 5 min
             promotions++;

@@ -11,6 +11,7 @@ import {
   createPaginatedResponse,
 } from '../../../../utils/pagination';
 import { RedisService, CACHE_CONFIG } from '../../../../services/redis';
+import { CacheHierarchyService } from '../../../../services/cache/cacheHierarchy';
 
 // Define a type for the question response structure for clarity
 type AnswerOptionResponse = {
@@ -211,7 +212,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       },
     );
 
-    const examUserAnswers = await RedisService.getOrSet(
+    const examUserAnswers = await CacheHierarchyService.getOrSet(
       cacheKey,
       async () => {
         logger.info(
@@ -250,7 +251,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
         });
       },
       CACHE_CONFIG.USER_EXAM_QUESTIONS_TTL,
-      false, // Don't use memory cache for large question data
+      { forceMemoryCache: false }, // Don't use memory cache for large question data
     );
 
     // Get updated total count after potential question association

@@ -142,7 +142,8 @@ export class RedisService {
           Date.now() - startTime,
           key,
         );
-        return data as T;
+        // Parse JSON string from Redis since automaticDeserialization is false
+        return JSON.parse(data as string) as T;
       }
       logger.info(`Cache MISS for key: ${key}`);
       PerformanceMonitor.trackCacheOperation(

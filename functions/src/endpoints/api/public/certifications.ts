@@ -8,11 +8,11 @@ import {
 } from '../../../utils/pagination';
 import { AuthenticatedRequest } from '../../../middlewares/jwtAuth';
 import {
-  RedisService,
   CACHE_CONFIG,
   generatePaginatedCacheKey,
   generateItemCacheKey,
 } from '../../../services/redis';
+import { CacheHierarchyService } from '../../../services/cache/cacheHierarchy';
 
 /**
  * Get all certifications with pagination (public endpoint)
@@ -40,7 +40,7 @@ export const getPublicCertifications = async (
     );
 
     // Try to get from cache first, or fetch and cache
-    const response = await RedisService.getOrSet(
+    const response = await CacheHierarchyService.getOrSet(
       cacheKey,
       async () => {
         logger.info('Cache miss - fetching certifications from database');
@@ -120,7 +120,7 @@ export const getPublicCertificationById = async (
     );
 
     // Try to get from cache first, or fetch and cache
-    const result = await RedisService.getOrSet(
+    const result = await CacheHierarchyService.getOrSet(
       cacheKey,
       async () => {
         logger.info(
@@ -284,7 +284,7 @@ export const getPublicCertificationsByFirm = async (
     );
 
     // Try to get from cache first, or fetch and cache
-    const result = await RedisService.getOrSet(
+    const result = await CacheHierarchyService.getOrSet(
       cacheKey,
       async () => {
         logger.info(

@@ -162,8 +162,8 @@ export class AdvancedMonitoringService {
       severity === 'critical'
         ? 'error'
         : severity === 'warning'
-          ? 'warn'
-          : 'info';
+        ? 'warn'
+        : 'info';
     logger[logLevel](`ALERT [${severity.toUpperCase()}]: ${message}`, metadata);
 
     // Store alert for reporting (in a real implementation, you'd persist this)
