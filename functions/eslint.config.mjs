@@ -26,6 +26,7 @@ export default [
       'plugin:import/warnings',
       'plugin:import/typescript',
       'plugin:@typescript-eslint/recommended',
+      'prettier', // Add prettier config to disable conflicting rules
     ),
   ),
   {
@@ -50,9 +51,8 @@ export default [
       '@typescript-eslint/no-explicit-any': 0,
       'no-unused-vars': 0,
       'object-curly-spacing': 0,
-      indent: ['error', 2],
-      quotes: ['error', 'single'],
-      semi: ['error', 'always'],
+      // Remove formatting rules that conflict with Prettier
+      // Let Prettier handle: indent, quotes, semi, etc.
     },
   },
   {

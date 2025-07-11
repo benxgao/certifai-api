@@ -1,4 +1,3 @@
-/* eslint-disable indent */
 import prismaInstance from '../services/prisma';
 
 // Consolidated certification seeding and update script

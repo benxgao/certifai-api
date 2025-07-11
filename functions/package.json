@@ -6,6 +6,10 @@
   "author": "Ben Gao",
   "scripts": {
     "lint": "eslint --ext .js,.ts .",
+    "lint:fix": "eslint --ext .js,.ts . --fix",
+    "format": "prettier --write \"src/**/*.{ts,js,json}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,js,json}\"",
+    "lint:format": "npm run format && npm run lint",
     "build": "rm -rf lib && tsc",
     "build:watch": "tsc --watch",
     "serve": "firebase use certifai-prod && npm run build && firebase emulators:start --only functions",
@@ -54,6 +58,7 @@
     "@typescript-eslint/parser": "^8.33.0",
     "eslint": "^9.26.0",
     "eslint-config-google": "^0.14.0",
+    "eslint-config-prettier": "^10.1.5",
     "eslint-plugin-import": "^2.25.4",
     "firebase-functions-test": "^3.1.0",
     "firebase-tools": "^14.4.0",
