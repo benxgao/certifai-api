@@ -524,7 +524,7 @@ export class CacheHierarchyService {
    */
   private static patternToRegex(pattern: string): RegExp {
     // Convert glob pattern to regex
-    let regexPattern = pattern
+    const regexPattern = pattern
       .replace(/\*/g, '.*')
       .replace(/\?/g, '.')
       .replace(/\[([^\]]+)\]/g, '[$1]');

@@ -107,9 +107,8 @@ const handler = async (
     }
 
     // 3. Check rate limit: Maximum 3 exams per 24 hours (using optimized Redis-based rate limiting)
-    const rateLimitResult = await OptimizedRateLimitService.checkExamRateLimit(
-      user_id,
-    );
+    const rateLimitResult =
+      await OptimizedRateLimitService.checkExamRateLimit(user_id);
     if (!rateLimitResult.isAllowed) {
       logger.warn(
         `Rate limit exceeded for user ${user_id}: ${rateLimitResult.currentCount}/${MAX_EXAMS_PER_24_HOURS} exams in 24 hours`,

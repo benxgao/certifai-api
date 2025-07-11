@@ -18,9 +18,12 @@ export class MemoryCache {
 
   private constructor() {
     // Clean up expired entries every 5 minutes
-    setInterval(() => {
-      this.cleanupExpired();
-    }, 5 * 60 * 1000);
+    setInterval(
+      () => {
+        this.cleanupExpired();
+      },
+      5 * 60 * 1000,
+    );
   }
 
   static getInstance(): MemoryCache {

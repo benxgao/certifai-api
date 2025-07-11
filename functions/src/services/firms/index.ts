@@ -84,7 +84,7 @@ export class FirmService {
    */
   async getFirmsWithCertificationCounts(): Promise<
     (Firm & { _count: { certifications: number } })[]
-    > {
+  > {
     return await prismaInstance.firm.findMany({
       include: {
         _count: {
@@ -134,7 +134,7 @@ export class FirmService {
    */
   async getCertificationCountByFirm(): Promise<
     { firm: Firm; count: number }[]
-    > {
+  > {
     const firms = await prismaInstance.firm.findMany({
       include: {
         _count: {

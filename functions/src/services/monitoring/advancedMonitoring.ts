@@ -162,8 +162,8 @@ export class AdvancedMonitoringService {
       severity === 'critical'
         ? 'error'
         : severity === 'warning'
-        ? 'warn'
-        : 'info';
+          ? 'warn'
+          : 'info';
     logger[logLevel](`ALERT [${severity.toUpperCase()}]: ${message}`, metadata);
 
     // Store alert for reporting (in a real implementation, you'd persist this)
@@ -341,7 +341,7 @@ export class AdvancedMonitoringService {
       if (healthyCount < recentHealth.length) {
         this.sendAlert(
           'redis_connectivity_issues',
-          `Redis connectivity issues detected`,
+          'Redis connectivity issues detected',
           'critical',
           { healthy_checks: healthyCount, total_checks: recentHealth.length },
         );
