@@ -7,6 +7,37 @@ import logger from '../firebase/logger';
  */
 export class CacheManager {
   /**
+   * Invalidate cache when a user's exam data changes
+   */
+  static async invalidateUserExamCache(userId: string): Promise<void> {
+    try {
+      logger.info(`Invalidating user exam cache for user ${userId}`);
+
+      await RedisService.invalidateUserCache(userId, 'exams');
+      await RedisService.invalidateUserCache(userId, 'exam_questions');
+      await RedisService.invalidateUserCache(userId, 'exam_details');
+
+      logger.info('User exam cache invalidation completed');
+    } catch (error) {
+      logger.error(`Error invalidating user exam cache: ${error}`);
+    }
+  }
+
+  /**
+   * Invalidate cache when a user's certification data changes
+   */
+  static async invalidateUserCertificationCache(userId: string): Promise<void> {
+    try {
+      logger.info(`Invalidating user certification cache for user ${userId}`);
+
+      await RedisService.invalidateUserCache(userId, 'certifications');
+
+      logger.info('User certification cache invalidation completed');
+    } catch (error) {
+      logger.error(`Error invalidating user certification cache: ${error}`);
+    }
+  }
+  /**
    * Invalidate cache when a firm is created, updated, or deleted
    */
   static async invalidateFirmCache(firmId?: number): Promise<void> {

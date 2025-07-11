@@ -10,6 +10,7 @@ import {
   extractPaginationParams,
   createPaginatedResponse,
 } from '../../../../utils/pagination';
+import { RedisService, CACHE_CONFIG } from '../../../../services/redis';
 
 // Define a type for the question response structure for clarity
 type AnswerOptionResponse = {
@@ -199,36 +200,58 @@ const handler = async (req: any | CustomRequest, res: Response) => {
     }
 
     // Optimized query with field selection to reduce data transfer
-    const examUserAnswers = await prismaInstance.examUserAnswer.findMany({
-      where: { exam_id: exam_id },
-      select: {
-        user_answer_id: true,
-        selected_option_id: true,
-        is_correct: true,
-        quizQuestion: {
+    // Add caching for exam questions to improve performance
+    const cacheKey = RedisService.generateUserCacheKey(
+      CACHE_CONFIG.KEYS.USER_EXAM_QUESTIONS,
+      user_id,
+      {
+        exam_id,
+        page: paginationParams.page,
+        pageSize: paginationParams.pageSize,
+      },
+    );
+
+    const examUserAnswers = await RedisService.getOrSet(
+      cacheKey,
+      async () => {
+        logger.info(
+          `Cache miss - fetching exam questions from database for exam ${exam_id}`,
+        );
+
+        return await prismaInstance.examUserAnswer.findMany({
+          where: { exam_id: exam_id },
           select: {
-            quiz_question_id: true,
-            question_text: true,
-            explanations: true,
-            difficulty: true,
-            generated_from: true,
-            cert_id: true,
-            exam_topic: true,
-            answerOptions: {
+            user_answer_id: true,
+            selected_option_id: true,
+            is_correct: true,
+            quizQuestion: {
               select: {
-                option_id: true,
-                option_text: true,
-                is_correct: true,
+                quiz_question_id: true,
+                question_text: true,
+                explanations: true,
+                difficulty: true,
+                generated_from: true,
+                cert_id: true,
+                exam_topic: true,
+                answerOptions: {
+                  select: {
+                    option_id: true,
+                    option_text: true,
+                    is_correct: true,
+                  },
+                },
               },
             },
           },
-        },
+          skip: paginationParams.skip,
+          take: paginationParams.take,
+          // Ensuring consistent question order for pagination and user experience.
+          orderBy: { quizQuestion: { created_at: 'asc' } },
+        });
       },
-      skip: paginationParams.skip,
-      take: paginationParams.take,
-      // Ensuring consistent question order for pagination and user experience.
-      orderBy: { quizQuestion: { created_at: 'asc' } },
-    });
+      CACHE_CONFIG.USER_EXAM_QUESTIONS_TTL,
+      false, // Don't use memory cache for large question data
+    );
 
     // Get updated total count after potential question association
     const finalTotalQuestions = await prismaInstance.examUserAnswer.count({

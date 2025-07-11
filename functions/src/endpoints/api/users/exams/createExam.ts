@@ -4,6 +4,7 @@ import { CustomRequest } from '../../../../types';
 import prismaInstance, { ExamStatus } from '../../../../services/prisma';
 import { createCloudTask } from '../../../../services/gcp/cloudTasks';
 import { OptimizedRateLimitService } from '../../../../services/optimizedRateLimit';
+import { CacheManager } from '../../../../services/cache';
 
 const DEFAULT_NUMBER_OF_QUESTIONS = 20;
 const MAX_NUMBER_OF_QUESTIONS = 100; // Set a reasonable max
@@ -181,6 +182,9 @@ const handler = async (
       user_id,
       newExam.exam_id,
     );
+
+    // Invalidate user exam cache since new exam was created
+    await CacheManager.invalidateUserExamCache(user_id);
 
     // 7. Calculate batches and start question generation via Cloud Tasks
     const totalBatches = Math.ceil(

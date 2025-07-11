@@ -11,6 +11,7 @@ import {
   calculateRateLimitFromExams,
   formatRateLimitResponse,
 } from '../../../../utils/examRateLimit';
+import { RedisService, CACHE_CONFIG } from '../../../../services/redis';
 
 /**
  * Handler for getting all exams for a user with enhanced sorting capabilities
@@ -126,20 +127,45 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       }`,
     );
 
-    // Execute findMany and count in parallel
-    const { data: examsFromDb, total } = await findManyWithCount(
-      prismaInstance.examAttempt.findMany({
-        where: whereClause,
-        include: {
-          certification: true, // Include certification details
-        },
-        skip: paginationParams.skip,
-        take: paginationParams.take,
-        orderBy,
-      }),
-      prismaInstance.examAttempt.count({
-        where: whereClause,
-      }),
+    // Create cache key for user exams
+    const cacheKey = RedisService.generateUserCacheKey(
+      CACHE_CONFIG.KEYS.USER_EXAMS,
+      actualUserId,
+      {
+        page: paginationParams.page,
+        pageSize: paginationParams.pageSize,
+        cert_id,
+        sortField,
+        sortDirection,
+      },
+    );
+
+    // Try to get from cache first, or fetch and cache
+    const { data: examsFromDb, total } = await RedisService.getOrSet(
+      cacheKey,
+      async () => {
+        logger.info(
+          `Cache miss - fetching exams from database for user ${actualUserId}`,
+        );
+
+        // Execute findMany and count in parallel
+        return await findManyWithCount(
+          prismaInstance.examAttempt.findMany({
+            where: whereClause,
+            include: {
+              certification: true, // Include certification details
+            },
+            skip: paginationParams.skip,
+            take: paginationParams.take,
+            orderBy,
+          }),
+          prismaInstance.examAttempt.count({
+            where: whereClause,
+          }),
+        );
+      },
+      CACHE_CONFIG.USER_EXAMS_TTL,
+      true, // Use memory cache for frequently accessed user data
     );
 
     console.log('get_user_exams: examsFromDb', examsFromDb);

@@ -84,8 +84,51 @@ export class PerformanceMonitor {
   }
 
   /**
+   * Track batch operation performance
+   * @param operation - Description of the batch operation
+   * @param itemCount - Number of items processed in the batch
+   * @param duration - Duration in milliseconds
+   * @param metadata - Additional operation metadata
+   */
+  static trackBatchOperation(
+    operation: string,
+    itemCount: number,
+    duration: number,
+    metadata?: Record<string, any>,
+  ): void {
+    const avgTimePerItem = itemCount > 0 ? duration / itemCount : 0;
+
+    const logData = {
+      type: 'batch_operation',
+      operation,
+      item_count: itemCount,
+      duration_ms: duration,
+      avg_time_per_item_ms: Math.round(avgTimePerItem * 100) / 100,
+      ...metadata,
+    };
+
+    logger.info(
+      `BATCH_OP: ${operation} processed ${itemCount} items in ${duration}ms (${avgTimePerItem.toFixed(
+        2,
+      )}ms/item)`,
+      logData,
+    );
+
+    // Alert on inefficient batch operations
+    const inefficientThreshold = 50; // 50ms per item is considered slow
+    if (avgTimePerItem > inefficientThreshold) {
+      logger.warn(
+        `SLOW_BATCH: ${operation} averaged ${avgTimePerItem.toFixed(
+          2,
+        )}ms per item (threshold: ${inefficientThreshold}ms)`,
+        logData,
+      );
+    }
+  }
+
+  /**
    * Track cache operation performance
-   * @param operation - Type of cache operation (GET, SET, DEL, etc.)
+   * @param operation - Type of cache operation (GET, SET, DEL, MEMORY_HIT, REDIS_HIT, CACHE_MISS)
    * @param hit - Whether it was a cache hit or miss
    * @param duration - Duration in milliseconds
    * @param key - Cache key (optional, for debugging)
@@ -101,13 +144,31 @@ export class PerformanceMonitor {
       operation,
       cache_result: hit ? 'HIT' : 'MISS',
       duration_ms: duration,
-      ...(key && { cache_key: key }),
+      ...(key && { cache_key: key.substring(0, 100) }), // Truncate long keys
     };
 
-    logger.info(
-      `CACHE_${operation}: ${hit ? 'HIT' : 'MISS'} - ${duration}ms`,
-      logData,
-    );
+    // Different log levels based on cache performance
+    if (operation === 'MEMORY_HIT') {
+      logger.info(`MEMORY_CACHE_HIT: ${duration}ms`, logData);
+    } else if (operation === 'REDIS_HIT') {
+      logger.info(`REDIS_CACHE_HIT: ${duration}ms`, logData);
+    } else if (operation === 'CACHE_MISS') {
+      logger.info(`CACHE_MISS: ${duration}ms`, logData);
+    } else {
+      logger.info(
+        `CACHE_${operation}: ${hit ? 'HIT' : 'MISS'} - ${duration}ms`,
+        logData,
+      );
+    }
+
+    // Alert on slow cache operations
+    const slowCacheThreshold = 100; // 100ms
+    if (duration > slowCacheThreshold) {
+      logger.warn(
+        `SLOW_CACHE: ${operation} took ${duration}ms (threshold: ${slowCacheThreshold}ms)`,
+        logData,
+      );
+    }
   }
 
   /**

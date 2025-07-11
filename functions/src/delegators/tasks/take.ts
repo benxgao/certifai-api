@@ -8,6 +8,7 @@ import {
   associateQuestionsWithExam,
   updateExamAfterQuestionAssociation,
 } from '../../utils/examQuestionAssociation';
+import { PerformanceMonitor } from '../../services/performance';
 
 interface TaskPayload {
   exam_id: string;
@@ -117,9 +118,8 @@ const handler = async (req: any | CustomRequest, res: Response) => {
         batch_number,
       });
 
-      // Store questions in database
-      for (const question of generatedQuestions) {
-        // Validate that examTopic is present before saving
+      // Store questions in database using batch operations for better performance
+      const validQuestions = generatedQuestions.filter((question) => {
         if (!question.examTopic || question.examTopic.trim() === '') {
           logger.warn(
             `Skipping question with missing examTopic: ${question.question?.substring(
@@ -127,30 +127,80 @@ const handler = async (req: any | CustomRequest, res: Response) => {
               50,
             )}...`,
           );
-          continue;
+          return false;
         }
+        return true;
+      });
 
-        const createdQuestion = await prismaInstance.quizQuestion.create({
-          data: {
+      if (validQuestions.length === 0) {
+        logger.warn(
+          `No valid questions to store for exam ${exam_id}, batch ${batch_number}`,
+        );
+      } else {
+        // Use a transaction to ensure data consistency and improve performance
+        const batchStartTime = Date.now();
+
+        await prismaInstance.$transaction(async (prisma) => {
+          // Batch create questions
+          const questionsData = validQuestions.map((question) => ({
             cert_id,
             question_text: question.question,
             explanations: question.explanation,
             exam_topic: question.examTopic.trim().toLowerCase(),
             generated_from: exam_id,
-            difficulty: null, // You might want to set this
-          },
-        });
+            difficulty: null,
+          }));
 
-        // Create answer options
-        for (let i = 0; i < question.choices.length; i++) {
-          await prismaInstance.answerOption.create({
-            data: {
-              quiz_question_id: createdQuestion.quiz_question_id,
-              option_text: question.choices[i],
-              is_correct: i === question.answerIndex,
-            },
+          const createdQuestions =
+            await prisma.quizQuestion.createManyAndReturn({
+              data: questionsData,
+            });
+
+          // Prepare answer options data for batch creation
+          const optionsData: Array<{
+            quiz_question_id: string;
+            option_text: string;
+            is_correct: boolean;
+          }> = [];
+
+          createdQuestions.forEach((createdQuestion, questionIndex) => {
+            const question = validQuestions[questionIndex];
+            for (let i = 0; i < question.choices.length; i++) {
+              optionsData.push({
+                quiz_question_id: createdQuestion.quiz_question_id,
+                option_text: question.choices[i],
+                is_correct: i === question.answerIndex,
+              });
+            }
           });
-        }
+
+          // Batch create answer options
+          if (optionsData.length > 0) {
+            await prisma.answerOption.createMany({
+              data: optionsData,
+              skipDuplicates: true,
+            });
+          }
+
+          const batchDuration = Date.now() - batchStartTime;
+
+          // Track batch operation performance
+          PerformanceMonitor.trackBatchOperation(
+            'quiz_questions_batch_create',
+            createdQuestions.length,
+            batchDuration,
+            {
+              exam_id,
+              batch_number,
+              total_options: optionsData.length,
+            },
+          );
+
+          logger.info(
+            `BATCH_CREATE_SUCCESS: exam_id=${exam_id}, batch=${batch_number}, ` +
+              `questions=${createdQuestions.length}, options=${optionsData.length}, duration=${batchDuration}ms`,
+          );
+        });
       }
 
       // Check if this is the last batch
