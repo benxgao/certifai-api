@@ -1,6 +1,11 @@
 import logger from '../firebase/logger';
 import prismaInstance from '../prisma';
 import { MAX_EXAMS_PER_24_HOURS } from '../../endpoints/api/users/exams/createExam';
+import {
+  calculateRateLimitFromExams,
+  getDetailedRateLimitInfo,
+  type ExamData,
+} from '../../utils/examRateLimit';
 
 export interface ExamRateLimitResult {
   isAllowed: boolean;
@@ -11,17 +16,40 @@ export interface ExamRateLimitResult {
 }
 
 /**
- * Checks if a user can create a new exam based on rate limiting rules.
- * Rate limit: Maximum 3 exams per 24 hours per user.
+ * Optimized rate limit check that can use pre-fetched exam data
+ * Falls back to database query if no exam data is provided
  *
  * @param userId - The user's internal UUID
+ * @param examData - Optional pre-fetched exam data to avoid additional queries
  * @returns ExamRateLimitResult indicating if exam creation is allowed
  */
 export async function checkExamRateLimit(
   userId: string,
+  examData?: ExamData[],
 ): Promise<ExamRateLimitResult> {
   try {
-    logger.info(`Checking exam rate limit for user: ${userId}`);
+    // If exam data is provided, use the optimized calculation
+    if (examData && examData.length >= 0) {
+      logger.info(
+        `Using provided exam data for rate limit check for user: ${userId}`,
+      );
+
+      const rateLimitInfo = calculateRateLimitFromExams(examData, userId);
+
+      // Convert ExamRateLimitInfo to legacy ExamRateLimitResult format
+      return {
+        isAllowed: rateLimitInfo.isAllowed,
+        currentCount: rateLimitInfo.currentCount,
+        remainingCount: rateLimitInfo.remainingCount,
+        resetTimeMs: rateLimitInfo.resetTimeMs,
+        error: rateLimitInfo.error,
+      };
+    }
+
+    // Legacy database query fallback
+    logger.info(
+      `Checking exam rate limit via database query for user: ${userId}`,
+    );
 
     // Calculate 24 hours ago from now
     const twentyFourHoursAgo = new Date();
@@ -97,11 +125,16 @@ export async function checkExamRateLimit(
 
 /**
  * Gets detailed rate limit information for a user including when they can create their next exam.
+ * Can use pre-fetched exam data for optimization
  *
  * @param userId - The user's internal UUID
+ * @param examData - Optional pre-fetched exam data to avoid additional queries
  * @returns Detailed rate limit information
  */
-export async function getExamRateLimitInfo(userId: string): Promise<{
+export async function getExamRateLimitInfo(
+  userId: string,
+  examData?: ExamData[],
+): Promise<{
   maxExamsAllowed: number;
   currentCount: number;
   remainingCount: number;
@@ -110,6 +143,38 @@ export async function getExamRateLimitInfo(userId: string): Promise<{
   hoursUntilNextExam?: number;
 }> {
   try {
+    // Use the optimized calculation if exam data is provided
+    if (examData && examData.length >= 0) {
+      logger.info(
+        `Using provided exam data for detailed rate limit info for user: ${userId}`,
+      );
+
+      const rateLimitInfo = calculateRateLimitFromExams(examData, userId);
+      const detailedInfo = getDetailedRateLimitInfo(rateLimitInfo);
+
+      // Convert string dates back to Date objects for consistency with legacy API
+      const result = {
+        maxExamsAllowed: detailedInfo.maxExamsAllowed,
+        currentCount: detailedInfo.currentCount,
+        remainingCount: detailedInfo.remainingCount,
+        canCreateExam: detailedInfo.canCreateExam,
+      };
+
+      if (
+        'nextAvailableTime' in detailedInfo &&
+        detailedInfo.nextAvailableTime
+      ) {
+        return {
+          ...result,
+          nextAvailableTime: new Date(detailedInfo.nextAvailableTime),
+          hoursUntilNextExam: detailedInfo.hoursUntilNextExam,
+        };
+      }
+
+      return result;
+    }
+
+    // Fallback to legacy method
     const rateLimitResult = await checkExamRateLimit(userId);
 
     const result = {

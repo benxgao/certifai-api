@@ -7,11 +7,30 @@ import {
   createPaginatedResponse,
   findManyWithCount,
 } from '../../../../utils/pagination';
+import {
+  calculateRateLimitFromExams,
+  formatRateLimitResponse,
+} from '../../../../utils/examRateLimit';
 
+/**
+ * Handler for getting all exams for a user with enhanced sorting capabilities
+ *
+ * @param req - Express request object
+ * @param req.params.user_id - The user ID
+ * @param req.query.cert_id - Optional certification ID filter
+ * @param req.query.sort_by - Optional sort field (started_at, submitted_at, score, exam_status)
+ * @param req.query.sort_order - Optional sort order (asc, desc)
+ * @param res - Express response object
+ *
+ * @example
+ * GET /api/users/123/exams?sort_by=started_at&sort_order=desc
+ * GET /api/users/123/exams?cert_id=456&sort_by=score&sort_order=asc
+ */
 const handler = async (req: any | CustomRequest, res: Response) => {
   try {
     const { user_id } = req.params;
-    const { cert_id } = req.query; // Add this line to get cert_id from query
+    const { cert_id, sort_by, sort_order } = req.query; // Add sorting parameters
+    const firebaseUserIdFromToken = req.firebase_user_info?.user_id;
 
     if (!user_id) {
       res.status(400).json({
@@ -21,11 +40,47 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       return;
     }
 
-    logger.info(
-      `Fetching exams for user_id: ${user_id}${
-        cert_id ? ` and cert_id: ${cert_id}` : ''
-      }`,
-    );
+    if (!firebaseUserIdFromToken) {
+      res.status(401).json({
+        success: false,
+        error: 'Unauthorized: Firebase token missing.',
+      });
+      return;
+    }
+
+    // 1. Find the user by the provided user_id (internal UUID) or firebase_user_id
+    let user = await prismaInstance.user.findUnique({
+      where: { user_id: user_id },
+    });
+
+    // If not found by user_id, try to find by firebase_user_id
+    if (!user) {
+      user = await prismaInstance.user.findUnique({
+        where: { firebase_user_id: user_id },
+      });
+    }
+
+    if (!user) {
+      res
+        .status(404)
+        .json({ success: false, error: `User with ID: ${user_id} not found.` });
+      return;
+    }
+
+    // 2. Authorization: Check if the firebase_user_id from token matches the user's firebase_user_id
+    if (user.firebase_user_id !== firebaseUserIdFromToken) {
+      logger.warn(
+        `Forbidden: Firebase user ${firebaseUserIdFromToken} attempted to fetch exams for user ${user_id}.`,
+      );
+      res.status(403).json({
+        success: false,
+        error: 'Forbidden: You can only access your own exams.',
+      });
+      return;
+    }
+
+    // Use the internal user_id for the database query
+    const actualUserId = user.user_id;
 
     // Extract pagination parameters
     const paginationParams = extractPaginationParams(req, {
@@ -34,12 +89,42 @@ const handler = async (req: any | CustomRequest, res: Response) => {
     });
 
     const whereClause: any = {
-      user_id: user_id,
+      user_id: actualUserId,
     };
 
     if (cert_id) {
       whereClause.cert_id = parseInt(cert_id as string, 10);
     }
+
+    console.log('get_user_exams: whereClause', whereClause);
+    console.log('get_user_exams: user resolved', {
+      user_id: user.user_id,
+      firebase_user_id: user.firebase_user_id,
+    });
+
+    // Configure sorting options with started_at as default
+    const validSortFields = [
+      'started_at',
+      'submitted_at',
+      'score',
+      'exam_status',
+    ] as const;
+    const validSortOrders = ['asc', 'desc'] as const;
+
+    const sortField = validSortFields.includes(sort_by as any)
+      ? (sort_by as string)
+      : 'started_at';
+    const sortDirection = validSortOrders.includes(sort_order as any)
+      ? (sort_order as string)
+      : 'desc';
+
+    const orderBy = { [sortField]: sortDirection };
+
+    logger.info(
+      `Fetching exams for user_id: ${user_id} with sorting: ${sortField} ${sortDirection}${
+        cert_id ? ` and cert_id: ${cert_id}` : ''
+      }`,
+    );
 
     // Execute findMany and count in parallel
     const { data: examsFromDb, total } = await findManyWithCount(
@@ -50,12 +135,33 @@ const handler = async (req: any | CustomRequest, res: Response) => {
         },
         skip: paginationParams.skip,
         take: paginationParams.take,
-        orderBy: { started_at: 'desc' },
+        orderBy,
       }),
       prismaInstance.examAttempt.count({
         where: whereClause,
       }),
     );
+
+    console.log('get_user_exams: examsFromDb', examsFromDb);
+    console.log('get_user_exams: total', total);
+
+    // Create response with proper data structure
+    if (examsFromDb.length === 0) {
+      console.log('get_user_exams: No exams found, returning empty response');
+
+      // Even with no exams, calculate rate limit (will show all 3 available)
+      const rateLimitInfo = calculateRateLimitFromExams([], actualUserId);
+      const rateLimitData = formatRateLimitResponse(rateLimitInfo);
+
+      const response = createPaginatedResponse([], total, paginationParams);
+      const enhancedResponse = {
+        ...response,
+        rateLimit: rateLimitData,
+      };
+
+      res.status(200).json(enhancedResponse);
+      return;
+    }
 
     // findMany returns an empty array if no records are found, so a 404 might not be appropriate here.
     // Sending a 200 with an empty array is common practice.
@@ -71,33 +177,51 @@ const handler = async (req: any | CustomRequest, res: Response) => {
     const exams = examsFromDb.map((exam) => {
       let computedStatus: string = exam.exam_status; // Use the actual exam_status from database
 
-      // Override status based on submission and scoring for completed exams
+      // Override status based on submission
       if (exam.submitted_at) {
-        if (
-          exam.score !== null &&
-          exam.certification?.pass_score !== undefined
-        ) {
-          computedStatus =
-            exam.score >= exam.certification.pass_score ? 'PASSED' : 'FAILED';
-        } else {
-          computedStatus = 'COMPLETED'; // Submitted but score or pass_score is not available
-        }
+        computedStatus = 'COMPLETED';
       } else if (exam.exam_status === 'READY' && exam.started_at) {
         // If exam is ready and has been started, it's in progress
         computedStatus = 'IN_PROGRESS';
       }
 
       return {
-        ...exam,
+        exam_id: exam.exam_id,
+        cert_id: exam.cert_id,
+        started_date: exam.started_at,
+        completed_date: exam.submitted_at,
+        score: exam.score,
         status: computedStatus,
         exam_status: exam.exam_status, // Include the actual database status for reference
+        certification: exam.certification, // Include certification details for additional context
       };
     });
 
-    // Create paginated response
+    // Calculate rate limit information from the exam data we already have
+    // This eliminates the need for separate rate limit API calls
+    const examDataForRateLimit = examsFromDb.map((exam) => ({
+      exam_id: exam.exam_id,
+      started_at: exam.started_at,
+      exam_status: exam.exam_status,
+      submitted_at: exam.submitted_at,
+    }));
+
+    const rateLimitInfo = calculateRateLimitFromExams(
+      examDataForRateLimit,
+      actualUserId,
+    );
+    const rateLimitData = formatRateLimitResponse(rateLimitInfo);
+
+    // Create paginated response with rate limit information
     const response = createPaginatedResponse(exams, total, paginationParams);
 
-    res.status(200).json(response);
+    // Add rate limit information to the response for client convenience
+    const enhancedResponse = {
+      ...response,
+      rateLimit: rateLimitData,
+    };
+
+    res.status(200).json(enhancedResponse);
   } catch (error) {
     logger.error('Error in getUserExams handler:', error as any);
     res
