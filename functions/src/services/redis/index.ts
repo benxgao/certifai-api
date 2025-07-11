@@ -1,5 +1,6 @@
 import { Redis } from '@upstash/redis';
 import logger from '../firebase/logger';
+import { PerformanceMonitor } from '../performance';
 
 // Initialize Redis client
 const redis = new Redis({
@@ -131,9 +132,13 @@ export class RedisService {
     fetcher: () => Promise<T>,
     ttl: number,
   ): Promise<T> {
+    const startTime = Date.now();
+
     // Try to get from cache first
     const cached = await this.get<T>(key);
     if (cached !== null) {
+      const duration = Date.now() - startTime;
+      PerformanceMonitor.trackCacheOperation('GET', true, duration, key);
       return cached;
     }
 
@@ -142,6 +147,9 @@ export class RedisService {
 
     // Store in cache for next time
     await this.set(key, freshData, ttl);
+
+    const duration = Date.now() - startTime;
+    PerformanceMonitor.trackCacheOperation('GET_SET', false, duration, key);
 
     return freshData;
   }
@@ -181,6 +189,70 @@ export class RedisService {
    */
   static async invalidateAllCache(): Promise<void> {
     await this.delPattern('*');
+  }
+
+  /**
+   * Add member to sorted set with score
+   */
+  static async zAdd(key: string, score: number, member: string): Promise<void> {
+    try {
+      await redis.zadd(key, { score, member });
+      logger.info(
+        `Redis ZADD for key: ${key}, score: ${score}, member: ${member}`,
+      );
+    } catch (error) {
+      logger.error(`Redis ZADD error for key ${key}: ${error as any}`);
+    }
+  }
+
+  /**
+   * Get members from sorted set by score range
+   */
+  static async zRangeByScore(
+    key: string,
+    min: number,
+    max: number,
+  ): Promise<string[]> {
+    try {
+      const result = await redis.zrange(key, min, max, { byScore: true });
+      logger.info(`Redis ZRANGE for key: ${key}, range: ${min}-${max}`);
+      return Array.isArray(result) ? result.map((item) => String(item)) : [];
+    } catch (error) {
+      logger.error(`Redis ZRANGE error for key ${key}: ${error as any}`);
+      return [];
+    }
+  }
+
+  /**
+   * Remove members from sorted set by score range
+   */
+  static async zRemRangeByScore(
+    key: string,
+    min: number,
+    max: number,
+  ): Promise<void> {
+    try {
+      await redis.zremrangebyscore(key, min, max);
+      logger.info(
+        `Redis ZREMRANGEBYSCORE for key: ${key}, range: ${min}-${max}`,
+      );
+    } catch (error) {
+      logger.error(
+        `Redis ZREMRANGEBYSCORE error for key ${key}: ${error as any}`,
+      );
+    }
+  }
+
+  /**
+   * Set expiration time for a key
+   */
+  static async expire(key: string, seconds: number): Promise<void> {
+    try {
+      await redis.expire(key, seconds);
+      logger.info(`Redis EXPIRE for key: ${key}, seconds: ${seconds}`);
+    } catch (error) {
+      logger.error(`Redis EXPIRE error for key ${key}: ${error as any}`);
+    }
   }
 }
 

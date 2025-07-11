@@ -58,9 +58,25 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       maxPageSize: 100,
     });
 
-    // Verify exam exists and belongs to the user
+    // Verify exam exists and belongs to the user (optimized with field selection)
     const exam = await prismaInstance.examAttempt.findUnique({
       where: { exam_id: exam_id },
+      select: {
+        exam_id: true,
+        user_id: true,
+        exam_status: true,
+        score: true,
+        submitted_at: true,
+        total_questions: true,
+        certification: {
+          select: {
+            cert_id: true,
+            name: true,
+            min_quiz_counts: true,
+            max_quiz_counts: true,
+          },
+        },
+      },
     });
 
     if (!exam) {
@@ -182,15 +198,31 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       }
     }
 
+    // Optimized query with field selection to reduce data transfer
     const examUserAnswers = await prismaInstance.examUserAnswer.findMany({
       where: { exam_id: exam_id },
-      include: {
+      select: {
+        user_answer_id: true,
+        selected_option_id: true,
+        is_correct: true,
         quizQuestion: {
-          include: {
-            answerOptions: true, // Include all answer option fields
+          select: {
+            quiz_question_id: true,
+            question_text: true,
+            explanations: true,
+            difficulty: true,
+            generated_from: true,
+            cert_id: true,
+            exam_topic: true,
+            answerOptions: {
+              select: {
+                option_id: true,
+                option_text: true,
+                is_correct: true,
+              },
+            },
           },
         },
-        // selected_option_id and is_correct (for the user's answer) from ExamUserAnswers are included by default
       },
       skip: paginationParams.skip,
       take: paginationParams.take,

@@ -3,7 +3,7 @@ import logger from '../../../../services/firebase/logger';
 import { CustomRequest } from '../../../../types';
 import prismaInstance, { ExamStatus } from '../../../../services/prisma';
 import { createCloudTask } from '../../../../services/gcp/cloudTasks';
-import { checkExamRateLimit } from '../../../../services/examRateLimit';
+import { OptimizedRateLimitService } from '../../../../services/optimizedRateLimit';
 
 const DEFAULT_NUMBER_OF_QUESTIONS = 20;
 const MAX_NUMBER_OF_QUESTIONS = 100; // Set a reasonable max
@@ -105,8 +105,10 @@ const handler = async (
       return;
     }
 
-    // 3. Check rate limit: Maximum 3 exams per 24 hours
-    const rateLimitResult = await checkExamRateLimit(user_id);
+    // 3. Check rate limit: Maximum 3 exams per 24 hours (using optimized Redis-based rate limiting)
+    const rateLimitResult = await OptimizedRateLimitService.checkExamRateLimit(
+      user_id,
+    );
     if (!rateLimitResult.isAllowed) {
       logger.warn(
         `Rate limit exceeded for user ${user_id}: ${rateLimitResult.currentCount}/${MAX_EXAMS_PER_24_HOURS} exams in 24 hours`,
@@ -172,6 +174,12 @@ const handler = async (
 
     logger.info(
       `EXAM_CREATE_SUCCESS: exam_id=${newExam.exam_id}, user_id=${user.user_id}, status=QUESTIONS_GENERATING`,
+    );
+
+    // Record exam creation in rate limit tracker
+    await OptimizedRateLimitService.recordExamCreation(
+      user_id,
+      newExam.exam_id,
     );
 
     // 7. Calculate batches and start question generation via Cloud Tasks

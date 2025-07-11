@@ -10,17 +10,19 @@ declare global {
   var prisma: PrismaClient | undefined;
 }
 
-// Logging configuration for Prisma client
-const loggingLevels: Array<'query' | 'info' | 'warn' | 'error'> = [
-  'query',
-  'info',
-  'warn',
-  'error',
-];
+// Optimized logging configuration for Prisma client (reduced for performance)
+const loggingLevels: Array<'warn' | 'error'> = ['warn', 'error'];
 
-// Factory to create a new PrismaClient with predefined logging
+// Factory to create a new PrismaClient with optimized configuration
 function createPrismaClient(): PrismaClient {
-  return new PrismaClient({ log: loggingLevels });
+  return new PrismaClient({
+    log: loggingLevels,
+    // Optimize transaction settings for better performance
+    transactionOptions: {
+      timeout: 5000, // 5 seconds timeout
+      maxWait: 3000, // 3 seconds max wait
+    },
+  });
 }
 
 // Use existing client or create a new one (singleton)

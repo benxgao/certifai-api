@@ -23,11 +23,22 @@ const handler = async (
       return;
     }
 
-    // 0. Get the exam details to check token cost and current status
+    // 0. Get the exam details to check token cost and current status (optimized with field selection)
     const examAttempt = await prismaInstance.examAttempt.findUnique({
       where: { exam_id: exam_id },
-      include: {
-        user: true,
+      select: {
+        exam_id: true,
+        user_id: true,
+        token_cost: true,
+        score: true,
+        submitted_at: true,
+        total_questions: true,
+        user: {
+          select: {
+            user_id: true,
+            credit_tokens: true,
+          },
+        },
       },
     });
 
