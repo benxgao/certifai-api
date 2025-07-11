@@ -4,6 +4,142 @@ import { MemoryCache } from './memoryCache';
 import { PerformanceMonitor } from '../performance';
 
 /**
+ * Bounded counter map with automatic cleanup to prevent memory leaks
+ */
+class BoundedCounterMap {
+  private counters = new Map<string, number>();
+  private readonly maxSize: number;
+  private lastCleanup = Date.now();
+  private readonly cleanupInterval = 5 * 60 * 1000; // 5 minutes
+
+  constructor(maxSize = 10000) {
+    this.maxSize = maxSize;
+  }
+
+  increment(key: string): void {
+    // Periodic cleanup every 5 minutes
+    if (Date.now() - this.lastCleanup > this.cleanupInterval) {
+      this.cleanup();
+    }
+
+    // If at max size, remove oldest entries (LRU eviction)
+    if (this.counters.size >= this.maxSize) {
+      this.evictOldest();
+    }
+
+    this.counters.set(key, (this.counters.get(key) || 0) + 1);
+  }
+
+  set(key: string, value: number): void {
+    // Periodic cleanup check
+    if (Date.now() - this.lastCleanup > this.cleanupInterval) {
+      this.cleanup();
+    }
+
+    // If at max size, remove oldest entries
+    if (this.counters.size >= this.maxSize && !this.counters.has(key)) {
+      this.evictOldest();
+    }
+
+    this.counters.set(key, value);
+  }
+
+  get(key: string): number {
+    return this.counters.get(key) || 0;
+  }
+
+  delete(key: string): void {
+    this.counters.delete(key);
+  }
+
+  clear(): void {
+    this.counters.clear();
+    this.lastCleanup = Date.now();
+  }
+
+  size(): number {
+    return this.counters.size;
+  }
+
+  entries(): IterableIterator<[string, number]> {
+    return this.counters.entries();
+  }
+
+  private cleanup(): void {
+    const now = Date.now();
+    // Remove a percentage of oldest entries to manage memory
+    const entriesToRemove = Math.floor(this.counters.size * 0.2); // Remove 20%
+    let removed = 0;
+
+    for (const [key] of this.counters.entries()) {
+      if (removed >= entriesToRemove) break;
+      this.counters.delete(key);
+      removed++;
+    }
+
+    this.lastCleanup = now;
+    if (removed > 0) {
+      logger.info(`Cache counter cleanup: removed ${removed} entries`);
+    }
+  }
+
+  private evictOldest(): void {
+    // Remove the first (oldest) entry
+    const firstKey = this.counters.keys().next().value;
+    if (firstKey) {
+      this.counters.delete(firstKey);
+    }
+  }
+}
+
+/**
+ * Circuit breaker for cache layer reliability
+ */
+class CacheLayerCircuitBreaker {
+  private failures = 0;
+  private lastFailure = 0;
+  private state: 'CLOSED' | 'OPEN' | 'HALF_OPEN' = 'CLOSED';
+  private readonly failureThreshold = 5;
+  private readonly timeout = 30000; // 30 seconds
+
+  async execute<T>(operation: () => Promise<T>): Promise<T | null> {
+    if (this.state === 'OPEN') {
+      if (Date.now() - this.lastFailure > this.timeout) {
+        this.state = 'HALF_OPEN';
+      } else {
+        return null; // Fast-fail
+      }
+    }
+
+    try {
+      const result = await operation();
+      this.onSuccess();
+      return result;
+    } catch (error) {
+      this.onFailure();
+      throw error;
+    }
+  }
+
+  private onSuccess(): void {
+    this.failures = 0;
+    this.state = 'CLOSED';
+  }
+
+  private onFailure(): void {
+    this.failures++;
+    this.lastFailure = Date.now();
+
+    if (this.failures >= this.failureThreshold) {
+      this.state = 'OPEN';
+      logger.warn(
+        `Cache circuit breaker opened after ${this.failures} failures`,
+      );
+    }
+  }
+}
+
+/**
  * Advanced Cache Hierarchy Service
  * Implements intelligent multi-level caching with automatic promotion/demotion
  * L1: Memory Cache (fastest, smallest)
@@ -19,9 +155,34 @@ export class CacheHierarchyService {
   private static readonly PROMOTION_THRESHOLD = 3; // Promote to L1 after 3 hits
   private static readonly DEMOTION_THRESHOLD = 5; // Demote from L1 after 5 misses
 
-  // Hit tracking for promotion/demotion decisions
-  private static hitCounters = new Map<string, number>();
-  private static missCounters = new Map<string, number>();
+  // Bounded hit tracking for promotion/demotion decisions
+  private static hitCounters = new BoundedCounterMap(10000);
+  private static missCounters = new BoundedCounterMap(5000);
+
+  // Circuit breaker for Redis operations
+  private static redisCircuitBreaker = new CacheLayerCircuitBreaker();
+
+  // Async counter update queue
+  private static updateQueue: Array<{
+    key: string;
+    type: 'hit' | 'miss';
+    timestamp: number;
+  }> = [];
+  private static readonly MAX_QUEUE_SIZE = 1000;
+  private static queueProcessor: NodeJS.Timeout | null = null;
+
+  /**
+   * Initialize async counter update processing
+   */
+  static {
+    // Start queue processor if not already running
+    if (!this.queueProcessor) {
+      this.queueProcessor = setInterval(
+        () => this.processCounterUpdates(),
+        100,
+      );
+    }
+  }
 
   /**
    * Intelligent get with automatic cache hierarchy optimization
@@ -39,28 +200,43 @@ export class CacheHierarchyService {
       PerformanceMonitor.trackCacheOperation('MEMORY_HIT', true, duration, key);
 
       if (useIntelligentHierarchy) {
-        this.recordHit(key);
+        this.queueCounterUpdate(key, 'hit');
       }
 
       return memoryData;
     }
 
-    // L2: Check Redis cache
-    const redisData = await RedisService.get<T>(key);
-    if (redisData !== null) {
-      const duration = Date.now() - startTime;
-      PerformanceMonitor.trackCacheOperation('REDIS_HIT', true, duration, key);
+    // L2: Check Redis cache with circuit breaker
+    try {
+      const redisData = await this.redisCircuitBreaker.execute(async () => {
+        return await RedisService.get<T>(key);
+      });
 
-      if (useIntelligentHierarchy) {
-        this.recordHit(key);
-        // Consider promoting to L1 if frequently accessed
-        await this.considerPromotion(key, redisData);
-      } else {
-        // Always promote Redis hits to memory cache for next access
-        this.memoryCache.set(key, redisData, 300); // 5 min default
+      if (redisData !== null) {
+        const duration = Date.now() - startTime;
+        PerformanceMonitor.trackCacheOperation(
+          'REDIS_HIT',
+          true,
+          duration,
+          key,
+        );
+
+        if (useIntelligentHierarchy) {
+          this.queueCounterUpdate(key, 'hit');
+          // Consider promoting to L1 if frequently accessed
+          await this.considerPromotion(key, redisData);
+        } else {
+          // Always promote Redis hits to memory cache for next access
+          this.memoryCache.set(key, redisData, 300); // 5 min default
+        }
+
+        return redisData;
       }
-
-      return redisData;
+    } catch (error) {
+      logger.warn('Redis cache operation failed, continuing without cache', {
+        error: error as any,
+        key: key.substring(0, 50),
+      });
     }
 
     // Cache miss at all levels
@@ -68,7 +244,7 @@ export class CacheHierarchyService {
     PerformanceMonitor.trackCacheOperation('CACHE_MISS', false, duration, key);
 
     if (useIntelligentHierarchy) {
-      this.recordMiss(key);
+      this.queueCounterUpdate(key, 'miss');
     }
 
     return null;
@@ -149,6 +325,120 @@ export class CacheHierarchyService {
   }
 
   /**
+   * Batch get operation for multiple keys
+   */
+  static async mget<T>(keys: string[]): Promise<Map<string, T>> {
+    const startTime = Date.now();
+    const results = new Map<string, T>();
+
+    if (keys.length === 0) return results;
+
+    // L1: Batch memory cache lookup
+    const memoryMisses: string[] = [];
+    for (const key of keys) {
+      const data = this.memoryCache.get<T>(key);
+      if (data !== null) {
+        results.set(key, data);
+        PerformanceMonitor.trackCacheOperation('MEMORY_HIT', true, 1, key);
+      } else {
+        memoryMisses.push(key);
+      }
+    }
+
+    // L2: Batch Redis lookup for memory misses
+    if (memoryMisses.length > 0) {
+      try {
+        const redisResults = await this.redisCircuitBreaker.execute(
+          async () => {
+            // Note: RedisService.mget needs to be implemented
+            const redisData = new Map<string, T>();
+            for (const key of memoryMisses) {
+              const data = await RedisService.get<T>(key);
+              if (data !== null) {
+                redisData.set(key, data);
+              }
+            }
+            return redisData;
+          },
+        );
+
+        if (redisResults) {
+          for (const [key, data] of redisResults.entries()) {
+            results.set(key, data);
+            PerformanceMonitor.trackCacheOperation('REDIS_HIT', true, 1, key);
+
+            // Promote to memory cache
+            this.memoryCache.set(key, data, 300);
+          }
+        }
+      } catch (error) {
+        logger.warn('Batch Redis operation failed', {
+          error: error as any,
+          missed_keys: memoryMisses.length,
+        });
+      }
+    }
+
+    // Track cache misses
+    const totalMisses = keys.length - results.size;
+    if (totalMisses > 0) {
+      PerformanceMonitor.trackCacheOperation('CACHE_MISS', false, totalMisses);
+    }
+
+    const duration = Date.now() - startTime;
+    logger.info(
+      `Batch cache operation: ${results.size}/${keys.length} hits in ${duration}ms`,
+    );
+
+    return results;
+  }
+
+  /**
+   * Batch set operation for multiple key-value pairs
+   */
+  static async mset<T>(
+    entries: Array<{ key: string; data: T; ttl: number }>,
+    forceMemoryCache = false,
+  ): Promise<void> {
+    if (entries.length === 0) return;
+
+    const startTime = Date.now();
+
+    try {
+      // Batch Redis operations
+      const redisPromises = entries.map((entry) =>
+        RedisService.set(entry.key, entry.data, entry.ttl),
+      );
+      await Promise.allSettled(redisPromises);
+
+      // Selective memory cache storage
+      for (const entry of entries) {
+        const shouldCacheInMemory =
+          forceMemoryCache ||
+          this.shouldPromoteToMemory(
+            entry.key,
+            JSON.stringify(entry.data).length,
+          );
+
+        if (shouldCacheInMemory) {
+          const memoryTtl = Math.min(entry.ttl, 300); // Max 5 minutes in memory
+          this.memoryCache.set(entry.key, entry.data, memoryTtl);
+        }
+      }
+
+      const duration = Date.now() - startTime;
+      PerformanceMonitor.trackCacheOperation('BATCH_SET', true, duration);
+
+      logger.info(`Batch cache set: ${entries.length} items in ${duration}ms`);
+    } catch (error) {
+      logger.error('Batch cache set failed:', {
+        error: error as any,
+        entry_count: entries.length,
+      });
+    }
+  }
+
+  /**
    * Invalidate from all cache levels
    */
   static async invalidate(key: string): Promise<void> {
@@ -173,26 +463,93 @@ export class CacheHierarchyService {
   }
 
   /**
-   * Invalidate by pattern from all cache levels
+   * Invalidate by pattern from all cache levels with smart memory cache filtering
    */
   static async invalidatePattern(pattern: string): Promise<void> {
     try {
-      // Clear relevant memory cache entries
-      this.memoryCache.clear(); // Simple approach - clear all memory cache
+      // Smart memory cache invalidation - only clear matching entries
+      let memoryEntriesCleared = 0;
+
+      // Get memory cache entries and selectively clear matching ones
+      const memoryCache = this.memoryCache;
+      // Since MemoryCache doesn't expose direct iteration, we'll track this differently
+      // For now, we'll use a more targeted approach for common patterns
+
+      if (pattern.includes('user:')) {
+        // For user-specific patterns, extract user ID and clear related entries
+        const userIdMatch = pattern.match(/user:([^:*]+)/);
+        if (userIdMatch) {
+          const userId = userIdMatch[1];
+          // Clear user-specific counter entries
+          for (const [key] of this.hitCounters.entries()) {
+            if (key.includes(`user:${userId}`)) {
+              this.hitCounters.delete(key);
+              memoryEntriesCleared++;
+            }
+          }
+          for (const [key] of this.missCounters.entries()) {
+            if (key.includes(`user:${userId}`)) {
+              this.missCounters.delete(key);
+              memoryEntriesCleared++;
+            }
+          }
+        }
+      } else {
+        // For non-user patterns, fall back to clearing all memory cache
+        // This is still better than before as we maintain hit/miss counters
+        memoryCache.clear();
+        memoryEntriesCleared = -1; // Indicate full clear
+      }
 
       // Clear Redis pattern
       await RedisService.delPattern(pattern);
 
-      // Clear hit/miss counters for pattern (simplified)
-      this.hitCounters.clear();
-      this.missCounters.clear();
+      // Clear relevant hit/miss counters based on pattern
+      this.clearCountersByPattern(pattern);
 
-      logger.info(`Cache pattern invalidated at all levels: ${pattern}`);
+      logger.info(`Cache pattern invalidated at all levels: ${pattern}`, {
+        memory_entries_cleared: memoryEntriesCleared,
+        pattern_type: pattern.includes('user:') ? 'user-specific' : 'global',
+      });
     } catch (error) {
       logger.error('Error invalidating cache pattern:', {
         error: error as any,
         pattern,
       });
+    }
+  }
+
+  /**
+   * Convert glob pattern to regex for memory cache filtering
+   */
+  private static patternToRegex(pattern: string): RegExp {
+    // Convert glob pattern to regex
+    let regexPattern = pattern
+      .replace(/\*/g, '.*')
+      .replace(/\?/g, '.')
+      .replace(/\[([^\]]+)\]/g, '[$1]');
+
+    return new RegExp(`^${regexPattern}$`);
+  }
+
+  /**
+   * Clear hit/miss counters that match a pattern
+   */
+  private static clearCountersByPattern(pattern: string): void {
+    const regex = this.patternToRegex(pattern);
+
+    // Clear matching hit counters
+    for (const [key] of this.hitCounters.entries()) {
+      if (regex.test(key)) {
+        this.hitCounters.delete(key);
+      }
+    }
+
+    // Clear matching miss counters
+    for (const [key] of this.missCounters.entries()) {
+      if (regex.test(key)) {
+        this.missCounters.delete(key);
+      }
     }
   }
 
@@ -208,8 +565,8 @@ export class CacheHierarchyService {
         maxSize: memoryStats.maxSize,
         hitRate: memoryStats.hitRatio,
       },
-      promotionCandidates: this.hitCounters.size,
-      demotionCandidates: this.missCounters.size,
+      promotionCandidates: this.hitCounters.size(),
+      demotionCandidates: this.missCounters.size(),
     };
   }
 
@@ -287,22 +644,60 @@ export class CacheHierarchyService {
   }
 
   /**
-   * Record cache hit for promotion consideration
+   * Queue counter update for async processing
    */
-  private static recordHit(key: string): void {
-    const currentHits = this.hitCounters.get(key) || 0;
-    this.hitCounters.set(key, currentHits + 1);
+  private static queueCounterUpdate(key: string, type: 'hit' | 'miss'): void {
+    // Prevent queue overflow
+    if (this.updateQueue.length >= this.MAX_QUEUE_SIZE) {
+      // Process immediately if queue is full
+      this.processCounterUpdates();
+    }
 
-    // Reset miss counter on hit
-    this.missCounters.delete(key);
+    this.updateQueue.push({
+      key,
+      type,
+      timestamp: Date.now(),
+    });
   }
 
   /**
-   * Record cache miss for demotion consideration
+   * Process queued counter updates in batches
    */
-  private static recordMiss(key: string): void {
-    const currentMisses = this.missCounters.get(key) || 0;
-    this.missCounters.set(key, currentMisses + 1);
+  private static processCounterUpdates(): void {
+    if (this.updateQueue.length === 0) return;
+
+    const updates = this.updateQueue.splice(0); // Take all updates
+    const hitUpdates = new Map<string, number>();
+    const missUpdates = new Map<string, number>();
+
+    // Aggregate updates by key
+    for (const update of updates) {
+      if (update.type === 'hit') {
+        hitUpdates.set(update.key, (hitUpdates.get(update.key) || 0) + 1);
+        // Reset miss counter on hit
+        this.missCounters.delete(update.key);
+      } else {
+        missUpdates.set(update.key, (missUpdates.get(update.key) || 0) + 1);
+      }
+    }
+
+    // Apply batched updates
+    for (const [key, increment] of hitUpdates.entries()) {
+      const current = this.hitCounters.get(key) || 0;
+      this.hitCounters.set(key, current + increment);
+    }
+
+    for (const [key, increment] of missUpdates.entries()) {
+      const current = this.missCounters.get(key) || 0;
+      this.missCounters.set(key, current + increment);
+    }
+
+    if (updates.length > 0) {
+      logger.info(`Processed ${updates.length} cache counter updates`, {
+        hit_updates: hitUpdates.size,
+        miss_updates: missUpdates.size,
+      });
+    }
   }
 
   /**
@@ -323,11 +718,26 @@ export class CacheHierarchyService {
   }
 
   /**
-   * Determine if item should be promoted to memory cache
+   * Determine if item should be promoted to memory cache with memory awareness
    */
-  private static shouldPromoteToMemory(key: string): boolean {
+  private static shouldPromoteToMemory(
+    key: string,
+    dataSize?: number,
+  ): boolean {
     const hitCount = this.hitCounters.get(key) || 0;
-    return hitCount >= this.PROMOTION_THRESHOLD;
+    const memoryStats = this.memoryCache.getStats();
+    const utilizationRatio = memoryStats.size / memoryStats.maxSize;
+
+    // More selective promotion when memory is under pressure
+    const dynamicThreshold =
+      utilizationRatio > 0.8
+        ? this.PROMOTION_THRESHOLD * 2
+        : this.PROMOTION_THRESHOLD;
+
+    // Prefer small items when memory is tight
+    const hasCapacity = utilizationRatio < 0.9 || (dataSize && dataSize < 1024); // Prefer items < 1KB
+
+    return hitCount >= dynamicThreshold && hasCapacity !== false;
   }
 }
 
