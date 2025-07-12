@@ -214,13 +214,17 @@ const handler = async (req: any | CustomRequest, res: Response) => {
 
       return {
         exam_id: exam.exam_id,
+        user_id: exam.user_id,
         cert_id: exam.cert_id,
-        started_date: exam.started_at,
-        completed_date: exam.submitted_at,
-        score: exam.score,
-        status: computedStatus,
         exam_status: exam.exam_status, // Include the actual database status for reference
+        score: exam.score,
+        token_cost: exam.token_cost,
+        total_questions: exam.total_questions, // Add total_questions field
+        custom_prompt_text: exam.custom_prompt_text, // Add custom_prompt_text field
+        started_at: exam.started_at, // Use correct field name
+        submitted_at: exam.submitted_at, // Use correct field name
         certification: exam.certification, // Include certification details for additional context
+        status: computedStatus, // Keep computed status for backward compatibility
       };
     });
 
