@@ -3,16 +3,34 @@ import logger from '../firebase/logger';
 
 /**
  * Cache Management Service
- * Provides utilities for managing cache invalidation across the application
+ *
+ * Provides high-level utilities for managing cache invalidation across the application.
+ * This service ensures data consistency by properly invalidating related cache entries
+ * when underlying data changes.
+ *
+ * Key Responsibilities:
+ * - Coordinate cache invalidation across different data types
+ * - Handle cascade invalidation (when one change affects multiple cache entries)
+ * - Provide semantic invalidation methods for business logic events
+ * - Ensure cache consistency without manual key management
  */
 export class CacheManager {
   /**
-   * Invalidate cache when a user's exam data changes
+   * Invalidate all cache entries related to a user's exam data
+   *
+   * Called when:
+   * - User starts a new exam
+   * - User completes an exam
+   * - Exam results are updated
+   * - User exam permissions change
+   *
+   * @param userId - The user whose exam cache should be invalidated
    */
   static async invalidateUserExamCache(userId: string): Promise<void> {
     try {
       logger.info(`Invalidating user exam cache for user ${userId}`);
 
+      // Invalidate all exam-related cache entries for this user
       await RedisService.invalidateUserCache(userId, 'exams');
       await RedisService.invalidateUserCache(userId, 'exam_questions');
       await RedisService.invalidateUserCache(userId, 'exam_details');
@@ -20,16 +38,26 @@ export class CacheManager {
       logger.info('User exam cache invalidation completed');
     } catch (error) {
       logger.error(`Error invalidating user exam cache: ${error}`);
+      // Don't throw - cache invalidation failures shouldn't break business logic
     }
   }
 
   /**
-   * Invalidate cache when a user's certification data changes
+   * Invalidate all cache entries related to a user's certification data
+   *
+   * Called when:
+   * - User earns a new certification
+   * - User's certification status changes
+   * - Certification requirements are updated
+   * - User certification progress changes
+   *
+   * @param userId - The user whose certification cache should be invalidated
    */
   static async invalidateUserCertificationCache(userId: string): Promise<void> {
     try {
       logger.info(`Invalidating user certification cache for user ${userId}`);
 
+      // Invalidate certification-related cache entries for this user
       await RedisService.invalidateUserCache(userId, 'certifications');
 
       logger.info('User certification cache invalidation completed');
@@ -37,8 +65,21 @@ export class CacheManager {
       logger.error(`Error invalidating user certification cache: ${error}`);
     }
   }
+
   /**
-   * Invalidate cache when a firm is created, updated, or deleted
+   * Invalidate cache entries when firm data changes
+   *
+   * This method handles cascade invalidation because firm changes can affect:
+   * - Individual firm cache entries
+   * - Firm list pagination cache
+   * - Certifications associated with the firm
+   *
+   * Called when:
+   * - Firm is created, updated, or deleted
+   * - Firm certification counts change
+   * - Firm status or visibility changes
+   *
+   * @param firmId - Optional specific firm ID (if null, invalidates all firm cache)
    */
   static async invalidateFirmCache(firmId?: number): Promise<void> {
     try {
@@ -47,13 +88,14 @@ export class CacheManager {
       );
 
       if (firmId) {
-        // Invalidate specific firm cache
+        // Invalidate specific firm cache entry
         await RedisService.del(`firm:id:${firmId}`);
-        // Invalidate certifications by firm cache
+        // Invalidate certifications by firm cache (contains firmId in key pattern)
         await RedisService.delPattern(`certifications:firm:*firmId*${firmId}*`);
       }
 
-      // Invalidate all firms list cache (all pages)
+      // Invalidate all firms list cache entries (all pagination pages)
+      // This is necessary because firm changes affect list ordering, counts, etc.
       await RedisService.delPattern('firms:list:*');
 
       logger.info('Firm cache invalidation completed');
@@ -63,7 +105,21 @@ export class CacheManager {
   }
 
   /**
-   * Invalidate cache when a certification is created, updated, or deleted
+   * Invalidate cache entries when certification data changes
+   *
+   * This method handles complex cascade invalidation because certification changes affect:
+   * - Individual certification cache entries
+   * - Certification list pagination cache
+   * - Firm cache (due to certification count changes)
+   * - Firm-specific certification lists
+   *
+   * Called when:
+   * - Certification is created, updated, or deleted
+   * - Certification-firm relationships change
+   * - Certification requirements or content change
+   *
+   * @param certId - Optional specific certification ID
+   * @param firmId - Optional firm ID if the change affects firm-certification relationship
    */
   static async invalidateCertificationCache(
     certId?: number,
@@ -77,21 +133,23 @@ export class CacheManager {
       );
 
       if (certId) {
-        // Invalidate specific certification cache
+        // Invalidate specific certification cache entry
         await RedisService.del(`certification:id:${certId}`);
       }
 
       if (firmId) {
-        // Invalidate certifications by firm cache
+        // Invalidate certifications by firm cache (firm-specific certification lists)
         await RedisService.delPattern(`certifications:firm:*firmId*${firmId}*`);
-        // Also invalidate firm cache since certification counts may change
+        // Also invalidate firm cache since certification counts may have changed
         await RedisService.del(`firm:id:${firmId}`);
       }
 
-      // Invalidate all certifications list cache (all pages)
+      // Invalidate all certifications list cache (all pagination pages)
+      // This is necessary because certification changes affect list ordering, counts, etc.
       await RedisService.delPattern('certifications:list:*');
 
       // Invalidate firms list cache since certification counts may have changed
+      // This handles the cascade effect where certification changes affect firm statistics
       await RedisService.delPattern('firms:list:*');
 
       logger.info('Certification cache invalidation completed');

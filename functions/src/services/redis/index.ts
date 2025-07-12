@@ -4,16 +4,33 @@ import { PerformanceMonitor } from '../performance';
 import memoryCache from '../cache/memoryCache';
 
 // Redis Connection Pool implementation
+/**
+ * Redis Connection Pool for efficient connection management
+ *
+ * This class implements a connection pool pattern to optimize Redis operations:
+ * - Maintains a pool of persistent Redis connections
+ * - Uses round-robin selection for load distribution
+ * - Reduces connection overhead and improves performance
+ * - Provides health checking capabilities
+ */
 class RedisConnectionPool {
   private static instance: RedisConnectionPool;
-  private connectionPool: Redis[] = [];
-  private readonly POOL_SIZE = 10;
-  private currentIndex = 0;
+  private connectionPool: Redis[] = []; // Pool of Redis connections
+  private readonly POOL_SIZE = 10; // Number of connections to maintain
+  private currentIndex = 0; // Current connection index for round-robin selection
 
+  /**
+   * Private constructor to enforce singleton pattern
+   * Initializes the connection pool on first instantiation
+   */
   private constructor() {
     this.initializePool();
   }
 
+  /**
+   * Get singleton instance of the connection pool
+   * @returns RedisConnectionPool singleton instance
+   */
   static getInstance(): RedisConnectionPool {
     if (!RedisConnectionPool.instance) {
       RedisConnectionPool.instance = new RedisConnectionPool();
@@ -21,6 +38,10 @@ class RedisConnectionPool {
     return RedisConnectionPool.instance;
   }
 
+  /**
+   * Initialize the Redis connection pool with configured connections
+   * Each connection is configured with retry logic and optimizations
+   */
   private initializePool(): void {
     logger.info(
       `Initializing Redis connection pool with ${this.POOL_SIZE} connections`,
@@ -31,24 +52,35 @@ class RedisConnectionPool {
         url: process.env.UPSTASH_REDIS_REST_URL!,
         token: process.env.UPSTASH_REDIS_REST_TOKEN!,
         retry: {
-          retries: 3,
+          retries: 3, // Retry failed operations up to 3 times
+          // Exponential backoff with maximum 5 second delay
           backoff: (retryCount: number) => Math.min(1000 * retryCount, 5000),
         },
-        // Optimize connection settings
-        automaticDeserialization: false, // Better performance for JSON data
+        // Performance optimization: disable automatic JSON deserialization
+        // This gives us better control over error handling and performance
+        automaticDeserialization: false,
       });
 
       this.connectionPool.push(connection);
     }
   }
 
+  /**
+   * Get a Redis connection using round-robin selection
+   * This distributes load evenly across all pool connections
+   * @returns Redis connection instance
+   */
   getConnection(): Redis {
-    // Round-robin connection selection
+    // Round-robin connection selection for load distribution
     const connection = this.connectionPool[this.currentIndex];
     this.currentIndex = (this.currentIndex + 1) % this.POOL_SIZE;
     return connection;
   }
 
+  /**
+   * Perform health check on Redis connection pool
+   * @returns true if Redis is healthy, false otherwise
+   */
   async healthCheck(): Promise<boolean> {
     try {
       const connection = this.getConnection();
@@ -61,23 +93,33 @@ class RedisConnectionPool {
   }
 }
 
-// Cache configuration
+// Cache configuration constants
+/**
+ * Centralized cache configuration for consistent TTL management
+ *
+ * TTL Strategy:
+ * - Public data (firms, certifications): Longer TTL for better performance
+ * - User-specific data: Shorter TTL for data consistency and freshness
+ * - ID-based lookups: Medium TTL as they're frequently accessed but need freshness
+ */
 export const CACHE_CONFIG = {
-  // TTL (Time To Live) in seconds
-  FIRMS_TTL: 3600, // 1 hour
-  CERTIFICATIONS_TTL: 3600, // 1 hour
-  FIRM_BY_ID_TTL: 1800, // 30 minutes
-  CERTIFICATION_BY_ID_TTL: 1800, // 30 minutes
-  CERTIFICATIONS_BY_FIRM_TTL: 1800, // 30 minutes
+  // TTL (Time To Live) in seconds for public data
+  FIRMS_TTL: 3600, // 1 hour - firms data changes infrequently
+  CERTIFICATIONS_TTL: 3600, // 1 hour - certification data is relatively stable
+  FIRM_BY_ID_TTL: 1800, // 30 minutes - individual firm details
+  CERTIFICATION_BY_ID_TTL: 1800, // 30 minutes - individual certification details
+  CERTIFICATIONS_BY_FIRM_TTL: 1800, // 30 minutes - firm's certifications list
 
   // User-specific cache TTLs (shorter for data consistency)
-  USER_EXAMS_TTL: 300, // 5 minutes
-  USER_EXAM_QUESTIONS_TTL: 600, // 10 minutes
-  USER_EXAM_DETAILS_TTL: 300, // 5 minutes
-  USER_CERTIFICATIONS_TTL: 600, // 10 minutes
+  // User data needs to be fresh to avoid showing stale exam results or progress
+  USER_EXAMS_TTL: 300, // 5 minutes - user exam data changes frequently
+  USER_EXAM_QUESTIONS_TTL: 600, // 10 minutes - exam questions are stable during exam
+  USER_EXAM_DETAILS_TTL: 300, // 5 minutes - exam details may change based on progress
+  USER_CERTIFICATIONS_TTL: 600, // 10 minutes - user certification progress
 
-  // Cache key prefixes
+  // Cache key prefixes for organized namespace management
   KEYS: {
+    // Public data cache keys
     FIRMS_LIST: 'firms:list',
     FIRM_BY_ID: 'firm:id',
     CERTIFICATIONS_LIST: 'certifications:list',
@@ -93,7 +135,18 @@ export const CACHE_CONFIG = {
 };
 
 /**
- * Generate cache key for paginated data
+ * Generate cache key for paginated data with consistent formatting
+ *
+ * This ensures all paginated endpoints use the same key format for:
+ * - Easy cache invalidation (using patterns)
+ * - Consistent key naming across the application
+ * - Support for additional query parameters
+ *
+ * @param prefix - Cache key prefix (e.g., 'firms:list')
+ * @param page - Page number for pagination
+ * @param pageSize - Number of items per page
+ * @param additionalParams - Optional parameters that affect the result
+ * @returns Formatted cache key
  */
 export function generatePaginatedCacheKey(
   prefix: string,
@@ -101,12 +154,17 @@ export function generatePaginatedCacheKey(
   pageSize: number,
   additionalParams?: Record<string, any>,
 ): string {
+  // Include additional parameters in cache key to ensure unique caching
   const params = additionalParams ? `_${JSON.stringify(additionalParams)}` : '';
   return `${prefix}:page_${page}:size_${pageSize}${params}`;
 }
 
 /**
- * Generate cache key for single item
+ * Generate cache key for single item lookup
+ *
+ * @param prefix - Cache key prefix (e.g., 'firm:id')
+ * @param id - Unique identifier for the item
+ * @returns Formatted cache key
  */
 export function generateItemCacheKey(
   prefix: string,
@@ -116,24 +174,36 @@ export function generateItemCacheKey(
 }
 
 /**
- * Redis Cache Service with connection pooling
+ * Redis Cache Service with connection pooling and comprehensive error handling
+ *
+ * This service provides a high-level interface for Redis operations with:
+ * - Connection pooling for better performance
+ * - Comprehensive error handling and logging
+ * - Performance monitoring integration
+ * - Graceful degradation on failures
  */
 export class RedisService {
   /**
    * Get a Redis connection from the pool
+   * Uses round-robin selection for optimal load distribution
+   * @returns Redis connection instance
    */
   private static getConnection(): Redis {
     return RedisConnectionPool.getInstance().getConnection();
   }
 
   /**
-   * Get data from cache
+   * Get data from Redis cache with comprehensive error handling
+   *
+   * @param key - Cache key to retrieve
+   * @returns Parsed data object or null if not found/error occurred
    */
   static async get<T>(key: string): Promise<T | null> {
     const startTime = Date.now();
     try {
       const redis = this.getConnection();
       const data = await redis.get(key);
+
       if (data) {
         logger.info(`Cache HIT for key: ${key}`);
         PerformanceMonitor.trackCacheOperation(
@@ -143,8 +213,11 @@ export class RedisService {
           key,
         );
         // Parse JSON string from Redis since automaticDeserialization is false
+        // This gives us better error handling control
         return JSON.parse(data as string) as T;
       }
+
+      // Cache miss - log for monitoring
       logger.info(`Cache MISS for key: ${key}`);
       PerformanceMonitor.trackCacheOperation(
         'GET',
@@ -161,17 +234,22 @@ export class RedisService {
         Date.now() - startTime,
         key,
       );
-      return null;
+      return null; // Graceful degradation - don't break the application
     }
   }
 
   /**
-   * Set data in cache with TTL
+   * Set data in Redis cache with TTL and comprehensive error handling
+   *
+   * @param key - Cache key to store data under
+   * @param data - Data to cache (will be JSON serialized)
+   * @param ttl - Time to live in seconds
    */
   static async set(key: string, data: any, ttl: number): Promise<void> {
     const startTime = Date.now();
     try {
       const redis = this.getConnection();
+      // Use setex for atomic set with expiration
       await redis.setex(key, ttl, JSON.stringify(data));
       logger.info(`Cache SET for key: ${key} (TTL: ${ttl}s)`);
       PerformanceMonitor.trackCacheOperation(
@@ -188,11 +266,14 @@ export class RedisService {
         Date.now() - startTime,
         key,
       );
+      // Don't throw - cache failures shouldn't break the application
     }
   }
 
   /**
-   * Delete data from cache
+   * Delete data from Redis cache
+   *
+   * @param key - Cache key to delete
    */
   static async del(key: string): Promise<void> {
     try {
