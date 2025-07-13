@@ -9,6 +9,8 @@ import {
   updateExamAfterQuestionAssociation,
 } from '../../utils/examQuestionAssociation';
 import { PerformanceMonitor } from '../../services/performance';
+import { ExamGenerationLogger } from '../../services/exam-generation-logger';
+import { ExamGenerationMetrics } from '../../services/exam-generation-metrics';
 
 interface TaskPayload {
   exam_id: string;
@@ -22,6 +24,11 @@ interface TaskPayload {
 }
 
 const handler = async (req: any | CustomRequest, res: Response) => {
+  let batchMetrics: {
+    start_time: number;
+    initial_memory: NodeJS.MemoryUsage;
+  } | null = null;
+
   try {
     const payload: TaskPayload = req.body;
     const {
@@ -34,6 +41,15 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       custom_prompt_text,
       questions_per_batch,
     } = payload;
+
+    // Start structured logging for this batch
+    batchMetrics = ExamGenerationLogger.logBatchStart({
+      exam_id,
+      batch_number,
+      total_batches,
+      questions_to_generate,
+      cert_id,
+    });
 
     logger.info(
       `EXAM_BATCH_PROCESS: exam_id=${exam_id}, batch=${batch_number}/${total_batches}, questions=${questions_to_generate}`,
@@ -95,6 +111,17 @@ const handler = async (req: any | CustomRequest, res: Response) => {
     }
 
     try {
+      // Log AI request start
+      ExamGenerationLogger.logAIRequest({
+        exam_id,
+        batch_number,
+        ai_service: 'gemini20Flash',
+        certification_name,
+        questions_requested: questions_to_generate,
+      });
+
+      const aiStartTime = Date.now();
+
       // Generate questions using the quiz generator
       const quizGenerator = await quizGeneratorPromise;
       const generatedQuestions = await quizGenerator({
@@ -103,6 +130,18 @@ const handler = async (req: any | CustomRequest, res: Response) => {
         count: questions_to_generate,
         exam_id,
         customPromptText: custom_prompt_text,
+      });
+
+      const aiDuration = Date.now() - aiStartTime;
+
+      // Log AI response
+      ExamGenerationLogger.logAIResponse({
+        exam_id,
+        batch_number,
+        ai_service: 'gemini20Flash',
+        questions_generated: generatedQuestions.length,
+        duration_ms: aiDuration,
+        success: true,
       });
 
       logger.info(
@@ -184,6 +223,16 @@ const handler = async (req: any | CustomRequest, res: Response) => {
 
           const batchDuration = Date.now() - batchStartTime;
 
+          // Log database storage with structured logging
+          ExamGenerationLogger.logDatabaseStore({
+            exam_id,
+            batch_number,
+            questions_stored: createdQuestions.length,
+            answer_options_stored: optionsData.length,
+            duration_ms: batchDuration,
+            success: true,
+          });
+
           // Track batch operation performance
           PerformanceMonitor.trackBatchOperation(
             'quiz_questions_batch_create',
@@ -205,6 +254,10 @@ const handler = async (req: any | CustomRequest, res: Response) => {
 
       // Check if this is the last batch
       let associationResult = null;
+
+      // Calculate questions generated so far for logging and next batch calculation
+      const questionsGenerated = batch_number * questions_per_batch;
+
       if (batch_number >= total_batches) {
         logger.info(
           `All batches completed for exam ${exam_id}, batch ${batch_number}`,
@@ -243,11 +296,19 @@ const handler = async (req: any | CustomRequest, res: Response) => {
         // Update exam with successful association results
         await updateExamAfterQuestionAssociation(exam_id, associationResult);
 
+        // Log exam completion
+        ExamGenerationLogger.logExamComplete({
+          exam_id,
+          total_questions_generated: questionsGenerated,
+          total_questions_associated: associationResult.associatedQuestionCount,
+          total_batches,
+          status: 'READY',
+        });
+
         logger.info(`EXAM_READY: exam_id=${exam_id}, status=READY`);
       } else {
         // Create next batch task
         // Calculate remaining questions needed, ensuring we never go negative
-        const questionsGenerated = batch_number * questions_per_batch;
         const remainingQuestions = Math.max(
           0,
           (exam.total_questions || 0) - questionsGenerated,
@@ -302,6 +363,18 @@ const handler = async (req: any | CustomRequest, res: Response) => {
           nextBatchPayload,
         );
 
+        // Log task creation
+        ExamGenerationLogger.logTaskCreation({
+          exam_id,
+          current_batch: batch_number,
+          next_batch: batch_number + 1,
+          total_batches,
+          questions_for_next_batch: questionsForNextBatch,
+          task_name: nextTaskName || undefined,
+          success: !!nextTaskName,
+          error: nextTaskName ? undefined : 'Failed to create cloud task',
+        });
+
         if (!nextTaskName) {
           logger.error(
             `Failed to create next batch task for exam ${exam_id}, batch ${
@@ -314,6 +387,16 @@ const handler = async (req: any | CustomRequest, res: Response) => {
             data: { exam_status: ExamStatus.QUESTION_GENERATION_FAILED },
           });
 
+          // Log exam failure
+          ExamGenerationLogger.logExamFailure({
+            exam_id,
+            batch_number,
+            total_batches,
+            reason: 'task_creation_failed',
+            error: 'Failed to create next batch cloud task',
+            questions_generated_so_far: questionsGenerated,
+          });
+
           logger.info(
             `EXAM_GENERATION_FAILED: exam_id=${exam_id}, reason=task_creation_failed`,
           );
@@ -324,6 +407,30 @@ const handler = async (req: any | CustomRequest, res: Response) => {
             }/${total_batches}`,
           );
         }
+      }
+
+      // Log successful batch completion with metrics
+      if (batchMetrics) {
+        ExamGenerationLogger.logBatchComplete({
+          exam_id,
+          batch_number,
+          total_batches,
+          questions_generated: generatedQuestions.length,
+          questions_stored: validQuestions.length,
+          start_time: batchMetrics.start_time,
+          initial_memory: batchMetrics.initial_memory,
+          success: true,
+        });
+
+        // Record metrics for monitoring
+        const finalMemory = process.memoryUsage();
+        ExamGenerationMetrics.recordBatchOperation({
+          exam_id,
+          batch_number,
+          success: true,
+          duration_ms: Date.now() - batchMetrics.start_time,
+          memory_used_mb: finalMemory.heapUsed / 1024 / 1024,
+        });
       }
 
       res.status(200).json({
@@ -339,6 +446,48 @@ const handler = async (req: any | CustomRequest, res: Response) => {
         },
       });
     } catch (generationError) {
+      // Log AI service failure if it was during AI generation
+      ExamGenerationLogger.logAIResponse({
+        exam_id,
+        batch_number,
+        ai_service: 'gemini20Flash',
+        questions_generated: 0,
+        duration_ms: 0,
+        success: false,
+        error:
+          generationError instanceof Error
+            ? generationError.message
+            : 'Unknown AI error',
+      });
+
+      // Log batch failure with metrics
+      if (batchMetrics) {
+        ExamGenerationLogger.logBatchComplete({
+          exam_id,
+          batch_number,
+          total_batches,
+          questions_generated: 0,
+          questions_stored: 0,
+          start_time: batchMetrics.start_time,
+          initial_memory: batchMetrics.initial_memory,
+          success: false,
+          error:
+            generationError instanceof Error
+              ? generationError.message
+              : 'Unknown error',
+        });
+
+        // Record failed batch metrics
+        const finalMemory = process.memoryUsage();
+        ExamGenerationMetrics.recordBatchOperation({
+          exam_id,
+          batch_number,
+          success: false,
+          duration_ms: Date.now() - batchMetrics.start_time,
+          memory_used_mb: finalMemory.heapUsed / 1024 / 1024,
+        });
+      }
+
       logger.error(
         `Error generating questions for exam ${exam_id}, batch ${batch_number}:`,
         generationError as any,
@@ -348,6 +497,18 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       await prismaInstance.examAttempt.update({
         where: { exam_id },
         data: { exam_status: ExamStatus.QUESTION_GENERATION_FAILED },
+      });
+
+      // Log exam failure
+      ExamGenerationLogger.logExamFailure({
+        exam_id,
+        batch_number,
+        total_batches,
+        reason: 'question_generation_error',
+        error:
+          generationError instanceof Error
+            ? generationError.message
+            : 'Unknown error',
       });
 
       logger.info(

@@ -5,6 +5,7 @@ import prismaInstance, { ExamStatus } from '../../../../services/prisma';
 import { createCloudTask } from '../../../../services/gcp/cloudTasks';
 import { OptimizedRateLimitService } from '../../../../services/optimizedRateLimit';
 import { CacheManager } from '../../../../services/cache';
+import { ExamGenerationLogger } from '../../../../services/exam-generation-logger';
 
 const DEFAULT_NUMBER_OF_QUESTIONS = 20;
 const MAX_NUMBER_OF_QUESTIONS = 100; // Set a reasonable max
@@ -107,8 +108,9 @@ const handler = async (
     }
 
     // 3. Check rate limit: Maximum 3 exams per 24 hours (using optimized Redis-based rate limiting)
-    const rateLimitResult =
-      await OptimizedRateLimitService.checkExamRateLimit(user_id);
+    const rateLimitResult = await OptimizedRateLimitService.checkExamRateLimit(
+      user_id,
+    );
     if (!rateLimitResult.isAllowed) {
       logger.warn(
         `Rate limit exceeded for user ${user_id}: ${rateLimitResult.currentCount}/${MAX_EXAMS_PER_24_HOURS} exams in 24 hours`,
@@ -222,6 +224,13 @@ const handler = async (
         data: { exam_status: ExamStatus.QUESTION_GENERATION_FAILED },
       });
 
+      // Log exam creation failure
+      ExamGenerationLogger.logExamFailure({
+        exam_id: newExam.exam_id,
+        reason: 'task_creation_failed',
+        error: 'Failed to create initial cloud task',
+      });
+
       logger.info(
         `EXAM_CREATE_FAILED: exam_id=${newExam.exam_id}, reason=task_creation_failed`,
       );
@@ -232,6 +241,17 @@ const handler = async (
       });
       return;
     }
+
+    // Log successful exam creation start
+    ExamGenerationLogger.logExamCreationStart({
+      exam_id: newExam.exam_id,
+      user_id,
+      cert_id: certification.cert_id,
+      certification_name: certification.name,
+      total_questions: requestedNumberOfQuestions,
+      total_batches: totalBatches,
+      custom_prompt: customPromptText,
+    });
 
     res.status(202).json({
       success: true,
