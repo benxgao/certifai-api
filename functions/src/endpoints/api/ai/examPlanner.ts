@@ -37,7 +37,8 @@ import { examPlannerPromise } from '../../../services/genkit/examPlanner';
  *     ],
  *     "cert_id": "cert_456",
  *     "user_id": "user_789",
- *     "created_at": 1721030400
+ *     "created_at": 1721030400,
+ *     "customPrompt": "Focus on advanced networking, security best practices, and cost optimization strategies"
  *   }
  * }
  */
