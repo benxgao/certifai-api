@@ -24,7 +24,19 @@ import { examPlannerPromise } from '../../../services/genkit/examPlanner';
  * {
  *   "success": true,
  *   "data": {
- *     // AI-generated exam plan object
+ *     "questions": [
+ *       {
+ *         "exam_topic": "IAM Policies and Roles",
+ *         "question_id": null
+ *       },
+ *       {
+ *         "exam_topic": "VPC Network Configuration",
+ *         "question_id": null
+ *       }
+ *     ],
+ *     "cert_id": "cert_456",
+ *     "user_id": "user_789",
+ *     "created_at": 1721030400
  *   }
  * }
  */

@@ -8,8 +8,15 @@ import { setRtdbValue } from '../firebase/rtdb';
 
 enableFirebaseTelemetry();
 
+const QuestionSchema = z.object({
+  exam_topic: z.string().describe('The exam topic for this question'),
+  question_id: z.string().nullable().describe('Question ID, initially null'),
+});
+
 const ExamPlanSchema = z.object({
-  exam_topics: z.array(z.string()).describe('Array of exam topics'),
+  questions: z
+    .array(QuestionSchema)
+    .describe('Array of questions with topics and null question IDs'),
   cert_id: z.string().describe('Certification ID'),
   user_id: z.string().describe('User ID who created the exam plan'),
   created_at: z.number().describe('Unix timestamp when the plan was created'),
@@ -59,23 +66,24 @@ const buildExamPlanPrompt = (
   cert_name: string,
   totalQuestionCounts: number,
 ): string => {
-  return `Generate a comprehensive list of exam topics for the ${cert_name} certification.
+  return `Generate a generic list of exam topics for the ${cert_name} certification.
 
     REQUIREMENTS:
     1. Create exactly ${totalQuestionCounts} distinct exam topics
     2. Topics should cover all major areas of the ${cert_name} certification
-    3. Each topic should be concise but specific (2-6 words)
+    3. Each topic should be 1-2 words
     4. Topics should be realistic and aligned with actual certification content
-    5. Avoid duplicate or overly similar topics
-    6. Cover both theoretical concepts and practical applications
+    5. Duplicate topics are allowed
+    6. Prevent using similar words to describe the same topic
+    6. topic using 2 words is more preferable than 1 word with camelCase or snake_case
 
     TOPIC EXAMPLES:
-    - "IAM Policies and Roles"
-    - "VPC Network Configuration"
-    - "Database Security"
-    - "Load Balancing Strategies"
-    - "Container Orchestration"
-    - "API Gateway Management"
+    - "IAM"
+    - "VPC Network"
+    - "Database"
+    - "Load Balancing"
+    - "Container"
+    - "API Gateway"
 
     Return the response as a JSON array of strings, where each string is a topic:
     ["Topic 1", "Topic 2", "Topic 3", ...]
@@ -156,9 +164,15 @@ export const examPlannerPromise = aiInstancePromise.then((ai) => {
           );
         }
 
+        // Transform generated topics into questions structure
+        const questions = validTopics.map((topic) => ({
+          exam_topic: topic,
+          question_id: null,
+        }));
+
         // Create exam plan object
         const examPlan: ExamPlan = {
-          exam_topics: validTopics,
+          questions,
           cert_id,
           user_id,
           created_at: Math.floor(Date.now() / 1000),
@@ -172,7 +186,7 @@ export const examPlannerPromise = aiInstancePromise.then((ai) => {
           `Exam plan stored successfully in RTDB at path: ${rtdbPath}`,
           {
             exam_id,
-            topicsCount: validTopics.length,
+            questionsCount: questions.length,
             cert_id,
             user_id,
             structuredData: true,
