@@ -1,9 +1,14 @@
-import { genkit, z, FlowSideChannel, Genkit } from 'genkit';
-import { googleAI, gemini20Flash } from '@genkit-ai/googleai';
+import { z, FlowSideChannel, Genkit } from 'genkit';
 import { enableFirebaseTelemetry } from '@genkit-ai/firebase';
 
-import logger from '../firebase/logger';
-import { getSecret } from '../gcp/secretManager';
+import {
+  createAiInstancePromise,
+  generateWithValidation,
+  validateAndFilterResponse,
+  handleGenerationError,
+  logGenerationStart,
+  logGenerationComplete,
+} from './utils';
 
 enableFirebaseTelemetry();
 
@@ -41,23 +46,7 @@ const QuizGeneratorInput = z.object({
       'Optional custom prompt text to focus on specific topics or requirements',
     ),
 });
-const initializeAiInstance = async (): Promise<Genkit> => {
-  try {
-    const apiKey = await getSecret('GOOGLE_GENAI_API_KEY');
-
-    const ai = genkit({
-      plugins: [googleAI({ apiKey })],
-      model: gemini20Flash,
-    });
-
-    logger.info('Genkit AI instance initialized successfully.');
-
-    return ai;
-  } catch (error) {
-    logger.error('Failed to initialize Genkit AI instance:', error as any);
-    throw new Error('Could not initialize AI services.'); // Propagate a generic error
-  }
-};
+// Using shared AI instance initialization
 
 // Helper function to build the quiz generation prompt
 const buildQuizPrompt = (
@@ -100,7 +89,7 @@ const buildQuizPrompt = (
 };
 
 // Create a singleton promise for the AI instance to ensure it's initialized only once.
-const aiInstancePromise: Promise<Genkit> = initializeAiInstance();
+const aiInstancePromise: Promise<Genkit> = createAiInstancePromise();
 
 type QuizGeneratorInputType = z.infer<typeof QuizGeneratorInput>;
 
@@ -120,70 +109,36 @@ export const quizGeneratorPromise = aiInstancePromise.then((ai) => {
       try {
         const { subject, count, exam_id, customPromptText } = input;
 
+        logGenerationStart('quiz generation', {
+          subject,
+          count,
+          exam_id,
+          customPromptText: customPromptText?.substring(0, 100),
+        });
+
         const prompt = buildQuizPrompt(subject, count, customPromptText);
 
-        logger.info(
-          `Starting quiz generation for subject: ${subject}, count: ${count}, exam_id: ${exam_id}${
-            customPromptText
-              ? `, custom_prompt: ${customPromptText.substring(0, 100)}...`
-              : ''
-          }`,
-        );
-
-        const { response, stream } = ai.generateStream({
-          prompt: prompt,
-          config: {
+        // Generate quiz items using shared utility with custom config
+        const actualQuizItems = await generateWithValidation(
+          ai,
+          prompt,
+          z.array(QuizSchema),
+          sendChunk,
+          {
             maxOutputTokens: 4096 * 100,
             temperature: 0.4,
             topP: 0.9,
             topK: 40,
           },
-          output: { schema: z.array(QuizSchema) },
-        });
+        );
 
-        for await (const chunk of stream) {
-          if (chunk.text) {
-            sendChunk(chunk.text);
-          }
-        }
-
-        const generateResponse = await response;
-        const actualQuizItems: QuizItem[] | null = generateResponse.output;
-
-        if (!actualQuizItems || actualQuizItems.length === 0) {
-          logger.warn(
-            'Genkit response was null, empty, or not in the expected format.',
-            { subject, count, exam_id },
-          );
-          throw new Error('No valid quiz items generated.');
-        }
-
-        // Validate and filter questions with missing examTopic
-        const validQuizItems = actualQuizItems.filter((item) => {
-          const hasValidTopic = item.examTopic && item.examTopic.trim() !== '';
-          if (!hasValidTopic) {
-            logger.warn(
-              `Question filtered out due to missing examTopic: ${item.question?.substring(
-                0,
-                50,
-              )}...`,
-            );
-          }
-          return hasValidTopic;
-        });
-
-        if (validQuizItems.length === 0) {
-          logger.error('No questions generated with valid examTopic values');
-          throw new Error('No questions generated with valid examTopic values');
-        }
-
-        if (validQuizItems.length < actualQuizItems.length) {
-          logger.warn(
-            `Filtered out ${
-              actualQuizItems.length - validQuizItems.length
-            } questions with missing examTopic`,
-          );
-        }
+        // Validate and filter questions with missing examTopic using shared utility
+        const validQuizItems = validateAndFilterResponse(
+          actualQuizItems,
+          (item: QuizItem) =>
+            !!(item.examTopic && item.examTopic.trim() !== ''),
+          'quiz items with valid examTopic',
+        );
 
         // Associate exam_id with each quiz item
         const quizItemsWithExamId = validQuizItems.map((item) => ({
@@ -191,25 +146,21 @@ export const quizGeneratorPromise = aiInstancePromise.then((ai) => {
           exam_id,
         }));
 
-        logger.info(
-          `Generated quiz items: ${JSON.stringify(
-            quizItemsWithExamId,
-            null,
-            2,
-          )}`,
-          { structuredData: true },
-        );
+        logGenerationComplete('quiz items', quizItemsWithExamId, {
+          count: quizItemsWithExamId.length,
+          exam_id,
+        });
+
         return quizItemsWithExamId;
       } catch (error) {
-        logger.error(
-          `Error in quizGenerator for subject '${input.subject}', count '${input.count}', exam_id '${input.exam_id}':`,
-          error as any,
-        );
-        // Re-throw a more specific error or handle as needed
-        throw new Error(
-          `Failed to generate quiz items: ${
-            error instanceof Error ? error.message : String(error)
-          }`,
+        return handleGenerationError(
+          error,
+          {
+            subject: input.subject,
+            count: input.count,
+            exam_id: input.exam_id,
+          },
+          'generate quiz items',
         );
       }
     },

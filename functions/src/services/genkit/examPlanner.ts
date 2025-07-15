@@ -1,10 +1,16 @@
-import { genkit, z, FlowSideChannel, Genkit } from 'genkit';
-import { googleAI, gemini20Flash } from '@genkit-ai/googleai';
+import { z, FlowSideChannel, Genkit } from 'genkit';
 import { enableFirebaseTelemetry } from '@genkit-ai/firebase';
 
 import logger from '../firebase/logger';
-import { getSecret } from '../gcp/secretManager';
 import { setRtdbValue } from '../firebase/rtdb';
+import {
+  createAiInstancePromise,
+  generateWithValidation,
+  validateAndFilterResponse,
+  handleGenerationError,
+  logGenerationStart,
+  logGenerationComplete,
+} from './utils';
 
 enableFirebaseTelemetry();
 
@@ -38,35 +44,21 @@ const ExamPlannerInput = z.object({
   exam_id: z.string().describe('Unique exam identifier for storing the plan'),
   cert_id: z.string().describe('Certification ID associated with the exam'),
   user_id: z.string().describe('User ID who is creating the exam plan'),
+  customPrompt: z
+    .string()
+    .optional()
+    .describe(
+      'Optional custom prompt text to focus on specific topics or requirements for exam planning',
+    ),
 });
-
-const initializeAiInstance = async (): Promise<Genkit> => {
-  try {
-    const apiKey = await getSecret('GOOGLE_GENAI_API_KEY');
-
-    const ai = genkit({
-      plugins: [googleAI({ apiKey })],
-      model: gemini20Flash,
-    });
-
-    logger.info('ExamPlanner Genkit AI instance initialized successfully.');
-
-    return ai;
-  } catch (error) {
-    logger.error(
-      'Failed to initialize ExamPlanner Genkit AI instance:',
-      error as any,
-    );
-    throw new Error('Could not initialize AI services.');
-  }
-};
 
 // Helper function to build the exam planning prompt
 const buildExamPlanPrompt = (
   cert_name: string,
   totalQuestionCounts: number,
+  customPrompt?: string,
 ): string => {
-  return `Generate a generic list of exam topics for the ${cert_name} certification.
+  const basePrompt = `Generate a generic list of exam topics for the ${cert_name} certification.
 
     REQUIREMENTS:
     1. Create exactly ${totalQuestionCounts} distinct exam topics
@@ -83,16 +75,27 @@ const buildExamPlanPrompt = (
     - "Database"
     - "Load Balancing"
     - "Container"
-    - "API Gateway"
+    - "API Gateway"`;
+
+  const customSection = customPrompt?.trim()
+    ? `
+
+    ADDITIONAL FOCUS:
+    ${customPrompt.trim()}`
+    : '';
+
+  const formatSection = `
 
     Return the response as a JSON array of strings, where each string is a topic:
     ["Topic 1", "Topic 2", "Topic 3", ...]
 
     Generate exactly ${totalQuestionCounts} unique and relevant topics for ${cert_name}.`;
+
+  return basePrompt + customSection + formatSection;
 };
 
 // Create a singleton promise for the AI instance
-const aiInstancePromise: Promise<Genkit> = initializeAiInstance();
+const aiInstancePromise: Promise<Genkit> = createAiInstancePromise();
 
 type ExamPlannerInputType = z.infer<typeof ExamPlannerInput>;
 
@@ -109,60 +112,45 @@ export const examPlannerPromise = aiInstancePromise.then((ai) => {
       { sendChunk }: FlowSideChannel<string>,
     ): Promise<ExamPlan> => {
       try {
-        const { cert_name, totalQuestionCounts, exam_id, cert_id, user_id } =
-          input;
+        const {
+          cert_name,
+          totalQuestionCounts,
+          exam_id,
+          cert_id,
+          user_id,
+          customPrompt,
+        } = input;
 
-        const prompt = buildExamPlanPrompt(cert_name, totalQuestionCounts);
-
-        logger.info(
-          `Starting exam plan generation for cert_name: ${cert_name}, totalQuestionCounts: ${totalQuestionCounts}, exam_id: ${exam_id}`,
-        );
-
-        const { response, stream } = ai.generateStream({
-          prompt: prompt,
-          config: {
-            maxOutputTokens: 4096,
-            temperature: 0.3,
-            topP: 0.8,
-            topK: 40,
-          },
-          output: { schema: z.array(z.string()) },
+        logGenerationStart('exam plan generation', {
+          cert_name,
+          totalQuestionCounts,
+          exam_id,
+          cert_id,
+          user_id,
+          customPrompt: customPrompt?.substring(0, 100),
         });
 
-        for await (const chunk of stream) {
-          if (chunk.text) {
-            sendChunk(chunk.text);
-          }
-        }
-
-        const generateResponse = await response;
-        const generatedTopics: string[] | null = generateResponse.output;
-
-        if (!generatedTopics || generatedTopics.length === 0) {
-          logger.warn(
-            'Genkit response was null, empty, or not in the expected format.',
-            { cert_name, totalQuestionCounts, exam_id },
-          );
-          throw new Error('No valid exam topics generated.');
-        }
-
-        // Filter out empty or invalid topics
-        const validTopics = generatedTopics.filter(
-          (topic) => topic && typeof topic === 'string' && topic.trim() !== '',
+        const prompt = buildExamPlanPrompt(
+          cert_name,
+          totalQuestionCounts,
+          customPrompt,
         );
 
-        if (validTopics.length === 0) {
-          logger.error('No valid topics generated after filtering');
-          throw new Error('No valid topics generated after filtering');
-        }
+        // Generate topics using shared utility
+        const generatedTopics = await generateWithValidation(
+          ai,
+          prompt,
+          z.array(z.string()),
+          sendChunk,
+        );
 
-        if (validTopics.length < generatedTopics.length) {
-          logger.warn(
-            `Filtered out ${
-              generatedTopics.length - validTopics.length
-            } invalid topics`,
-          );
-        }
+        // Validate and filter topics using shared utility
+        const validTopics = validateAndFilterResponse(
+          generatedTopics,
+          (topic: string) =>
+            !!(topic && typeof topic === 'string' && topic.trim() !== ''),
+          'exam topics',
+        );
 
         // Transform generated topics into questions structure
         const questions = validTopics.map((topic) => ({
@@ -193,21 +181,21 @@ export const examPlannerPromise = aiInstancePromise.then((ai) => {
           },
         );
 
-        logger.info(
-          `Generated exam plan: ${JSON.stringify(examPlan, null, 2)}`,
-          { structuredData: true },
-        );
+        logGenerationComplete('exam plan', examPlan, {
+          exam_id,
+          questionsCount: questions.length,
+        });
 
         return examPlan;
       } catch (error) {
-        logger.error(
-          `Error in examPlanner for cert_name '${input.cert_name}', totalQuestionCounts '${input.totalQuestionCounts}', exam_id '${input.exam_id}':`,
-          error as any,
-        );
-        throw new Error(
-          `Failed to generate exam plan: ${
-            error instanceof Error ? error.message : String(error)
-          }`,
+        return handleGenerationError(
+          error,
+          {
+            cert_name: input.cert_name,
+            totalQuestionCounts: input.totalQuestionCounts,
+            exam_id: input.exam_id,
+          },
+          'generate exam plan',
         );
       }
     },

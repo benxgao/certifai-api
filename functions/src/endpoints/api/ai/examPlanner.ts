@@ -17,6 +17,7 @@ import { examPlannerPromise } from '../../../services/genkit/examPlanner';
  *   "exam_id": "exam_123",
  *   "cert_id": "cert_456",
  *   "cert_name": "AWS Solutions Architect Associate",
+ *   "customPrompt": "Focus on advanced networking, security best practices, and cost optimization strategies",
  *   "totalQuestionCounts": 65
  * }
  *
@@ -45,7 +46,8 @@ export const examPlannerHandler = async (req: any, res: Response) => {
     // Ensure the AI instance and flow are initialized before proceeding
     const examPlanner = await examPlannerPromise;
 
-    const { exam_id, cert_id, cert_name, totalQuestionCounts } = req.body;
+    const { exam_id, cert_id, cert_name, totalQuestionCounts, customPrompt } =
+      req.body;
 
     // Extract user_id from Firebase auth token
     const user_id = req.firebase_user_info?.user_id;
@@ -92,7 +94,11 @@ export const examPlannerHandler = async (req: any, res: Response) => {
     }
 
     logger.info(
-      `Handling exam planner request with cert_name: ${cert_name}, totalQuestionCounts: ${totalQuestionCounts}, exam_id: ${exam_id}, cert_id: ${cert_id}, user_id: ${user_id}`,
+      `Handling exam planner request with cert_name: ${cert_name}, totalQuestionCounts: ${totalQuestionCounts}, exam_id: ${exam_id}, cert_id: ${cert_id}, user_id: ${user_id}${
+        customPrompt
+          ? `, customPrompt: ${customPrompt.substring(0, 100)}...`
+          : ''
+      }`,
     );
 
     const examPlan = await examPlanner({
@@ -101,6 +107,7 @@ export const examPlannerHandler = async (req: any, res: Response) => {
       exam_id,
       cert_id,
       user_id,
+      customPrompt,
     });
 
     logger.info(
