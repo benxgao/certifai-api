@@ -7,7 +7,7 @@
 import { inspect } from 'util';
 import { Request, Response } from 'express';
 import logger from '../../../services/firebase/logger';
-import { quizGeneratorPromise } from '../../../services/quizGenerator';
+import { quizGeneratorPromise } from '../../../services/genkit/quizGenerator';
 
 export const quizGeneratorHandler = async (req: Request, res: Response) => {
   try {

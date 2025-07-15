@@ -1,10 +1,10 @@
 import { Router as createRouter } from 'express';
-// import { genkitHandler } from './genkit';
 import { quizGeneratorHandler } from './quizGenerator';
+import { examPlannerHandler } from './examPlanner';
 
 const router = createRouter();
 
-// router.post('/genkit', genkitHandler);
+router.post('/exam-planner', examPlannerHandler);
 router.post('/quiz-generator', quizGeneratorHandler);
 
 export default router;

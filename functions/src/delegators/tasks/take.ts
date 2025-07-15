@@ -1,7 +1,7 @@
 import { Response } from 'express';
 import logger from '../../services/firebase/logger';
 import { CustomRequest } from '../../types';
-import { quizGeneratorPromise } from '../../services/quizGenerator';
+import { quizGeneratorPromise } from '../../services/genkit/quizGenerator';
 import prismaInstance, { ExamStatus } from '../../services/prisma';
 import { createCloudTask } from '../../services/gcp/cloudTasks';
 import {
