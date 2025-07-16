@@ -41,6 +41,24 @@ export async function getRtdbValue(path: string): Promise<any> {
 }
 
 /**
+ * Remove undefined values from an object recursively
+ * Firebase doesn't accept undefined values
+ */
+function removeUndefinedValues(obj: any): any {
+  if (Array.isArray(obj)) {
+    return obj.map(removeUndefinedValues);
+  } else if (obj && typeof obj === 'object') {
+    return Object.entries(obj).reduce((acc, [key, value]) => {
+      if (value !== undefined) {
+        acc[key] = removeUndefinedValues(value);
+      }
+      return acc;
+    }, {} as any);
+  }
+  return obj;
+}
+
+/**
  * Set data in Firebase Realtime Database
  * @param path - The database path to write to (e.g., 'users/123' or 'config/settings')
  * @param payload - The data to store at the specified path
@@ -48,12 +66,14 @@ export async function getRtdbValue(path: string): Promise<any> {
  */
 export async function setRtdbValue(path: string, payload: any): Promise<void> {
   try {
-    await firebaseDatabase.ref(path).set(payload);
+    // Remove undefined values to prevent Firebase errors
+    const cleanedPayload = removeUndefinedValues(payload);
+    await firebaseDatabase.ref(path).set(cleanedPayload);
 
     logger.info('RTDB setRtdbValue', {
       path,
-      payloadType: typeof payload,
-      payloadSize: JSON.stringify(payload).length,
+      payloadType: typeof cleanedPayload,
+      payloadSize: JSON.stringify(cleanedPayload).length,
     });
   } catch (error) {
     logger.error('RTDB setRtdbValue error', {
@@ -76,12 +96,14 @@ export async function updateRtdbValue(
   updates: Record<string, any>,
 ): Promise<void> {
   try {
-    await firebaseDatabase.ref(path).update(updates);
+    // Remove undefined values to prevent Firebase errors
+    const cleanedUpdates = removeUndefinedValues(updates);
+    await firebaseDatabase.ref(path).update(cleanedUpdates);
 
     logger.info('RTDB updateRtdbValue', {
       path,
-      updateFields: Object.keys(updates),
-      updatesSize: JSON.stringify(updates).length,
+      updateFields: Object.keys(cleanedUpdates),
+      updatesSize: JSON.stringify(cleanedUpdates).length,
     });
   } catch (error) {
     logger.error('RTDB updateRtdbValue error', {

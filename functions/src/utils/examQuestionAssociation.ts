@@ -81,7 +81,7 @@ export async function associateQuestionsWithExam(
         is_deprecated: false,
         NOT: {
           quiz_question_id: {
-            in: [...existingQuestionIds],
+            in: Array.from(existingQuestionIds),
           },
         },
       },

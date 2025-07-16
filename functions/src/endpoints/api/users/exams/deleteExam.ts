@@ -2,17 +2,80 @@ import { Response } from 'express';
 import logger from '../../../../services/firebase/logger';
 import { CustomRequest } from '../../../../types';
 import prismaInstance, { ExamStatus } from '../../../../services/prisma';
+import {
+  getRtdbValue,
+  deleteRtdbValue,
+} from '../../../../services/firebase/rtdb';
+import { CacheManager } from '../../../../services/cache';
 
 /**
- * Deletes an exam that failed question generation along with all associated data
- * Only allows deletion of exams with QUESTION_GENERATION_FAILED status
- * to prevent accidental deletion of active or completed exams
+ * Deletes exam-related data from Firebase Realtime Database
+ * @param exam_id - The exam identifier
+ * @returns Promise<{examPlanDeleted: boolean, examDataDeleted: boolean}>
+ */
+async function deleteExamFromRtdb(exam_id: string): Promise<{
+  examPlanDeleted: boolean;
+  examDataDeleted: boolean;
+}> {
+  const results = {
+    examPlanDeleted: false,
+    examDataDeleted: false,
+  };
+
+  try {
+    // Delete exam plan data
+    const examPlanPath = `exam_plans/${exam_id}`;
+    const examPlanData = await getRtdbValue(examPlanPath);
+
+    if (examPlanData) {
+      await deleteRtdbValue(examPlanPath);
+      results.examPlanDeleted = true;
+      logger.info(
+        `deleteExam: Deleted exam plan from RTDB at path: ${examPlanPath}`,
+      );
+    } else {
+      logger.info(
+        `deleteExam: No exam plan found in RTDB at path: ${examPlanPath}`,
+      );
+    }
+  } catch (error) {
+    logger.warn(`deleteExam: Failed to delete exam plan from RTDB: ${error}`);
+  }
+
+  try {
+    // Delete exam questions/topics data
+    const examDataPath = `exams/${exam_id}`;
+    const examData = await getRtdbValue(examDataPath);
+
+    if (examData) {
+      await deleteRtdbValue(examDataPath);
+      results.examDataDeleted = true;
+      logger.info(
+        `deleteExam: Deleted exam data from RTDB at path: ${examDataPath}`,
+      );
+    } else {
+      logger.info(
+        `deleteExam: No exam data found in RTDB at path: ${examDataPath}`,
+      );
+    }
+  } catch (error) {
+    logger.warn(`deleteExam: Failed to delete exam data from RTDB: ${error}`);
+  }
+
+  return results;
+}
+
+/**
+ * Deletes an exam along with all associated data
+ * Allows deletion of exams in specific statuses to prevent accidental deletion
+ * of active or completed exams with valuable user data
  *
  * This endpoint deletes:
  * 1. All quiz questions that were generated specifically for this exam (generated_from = exam_id)
  * 2. All answer options for those quiz questions
  * 3. All exam user answers for this exam
  * 4. The exam attempt record itself
+ * 5. RTDB data: exam plans and exam questions/topics data
  */
 const handler = async (req: any | CustomRequest, res: Response) => {
   try {
@@ -92,11 +155,24 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       return;
     }
 
-    // Only allow deletion of failed exams to prevent accidental deletion
-    if (exam.exam_status !== ExamStatus.QUESTION_GENERATION_FAILED) {
+    // Define which exam statuses can be safely deleted
+    const deletableStatuses: ExamStatus[] = [
+      ExamStatus.QUESTION_GENERATION_FAILED,
+      ExamStatus.QUESTIONS_GENERATING,
+      ExamStatus.PENDING_QUESTIONS,
+      // Don't allow deletion of READY, SUBMITTED, or other completed statuses
+      // to protect user progress and completed exam data
+    ];
+
+    // Only allow deletion of exams in specific statuses to prevent accidental data loss
+    if (!deletableStatuses.includes(exam.exam_status)) {
       res.status(400).json({
         success: false,
-        error: `Cannot delete exam. Only exams with failed question generation can be deleted. Current status: ${exam.exam_status}`,
+        error: `Cannot delete exam. Only exams with status ${deletableStatuses.join(
+          ', ',
+        )} can be deleted. Current status: ${
+          exam.exam_status
+        }. Completed or ready exams cannot be deleted to protect user data.`,
       });
       return;
     }
@@ -153,6 +229,13 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       );
     });
 
+    // Clean up RTDB data after successful database deletion
+    logger.info(`deleteExam: Starting RTDB cleanup for exam ${exam_id}`);
+    const rtdbCleanupResults = await deleteExamFromRtdb(exam_id);
+
+    // Invalidate user exam cache since exam was deleted
+    await CacheManager.invalidateUserExamCache(user_id);
+
     // Return success response with exam details
     res.status(200).json({
       success: true,
@@ -168,6 +251,10 @@ const handler = async (req: any | CustomRequest, res: Response) => {
         deleted_answers: examUserAnswersCount,
         deleted_quiz_questions: questionIds.length,
         deleted_quiz_question_ids: questionIds,
+        rtdb_cleanup: {
+          exam_plan_deleted: rtdbCleanupResults.examPlanDeleted,
+          exam_data_deleted: rtdbCleanupResults.examDataDeleted,
+        },
       },
     });
   } catch (error) {

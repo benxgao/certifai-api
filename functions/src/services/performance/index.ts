@@ -115,7 +115,7 @@ export class PerformanceMonitor {
     );
 
     // Alert on inefficient batch operations
-    const inefficientThreshold = 50; // 50ms per item is considered slow
+    const inefficientThreshold = 100; // 50ms per item is considered slow
     if (avgTimePerItem > inefficientThreshold) {
       logger.warn(
         `SLOW_BATCH: ${operation} averaged ${avgTimePerItem.toFixed(

@@ -6,10 +6,11 @@ import { createCloudTask } from '../../../../services/gcp/cloudTasks';
 import { OptimizedRateLimitService } from '../../../../services/optimizedRateLimit';
 import { CacheManager } from '../../../../services/cache';
 import { ExamGenerationLogger } from '../../../../services/exam-generation-logger';
+import { examPlannerPromise } from '../../../../services/genkit/examPlanner';
 
 const DEFAULT_NUMBER_OF_QUESTIONS = 20;
 const MAX_NUMBER_OF_QUESTIONS = 100; // Set a reasonable max
-const QUESTIONS_PER_BATCH = 100; // Number of questions to generate per task
+const QUESTIONS_PER_BATCH = 5; // Number of questions to generate per task
 export const MAX_EXAMS_PER_24_HOURS = 3; // Maximum number of exams allowed per user in 24 hours
 
 /**
@@ -187,38 +188,127 @@ const handler = async (
     // Invalidate user exam cache since new exam was created
     await CacheManager.invalidateUserExamCache(user_id);
 
-    // 7. Calculate batches and start question generation via Cloud Tasks
-    const totalBatches = Math.ceil(
-      requestedNumberOfQuestions / QUESTIONS_PER_BATCH,
-    );
-
+    // 7. Generate exam topics using examPlanner and store in RTDB
     logger.info(
-      `EXAM_BATCH_START: exam_id=${newExam.exam_id}, total_questions=${requestedNumberOfQuestions}, batches=${totalBatches}`,
+      `EXAM_TOPIC_GENERATION_START: exam_id=${newExam.exam_id}, total_questions=${requestedNumberOfQuestions}`,
     );
 
-    // Create the first task to start the recursive generation
-    const firstBatchPayload = {
-      exam_id: newExam.exam_id,
-      cert_id: certification.cert_id,
-      certification_name: certification.name,
-      questions_to_generate: Math.min(
-        QUESTIONS_PER_BATCH,
-        requestedNumberOfQuestions,
-      ),
-      batch_number: 1,
-      total_batches: totalBatches,
-      custom_prompt_text: customPromptText || '',
-      questions_per_batch: QUESTIONS_PER_BATCH,
-    };
+    try {
+      // Use examPlanner to generate topics and store in RTDB
+      const examPlanner = await examPlannerPromise;
+      const examPlan = await examPlanner({
+        cert_name: certification.name,
+        totalQuestionCounts: requestedNumberOfQuestions,
+        exam_id: newExam.exam_id,
+        cert_id: certification.cert_id.toString(),
+        user_id: user.user_id,
+        customPrompt: customPromptText || null,
+      });
 
-    const taskName = await createCloudTask(
-      'exam-questions-queue',
-      `${process.env.GCP_TASKS_HOST}/delegators/tasks/take`,
-      firstBatchPayload,
-    );
+      logger.info(
+        `EXAM_TOPICS_GENERATED: exam_id=${newExam.exam_id}, topics_count=${examPlan.questions.length}`,
+        {
+          exam_id: newExam.exam_id,
+          topics_preview: examPlan.questions
+            .slice(0, 5)
+            .map((q) => q.exam_topic),
+        },
+      );
 
-    if (!taskName) {
-      // If task creation fails, update exam status to failed
+      // 8. Calculate batches and start question generation via Cloud Tasks
+      // Note: Use actual generated topics count, not requested questions count
+      const actualTopicsCount = examPlan.questions.length;
+      const totalBatches = Math.ceil(actualTopicsCount / QUESTIONS_PER_BATCH);
+
+      logger.info(
+        `EXAM_BATCH_START: exam_id=${newExam.exam_id}, requested_questions=${requestedNumberOfQuestions}, actual_topics=${actualTopicsCount}, batches=${totalBatches}`,
+        {
+          exam_id: newExam.exam_id,
+          requested_questions: requestedNumberOfQuestions,
+          actual_topics_generated: actualTopicsCount,
+          questions_per_batch: QUESTIONS_PER_BATCH,
+          total_batches: totalBatches,
+          structuredData: true,
+        },
+      );
+
+      // Use the generated topics from examPlanner
+      const firstBatchPayload = {
+        exam_id: newExam.exam_id,
+        cert_id: certification.cert_id,
+        certification_name: certification.name,
+        examTopicList: JSON.stringify(examPlan.questions), // Use generated topics from examPlanner
+        batch_number: 1,
+        total_batches: totalBatches,
+        custom_prompt_text: customPromptText || '',
+        questions_per_batch: QUESTIONS_PER_BATCH,
+      };
+
+      const taskName = await createCloudTask(
+        'exam-questions-queue',
+        `${process.env.GCP_TASKS_HOST}/delegators/tasks/take`,
+        firstBatchPayload,
+      );
+
+      if (!taskName) {
+        // If task creation fails, update exam status to failed
+        await prismaInstance.examAttempt.update({
+          where: { exam_id: newExam.exam_id },
+          data: { exam_status: ExamStatus.QUESTION_GENERATION_FAILED },
+        });
+
+        // Log exam creation failure
+        ExamGenerationLogger.logExamFailure({
+          exam_id: newExam.exam_id,
+          reason: 'task_creation_failed',
+          error: 'Failed to create initial cloud task',
+        });
+
+        logger.info(
+          `EXAM_CREATE_FAILED: exam_id=${newExam.exam_id}, reason=task_creation_failed`,
+        );
+
+        res.status(500).json({
+          success: false,
+          error: 'Failed to start question generation process.',
+        });
+        return;
+      }
+
+      // Log successful exam creation start
+      ExamGenerationLogger.logExamCreationStart({
+        exam_id: newExam.exam_id,
+        user_id,
+        cert_id: certification.cert_id,
+        certification_name: certification.name,
+        total_questions: requestedNumberOfQuestions,
+        total_batches: totalBatches,
+        custom_prompt: customPromptText || null,
+      });
+
+      res.status(202).json({
+        success: true,
+        message:
+          'Exam creation initiated. Topics generated and questions are being generated asynchronously.',
+        data: {
+          exam_id: newExam.exam_id,
+          user_id: newExam.user_id,
+          cert_id: newExam.cert_id,
+          status: ExamStatus.QUESTIONS_GENERATING,
+          total_questions: requestedNumberOfQuestions,
+          token_cost: tokenCost,
+          total_batches: totalBatches,
+          topics_generated: examPlan.questions.length,
+          custom_prompt: customPromptText || '',
+        },
+      });
+    } catch (topicGenerationError) {
+      logger.error(
+        `Failed to generate exam topics for exam ${newExam.exam_id}:`,
+        topicGenerationError as any,
+      );
+
+      // Update exam status to failed if topic generation fails
       await prismaInstance.examAttempt.update({
         where: { exam_id: newExam.exam_id },
         data: { exam_status: ExamStatus.QUESTION_GENERATION_FAILED },
@@ -227,47 +317,19 @@ const handler = async (
       // Log exam creation failure
       ExamGenerationLogger.logExamFailure({
         exam_id: newExam.exam_id,
-        reason: 'task_creation_failed',
-        error: 'Failed to create initial cloud task',
+        reason: 'topic_generation_failed',
+        error:
+          topicGenerationError instanceof Error
+            ? topicGenerationError.message
+            : 'Unknown topic generation error',
       });
-
-      logger.info(
-        `EXAM_CREATE_FAILED: exam_id=${newExam.exam_id}, reason=task_creation_failed`,
-      );
 
       res.status(500).json({
         success: false,
-        error: 'Failed to start question generation process.',
+        error: 'Failed to generate exam topics. Please try again.',
       });
       return;
     }
-
-    // Log successful exam creation start
-    ExamGenerationLogger.logExamCreationStart({
-      exam_id: newExam.exam_id,
-      user_id,
-      cert_id: certification.cert_id,
-      certification_name: certification.name,
-      total_questions: requestedNumberOfQuestions,
-      total_batches: totalBatches,
-      custom_prompt: customPromptText,
-    });
-
-    res.status(202).json({
-      success: true,
-      message:
-        'Exam creation initiated. Questions are being generated asynchronously.',
-      data: {
-        exam_id: newExam.exam_id,
-        user_id: newExam.user_id,
-        cert_id: newExam.cert_id,
-        status: ExamStatus.QUESTIONS_GENERATING,
-        total_questions: requestedNumberOfQuestions,
-        token_cost: tokenCost,
-        total_batches: totalBatches,
-        custom_prompt: customPromptText || '',
-      },
-    });
   } catch (error) {
     logger.error('Error in createExamAndQueueQuestions handler:', error as any);
     if (

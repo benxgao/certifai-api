@@ -28,6 +28,7 @@ const ExamPlanSchema = z.object({
   created_at: z.number().describe('Unix timestamp when the plan was created'),
   customPrompt: z
     .string()
+    .nullable()
     .optional()
     .describe('Optional custom prompt used to focus exam planning'),
 });
@@ -50,6 +51,7 @@ const ExamPlannerInput = z.object({
   user_id: z.string().describe('User ID who is creating the exam plan'),
   customPrompt: z
     .string()
+    .nullable()
     .optional()
     .describe(
       'Optional custom prompt text to focus on specific topics or requirements for exam planning',
@@ -69,14 +71,13 @@ const buildExamPlanPrompt = (
     2. Topics should come from the exam guide of the ${cert_name} certification
     3. Each topic should be 1-2 words
     4. Topics should be realistic and aligned with actual certification content
-    5. Duplicate topics are allowed
+    5. Same topic names are more preferable than using different names for the same topic
     6. Prevent using similar words to describe the same topic
     7. A topic using 2 words is more preferable than that contains 1 word with camelCase or snake_case
     8. Select high level concepts as the topic names rather than detailed subtopics
     9. Avoid using overly technical jargon or abbreviations that are not widely recognized
     10. Ensure topics are relevant to the certification's scope and objectives
     11. Avoid using overly broad or vague terms that do not clearly define a specific area
-    12. Same topic names are more preferable than using different names for the same topic
 
     TOPIC EXAMPLES:
     - "IAM"
@@ -142,7 +143,7 @@ export const examPlannerPromise = aiInstancePromise.then((ai) => {
         const prompt = buildExamPlanPrompt(
           cert_name,
           totalQuestionCounts,
-          customPrompt,
+          customPrompt || undefined,
         );
 
         // Generate topics using shared utility
@@ -173,7 +174,7 @@ export const examPlannerPromise = aiInstancePromise.then((ai) => {
           cert_id,
           user_id,
           created_at: Math.floor(Date.now() / 1000),
-          customPrompt,
+          customPrompt: customPrompt ?? null,
         };
 
         // Store the exam plan in Firebase Realtime Database

@@ -53,7 +53,7 @@ export class OptimizedRateLimitService {
         currentCount < this.MAX_EXAMS_PER_24_HOURS,
       );
 
-      if (currentCount >= this.MAX_EXAMS_PER_24_HOURS) {
+      if (currentCount > this.MAX_EXAMS_PER_24_HOURS) {
         // Calculate reset time based on oldest exam in window
         const oldestExamTime = examTimestamps?.[0]
           ? parseInt(examTimestamps[0])
