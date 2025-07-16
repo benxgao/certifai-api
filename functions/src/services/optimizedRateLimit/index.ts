@@ -36,13 +36,17 @@ export class OptimizedRateLimitService {
 
       // Use Redis sorted set to track exam timestamps
       // This allows us to efficiently count exams in the time window
-      const examTimestamps = await RedisService.zRangeByScore(
+
+      // First, clean up old entries
+      await RedisService.zRemRangeByScore(cacheKey, 0, windowStart - 1);
+
+      const examData = await RedisService.zRangeByScoreWithScores(
         cacheKey,
         windowStart,
         now,
       );
 
-      const currentCount = examTimestamps?.length || 0;
+      const currentCount = examData?.length || 0;
       const duration = Date.now() - startTime;
 
       // Track performance
@@ -53,12 +57,28 @@ export class OptimizedRateLimitService {
         currentCount < this.MAX_EXAMS_PER_24_HOURS,
       );
 
-      if (currentCount > this.MAX_EXAMS_PER_24_HOURS) {
+      // Fix the comparison logic: should be >= not >
+      if (currentCount >= this.MAX_EXAMS_PER_24_HOURS) {
         // Calculate reset time based on oldest exam in window
-        const oldestExamTime = examTimestamps?.[0]
-          ? parseInt(examTimestamps[0])
-          : now;
-        const resetTimeMs = oldestExamTime + this.WINDOW_MS;
+        let resetTimeMs = now + this.WINDOW_MS; // Default to 24 hours from now
+
+        if (examData && examData.length > 0) {
+          try {
+            // Sort by score (timestamp) to get the oldest exam
+            const sortedExams = examData.sort((a, b) => a.score - b.score);
+            const oldestExamTime = sortedExams[0].score;
+            // Reset time should be when the oldest exam expires (24 hours after it was created)
+            resetTimeMs = oldestExamTime + this.WINDOW_MS;
+
+            // Ensure reset time is in the future
+            if (resetTimeMs <= now) {
+              resetTimeMs = now + this.WINDOW_MS;
+            }
+          } catch {
+            logger.warn(`Failed to parse oldest exam timestamp from exam data`);
+            resetTimeMs = now + this.WINDOW_MS;
+          }
+        }
 
         logger.info(
           `Rate limit exceeded for user ${userId}: ${currentCount}/${this.MAX_EXAMS_PER_24_HOURS} exams`,
@@ -155,14 +175,16 @@ export class OptimizedRateLimitService {
       const windowStart = now - this.WINDOW_MS;
 
       try {
-        const examTimestamps = await RedisService.zRangeByScore(
+        const examData = await RedisService.zRangeByScoreWithScores(
           cacheKey,
           windowStart,
           now,
         );
 
-        if (examTimestamps && examTimestamps.length > 0) {
-          const oldestExamTime = parseInt(examTimestamps[0]);
+        if (examData && examData.length > 0) {
+          // Sort by score (timestamp) to get the oldest exam
+          const sortedExams = examData.sort((a, b) => a.score - b.score);
+          const oldestExamTime = sortedExams[0].score;
           const nextAllowedTime = oldestExamTime + this.WINDOW_MS;
 
           return {
@@ -193,6 +215,64 @@ export class OptimizedRateLimitService {
     } catch (error) {
       logger.error(
         `Error clearing rate limit for user ${userId}:`,
+        error as any,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Clear all rate limit data for all users (debug function)
+   */
+  static async clearAllRateLimits(): Promise<void> {
+    try {
+      await RedisService.delPattern(`${this.RATE_LIMIT_PREFIX}*`);
+      logger.info('Cleared all rate limit data');
+    } catch (error) {
+      logger.error('Error clearing all rate limits:', error as any);
+      throw error;
+    }
+  }
+
+  /**
+   * Get debug information for a user's rate limit state
+   * @param userId - The user's internal UUID
+   */
+  static async getDebugInfo(userId: string): Promise<{
+    cacheKey: string;
+    windowStart: number;
+    windowEnd: number;
+    examIds: string[];
+    timestamps: number[];
+    currentCount: number;
+    isAllowed: boolean;
+  }> {
+    const cacheKey = `${this.RATE_LIMIT_PREFIX}${userId}`;
+    const now = Date.now();
+    const windowStart = now - this.WINDOW_MS;
+
+    try {
+      const examData = await RedisService.zRangeByScoreWithScores(
+        cacheKey,
+        windowStart,
+        now,
+      );
+
+      const examIds = examData.map((item) => item.member);
+      const timestamps = examData.map((item) => item.score);
+
+      return {
+        cacheKey,
+        windowStart,
+        windowEnd: now,
+        examIds,
+        timestamps,
+        currentCount: examData.length,
+        isAllowed: examData.length < this.MAX_EXAMS_PER_24_HOURS,
+      };
+    } catch (error) {
+      logger.error(
+        `Error getting debug info for user ${userId}:`,
         error as any,
       );
       throw error;

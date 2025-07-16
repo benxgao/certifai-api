@@ -455,6 +455,19 @@ export class RedisService {
   }
 
   /**
+   * Clear all rate limiting cache data
+   */
+  static async clearAllRateLimitCache(): Promise<void> {
+    try {
+      await this.delPattern('rate_limit:*');
+      memoryCache.clear();
+      logger.info('Cleared all rate limiting cache data');
+    } catch (error) {
+      logger.error(`Error clearing rate limit cache: ${error as any}`);
+    }
+  }
+
+  /**
    * Add member to sorted set with score
    */
   static async zAdd(key: string, score: number, member: string): Promise<void> {
@@ -484,6 +497,43 @@ export class RedisService {
       return Array.isArray(result) ? result.map((item) => String(item)) : [];
     } catch (error) {
       logger.error(`Redis ZRANGE error for key ${key}: ${error as any}`);
+      return [];
+    }
+  }
+
+  /**
+   * Get members from sorted set by score range with their scores
+   */
+  static async zRangeByScoreWithScores(
+    key: string,
+    min: number,
+    max: number,
+  ): Promise<{ member: string; score: number }[]> {
+    try {
+      const redis = this.getConnection();
+      const result = await redis.zrange(key, min, max, {
+        byScore: true,
+        withScores: true,
+      });
+      logger.info(
+        `Redis ZRANGE WITH SCORES for key: ${key}, range: ${min}-${max}`,
+      );
+
+      const membersWithScores: { member: string; score: number }[] = [];
+
+      // Result format is [member1, score1, member2, score2, ...]
+      for (let i = 0; i < result.length; i += 2) {
+        membersWithScores.push({
+          member: String(result[i]),
+          score: Number(result[i + 1]),
+        });
+      }
+
+      return membersWithScores;
+    } catch (error) {
+      logger.error(
+        `Redis ZRANGE WITH SCORES error for key ${key}: ${error as any}`,
+      );
       return [];
     }
   }
