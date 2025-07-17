@@ -44,6 +44,25 @@ const handler = async (
   req: any | CustomRequest,
   res: Response,
 ): Promise<void> => {
+  const operationStart = Date.now();
+  const timingAudit = {
+    total_operation: 0,
+    prisma_operations: {
+      user_query: 0,
+      certification_query: 0,
+      exam_create: 0,
+      exam_updates: 0,
+    },
+    ai_operations: {
+      topic_generation: 0,
+    },
+    external_services: {
+      rate_limit_check: 0,
+      cloud_task_creation: 0,
+      cache_operations: 0,
+    },
+  };
+
   try {
     const { user_id, cert_id } = req.params;
     const { numberOfQuestions: numQuestionsBody, customPromptText } = req.body;
@@ -84,8 +103,19 @@ const handler = async (
     );
 
     // 1. Find the user by the provided user_id (internal UUID)
+    const userQueryStart = Date.now();
     const user = await prismaInstance.user.findUnique({
       where: { user_id: user_id },
+    });
+    const userQueryDuration = Date.now() - userQueryStart;
+
+    timingAudit.prisma_operations.user_query = userQueryDuration;
+
+    logger.info('AUDIT_PRISMA_USER_QUERY', {
+      operation: 'user.findUnique',
+      duration_ms: userQueryDuration,
+      user_id: user_id,
+      found: !!user,
     });
 
     if (!user) {
@@ -109,9 +139,12 @@ const handler = async (
     }
 
     // 3. Check rate limit: Maximum 3 exams per 24 hours (using optimized Redis-based rate limiting)
+    const rateLimitStart = Date.now();
     const rateLimitResult = await OptimizedRateLimitService.checkExamRateLimit(
       user_id,
     );
+    timingAudit.external_services.rate_limit_check =
+      Date.now() - rateLimitStart;
     if (!rateLimitResult.isAllowed) {
       logger.warn(
         `Rate limit exceeded for user ${user_id}: ${rateLimitResult.currentCount}/${MAX_EXAMS_PER_24_HOURS} exams in 24 hours`,
@@ -136,8 +169,19 @@ const handler = async (
     );
 
     // 4. Verify the certification exists
+    const certQueryStart = Date.now();
     const certification = await prismaInstance.certification.findUnique({
       where: { cert_id: certIdNumber },
+    });
+    const certQueryDuration = Date.now() - certQueryStart;
+
+    timingAudit.prisma_operations.certification_query = certQueryDuration;
+
+    logger.info('AUDIT_PRISMA_CERTIFICATION_QUERY', {
+      operation: 'certification.findUnique',
+      duration_ms: certQueryDuration,
+      cert_id: certIdNumber,
+      found: !!certification,
     });
 
     if (!certification) {
@@ -164,6 +208,7 @@ const handler = async (
     );
 
     // 6. Create the exam with QUESTIONS_GENERATING status and store token cost
+    const examCreateStart = Date.now();
     const newExam = await prismaInstance.examAttempt.create({
       data: {
         user: { connect: { user_id: user.user_id } },
@@ -174,19 +219,38 @@ const handler = async (
         custom_prompt_text: customPromptText || null,
       },
     });
+    const examCreateDuration = Date.now() - examCreateStart;
+
+    timingAudit.prisma_operations.exam_create = examCreateDuration;
+
+    logger.info('AUDIT_PRISMA_EXAM_CREATE', {
+      operation: 'examAttempt.create',
+      duration_ms: examCreateDuration,
+      exam_id: newExam.exam_id,
+      user_id: user.user_id,
+      cert_id: certIdNumber,
+      total_questions: requestedNumberOfQuestions,
+      token_cost: tokenCost,
+    });
 
     logger.info(
       `EXAM_CREATE_SUCCESS: exam_id=${newExam.exam_id}, user_id=${user.user_id}, status=QUESTIONS_GENERATING`,
     );
 
     // Record exam creation in rate limit tracker
+    const rateLimitRecordStart = Date.now();
     await OptimizedRateLimitService.recordExamCreation(
       user_id,
       newExam.exam_id,
     );
+    timingAudit.external_services.rate_limit_check +=
+      Date.now() - rateLimitRecordStart;
 
     // Invalidate user exam cache since new exam was created
+    const cacheInvalidateStart = Date.now();
     await CacheManager.invalidateUserExamCache(user_id);
+    timingAudit.external_services.cache_operations =
+      Date.now() - cacheInvalidateStart;
 
     // 7. Generate exam topics using examPlanner and store in RTDB
     logger.info(
@@ -195,6 +259,7 @@ const handler = async (
 
     try {
       // Use examPlanner to generate topics and store in RTDB
+      const topicGenerationStart = Date.now();
       const examPlanner = await examPlannerPromise;
       const examPlan = await examPlanner({
         cert_name: certification.name,
@@ -204,6 +269,8 @@ const handler = async (
         user_id: user.user_id,
         customPrompt: customPromptText || null,
       });
+      timingAudit.ai_operations.topic_generation =
+        Date.now() - topicGenerationStart;
 
       logger.info(
         `EXAM_TOPICS_GENERATED: exam_id=${newExam.exam_id}, topics_count=${examPlan.questions.length}`,
@@ -244,17 +311,34 @@ const handler = async (
         questions_per_batch: QUESTIONS_PER_BATCH,
       };
 
+      const cloudTaskStart = Date.now();
       const taskName = await createCloudTask(
         'exam-questions-queue',
         `${process.env.GCP_TASKS_HOST}/delegators/tasks/take`,
         firstBatchPayload,
       );
+      const cloudTaskEnd = Date.now();
+      timingAudit.external_services.cloud_task_creation =
+        cloudTaskEnd - cloudTaskStart;
 
       if (!taskName) {
         // If task creation fails, update exam status to failed
+        const examUpdateTaskFailStart = Date.now();
         await prismaInstance.examAttempt.update({
           where: { exam_id: newExam.exam_id },
           data: { exam_status: ExamStatus.QUESTION_GENERATION_FAILED },
+        });
+        const examUpdateTaskFailDuration = Date.now() - examUpdateTaskFailStart;
+
+        timingAudit.prisma_operations.exam_updates +=
+          examUpdateTaskFailDuration;
+
+        logger.info('AUDIT_PRISMA_EXAM_UPDATE_TASK_FAIL', {
+          operation: 'examAttempt.update',
+          duration_ms: examUpdateTaskFailDuration,
+          exam_id: newExam.exam_id,
+          new_status: 'QUESTION_GENERATION_FAILED',
+          reason: 'task_creation_failed',
         });
 
         // Log exam creation failure
@@ -272,6 +356,15 @@ const handler = async (
           success: false,
           error: 'Failed to start question generation process.',
         });
+
+        // Log timing for task creation failure
+        timingAudit.total_operation = Date.now() - operationStart;
+        logger.info('AUDIT_OPERATION_TIMING_SUMMARY', {
+          exam_id: newExam.exam_id,
+          operation: 'createExam_task_creation_failed',
+          timing_breakdown: timingAudit,
+        });
+
         return;
       }
 
@@ -284,6 +377,36 @@ const handler = async (
         total_questions: requestedNumberOfQuestions,
         total_batches: totalBatches,
         custom_prompt: customPromptText || null,
+      });
+
+      // Calculate total operation time and log comprehensive timing audit
+      timingAudit.total_operation = Date.now() - operationStart;
+
+      logger.info('AUDIT_OPERATION_TIMING_SUMMARY', {
+        exam_id: newExam.exam_id,
+        operation: 'createExam_success',
+        timing_breakdown: timingAudit,
+        performance_metrics: {
+          total_prisma_time: Object.values(
+            timingAudit.prisma_operations,
+          ).reduce((a, b) => a + b, 0),
+          total_external_time: Object.values(
+            timingAudit.external_services,
+          ).reduce((a, b) => a + b, 0),
+          ai_processing_percentage: Math.round(
+            (timingAudit.ai_operations.topic_generation /
+              timingAudit.total_operation) *
+              100,
+          ),
+          prisma_percentage: Math.round(
+            (Object.values(timingAudit.prisma_operations).reduce(
+              (a, b) => a + b,
+              0,
+            ) /
+              timingAudit.total_operation) *
+              100,
+          ),
+        },
       });
 
       res.status(202).json({
@@ -309,9 +432,21 @@ const handler = async (
       );
 
       // Update exam status to failed if topic generation fails
+      const examUpdateFailStart = Date.now();
       await prismaInstance.examAttempt.update({
         where: { exam_id: newExam.exam_id },
         data: { exam_status: ExamStatus.QUESTION_GENERATION_FAILED },
+      });
+      const examUpdateFailDuration = Date.now() - examUpdateFailStart;
+
+      timingAudit.prisma_operations.exam_updates += examUpdateFailDuration;
+
+      logger.info('AUDIT_PRISMA_EXAM_UPDATE_FAIL', {
+        operation: 'examAttempt.update',
+        duration_ms: examUpdateFailDuration,
+        exam_id: newExam.exam_id,
+        new_status: 'QUESTION_GENERATION_FAILED',
+        reason: 'topic_generation_failed',
       });
 
       // Log exam creation failure
@@ -328,9 +463,26 @@ const handler = async (
         success: false,
         error: 'Failed to generate exam topics. Please try again.',
       });
+
+      // Log timing for failed topic generation
+      timingAudit.total_operation = Date.now() - operationStart;
+      logger.info('AUDIT_OPERATION_TIMING_SUMMARY', {
+        exam_id: newExam.exam_id,
+        operation: 'createExam_topic_generation_failed',
+        timing_breakdown: timingAudit,
+      });
+
       return;
     }
   } catch (error) {
+    // Log timing for general errors
+    timingAudit.total_operation = Date.now() - operationStart;
+    logger.error('AUDIT_OPERATION_TIMING_ERROR', {
+      operation: 'createExam_general_error',
+      timing_breakdown: timingAudit,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+
     logger.error('Error in createExamAndQueueQuestions handler:', error as any);
     if (
       error instanceof Error &&
