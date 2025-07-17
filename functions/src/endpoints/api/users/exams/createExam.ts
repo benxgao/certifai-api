@@ -7,6 +7,7 @@ import { OptimizedRateLimitService } from '../../../../services/optimizedRateLim
 import { CacheManager } from '../../../../services/cache';
 import { ExamGenerationLogger } from '../../../../services/exam-generation-logger';
 import { examPlannerPromise } from '../../../../services/genkit/examPlanner';
+import { getRtdbValue } from '../../../../services/firebase/rtdb';
 
 const DEFAULT_NUMBER_OF_QUESTIONS = 20;
 const MAX_NUMBER_OF_QUESTIONS = 100; // Set a reasonable max
@@ -272,13 +273,13 @@ const handler = async (
       timingAudit.ai_operations.topic_generation =
         Date.now() - topicGenerationStart;
 
+      logger.info(`EXAM_PLAN_GENERATE_BY_AI:
+        | examPlan: ${JSON.stringify(examPlan, null, 2)}`);
+
       logger.info(
         `EXAM_TOPICS_GENERATED: exam_id=${newExam.exam_id}, topics_count=${examPlan.questions.length}`,
         {
           exam_id: newExam.exam_id,
-          topics_preview: examPlan.questions
-            .slice(0, 5)
-            .map((q) => q.exam_topic),
         },
       );
 
@@ -304,18 +305,83 @@ const handler = async (
         exam_id: newExam.exam_id,
         cert_id: certification.cert_id,
         certification_name: certification.name,
-        examTopicList: JSON.stringify(examPlan.questions), // Use generated topics from examPlanner
         batch_number: 1,
         total_batches: totalBatches,
         custom_prompt_text: customPromptText || '',
         questions_per_batch: QUESTIONS_PER_BATCH,
       };
 
+      // CRITICAL FIX: Verify exam plan is accessible in RTDB before creating Cloud Task
+      // This prevents race conditions where the batch processor runs before RTDB write completes
+      try {
+        const verificationPath = `exam_plans/${newExam.exam_id}`;
+        const verificationResult = await getRtdbValue(verificationPath);
+
+        if (
+          !verificationResult ||
+          !verificationResult.questions ||
+          !Array.isArray(verificationResult.questions)
+        ) {
+          logger.error(
+            `EXAM_PLAN_VERIFICATION_FAILED: Could not verify exam plan in RTDB before creating batch task`,
+            {
+              exam_id: newExam.exam_id,
+              verification_path: verificationPath,
+              verification_result: verificationResult,
+              structuredData: true,
+            },
+          );
+          throw new Error(
+            'Exam plan verification failed - RTDB write may not have completed',
+          );
+        }
+
+        logger.info(
+          `EXAM_PLAN_VERIFIED: Successfully verified exam plan in RTDB with ${verificationResult.questions.length} topics`,
+          {
+            exam_id: newExam.exam_id,
+            topics_count: verificationResult.questions.length,
+            structuredData: true,
+          },
+        );
+      } catch (verificationError) {
+        logger.error(
+          `EXAM_PLAN_VERIFICATION_ERROR: Failed to verify exam plan before batch creation`,
+          {
+            exam_id: newExam.exam_id,
+            error: verificationError,
+            structuredData: true,
+          },
+        );
+        throw verificationError;
+      }
+
       const cloudTaskStart = Date.now();
+
+      // RACE CONDITION FIX: Add 5-second delay for first batch to ensure RTDB write completes
+      // This prevents the "all topics already assigned" issue on batch 1 processing
+      const delaySeconds = 5;
+
+      logger.info(
+        `FIRST_BATCH_DELAYED: Scheduling first batch with 5-second delay to prevent RTDB race condition`,
+        {
+          exam_id: newExam.exam_id,
+          batch_number: 1,
+          delay_seconds: delaySeconds,
+          scheduled_time: new Date(
+            Date.now() + delaySeconds * 1000,
+          ).toISOString(),
+          current_time: new Date().toISOString(),
+          reason: 'prevent_rtdb_race_condition',
+          structuredData: true,
+        },
+      );
+
       const taskName = await createCloudTask(
         'exam-questions-queue',
         `${process.env.GCP_TASKS_HOST}/delegators/tasks/take`,
         firstBatchPayload,
+        delaySeconds, // Pass delay in seconds
       );
       const cloudTaskEnd = Date.now();
       timingAudit.external_services.cloud_task_creation =
@@ -412,7 +478,7 @@ const handler = async (
       res.status(202).json({
         success: true,
         message:
-          'Exam creation initiated. Topics generated and questions are being generated asynchronously.',
+          'Exam creation initiated. Topics generated and questions are being generated asynchronously. First batch will start in 5 seconds to ensure optimal processing.',
         data: {
           exam_id: newExam.exam_id,
           user_id: newExam.user_id,

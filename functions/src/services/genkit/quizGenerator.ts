@@ -31,9 +31,9 @@ const QuizGeneratorInput = z.object({
   examTopicList: z
     .array(z.string())
     .min(1)
-    .max(100) // Maximum 50 topics to handle larger batches
+    .max(100) // Maximum 100 topics to handle larger batches
     .describe(
-      'List of exam topics - one question will be generated for each topic',
+      'List of exam topics for this batch - one question will be generated for each topic (batch size limited)',
     ),
   exam_id: z
     .string()

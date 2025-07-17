@@ -7,7 +7,7 @@ const GCP_REGION = process.env.GCP_REGION || '';
 const cloudTasksClient = new CloudTasksClient();
 
 interface CreateCloudTaskPayload {
-  [key: string]: string | number | boolean | undefined;
+  [key: string]: string | number | boolean | undefined | object | any[];
 }
 
 /**

@@ -5,7 +5,7 @@
  *
  * Request Body:
  * - cert_name (string, optional): Name of the certification (default: 'Google Cloud')
- * - examTopicList (string[], required): Array of specific topics to generate questions for
+ * - examTopicList (string[], required): Array of specific topics to generate questions for (batch size limited)
  * - exam_id (string, required): Unique exam identifier
  * - customPromptText (string, optional): Additional prompt text to focus generation
  *
@@ -13,7 +13,7 @@
  * - success (boolean): Whether the operation was successful
  * - data (array): Array of generated quiz questions with topics
  *
- * Note: The number of questions generated equals the length of examTopicList
+ * Note: The number of questions generated equals the length of examTopicList (typically limited by batch size)
  *
  * Get an API key at https://aistudio.google.com/app/apikey
  */
