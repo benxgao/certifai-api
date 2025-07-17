@@ -232,3 +232,69 @@ export const automatedStuckExamCleanup = onSchedule(
     }
   },
 );
+
+/**
+ * Scheduled function for graceful handling of stuck exam generation
+ * Runs every 5 minutes to auto-fail exams stuck for more than 10 minutes
+ * This enables users to delete failed exams and improves user experience
+ */
+export const autoFailStuckExams = onSchedule(
+  {
+    schedule: 'every 5 minutes',
+    timeZone: 'UTC',
+  },
+  async () => {
+    const startTime = Date.now();
+    const executionId = `auto-fail-${Date.now()}-${Math.random()
+      .toString(36)
+      .substring(2, 9)}`;
+
+    try {
+      logger.info('AUTO_FAIL_STUCK_EXAMS_SCHEDULED_START', {
+        timestamp: new Date().toISOString(),
+        execution_id: executionId,
+        threshold_minutes: 10,
+      });
+
+      // Auto-fail exams that have been stuck for more than 10 minutes
+      const result = await ExamGenerationHealthCheck.autoFailStuckExams(10);
+
+      if (result.failedCount > 0) {
+        logger.warn('AUTO_FAIL_STUCK_EXAMS_PROCESSED', {
+          successfully_failed: result.failedCount,
+          failed_exams: result.failedExams,
+          errors_count: result.errors.length,
+          errors: result.errors,
+          timestamp: new Date().toISOString(),
+          execution_id: executionId,
+        });
+      } else {
+        logger.info('AUTO_FAIL_STUCK_EXAMS_NO_ACTION_NEEDED', {
+          message: 'No stuck exams found requiring auto-failure',
+          timestamp: new Date().toISOString(),
+          execution_id: executionId,
+        });
+      }
+
+      const duration = Date.now() - startTime;
+
+      logger.info('AUTO_FAIL_STUCK_EXAMS_SCHEDULED_COMPLETE', {
+        duration_ms: duration,
+        success: result.success,
+        auto_failed_count: result.failedCount,
+        errors_count: result.errors.length,
+        timestamp: new Date().toISOString(),
+        execution_id: executionId,
+      });
+    } catch (error) {
+      const duration = Date.now() - startTime;
+
+      logger.error('AUTO_FAIL_STUCK_EXAMS_SCHEDULED_FAILED', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        duration_ms: duration,
+        timestamp: new Date().toISOString(),
+        execution_id: executionId,
+      });
+    }
+  },
+);

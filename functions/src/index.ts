@@ -6,6 +6,14 @@ import { setGlobalOptions } from 'firebase-functions/v2';
 import apiEndpoints from './endpoints';
 import serviceDelegators from './delegators';
 
+// Import scheduled functions
+import {
+  collectExamGenerationMetrics,
+  dailyExamGenerationReport,
+  automatedStuckExamCleanup,
+  autoFailStuckExams,
+} from './scheduledFunctions/examGenerationMonitoring';
+
 setGlobalOptions({
   maxInstances: 10,
   region: 'us-central1',
@@ -19,3 +27,11 @@ export const delegators = onRequest(
   },
   serviceDelegators,
 );
+
+// Export scheduled functions
+export {
+  collectExamGenerationMetrics,
+  dailyExamGenerationReport,
+  automatedStuckExamCleanup,
+  autoFailStuckExams,
+};

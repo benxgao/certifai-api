@@ -444,6 +444,134 @@ export class ExamGenerationHealthCheck {
   }
 
   /**
+   * Auto-fail stuck exams that have been generating for more than the threshold
+   * This enables graceful handling and allows users to delete failed exams
+   */
+  static async autoFailStuckExams(thresholdMinutes: number = 10): Promise<{
+    success: boolean;
+    failedCount: number;
+    failedExams: Array<{
+      exam_id: string;
+      user_id: string;
+      cert_id: number;
+      minutes_stuck: number;
+    }>;
+    errors: string[];
+  }> {
+    try {
+      logger.info('AUTO_FAIL_STUCK_EXAMS_START', {
+        threshold_minutes: thresholdMinutes,
+        timestamp: new Date().toISOString(),
+      });
+
+      // Get stuck exams using our existing method
+      const stuckExams = await this.getStuckExams(thresholdMinutes);
+
+      if (stuckExams.length === 0) {
+        logger.info('AUTO_FAIL_STUCK_EXAMS_COMPLETE', {
+          message: 'No stuck exams found',
+          threshold_minutes: thresholdMinutes,
+        });
+
+        return {
+          success: true,
+          failedCount: 0,
+          failedExams: [],
+          errors: [],
+        };
+      }
+
+      const failedExams: Array<{
+        exam_id: string;
+        user_id: string;
+        cert_id: number;
+        minutes_stuck: number;
+      }> = [];
+      const errors: string[] = [];
+
+      // Process each stuck exam
+      for (const exam of stuckExams) {
+        try {
+          // Update exam status to QUESTION_GENERATION_FAILED
+          await prismaInstance.examAttempt.update({
+            where: { exam_id: exam.exam_id },
+            data: {
+              exam_status: 'QUESTION_GENERATION_FAILED',
+            },
+          });
+
+          failedExams.push({
+            exam_id: exam.exam_id,
+            user_id: exam.user_id,
+            cert_id: exam.cert_id,
+            minutes_stuck: exam.minutes_stuck,
+          });
+
+          logger.warn('EXAM_AUTO_FAILED', {
+            exam_id: exam.exam_id,
+            user_id: exam.user_id,
+            cert_id: exam.cert_id,
+            minutes_stuck: exam.minutes_stuck,
+            reason: 'Stuck in QUESTIONS_GENERATING state',
+            threshold_minutes: thresholdMinutes,
+          });
+
+          // Log the failure for exam generation tracking
+          ExamGenerationLogger.logExamFailure({
+            exam_id: exam.exam_id,
+            reason: 'Auto-failed due to stuck generation',
+            error: `Exam was stuck in QUESTIONS_GENERATING state for ${exam.minutes_stuck} minutes, exceeding ${thresholdMinutes} minute threshold`,
+            batch_number: 0, // Unknown batch since it was stuck
+            questions_generated_so_far: 0, // No questions generated for stuck exam
+          });
+        } catch (examError) {
+          const errorMessage =
+            examError instanceof Error ? examError.message : 'Unknown error';
+          const error = `Failed to auto-fail exam ${exam.exam_id}: ${errorMessage}`;
+          errors.push(error);
+
+          logger.error('EXAM_AUTO_FAIL_ERROR', {
+            exam_id: exam.exam_id,
+            error: errorMessage,
+            minutes_stuck: exam.minutes_stuck,
+          });
+        }
+      }
+
+      const result = {
+        success: errors.length === 0,
+        failedCount: failedExams.length,
+        failedExams,
+        errors,
+      };
+
+      logger.info('AUTO_FAIL_STUCK_EXAMS_COMPLETE', {
+        total_stuck_found: stuckExams.length,
+        successfully_failed: failedExams.length,
+        errors_count: errors.length,
+        threshold_minutes: thresholdMinutes,
+      });
+
+      return result;
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+
+      logger.error('AUTO_FAIL_STUCK_EXAMS_FAILED', {
+        error: errorMessage,
+        threshold_minutes: thresholdMinutes,
+      });
+
+      return {
+        success: false,
+        failedCount: 0,
+        failedExams: [],
+        errors: [`System error during auto-fail process: ${errorMessage}`],
+      };
+    }
+  }
+
+  /**
    * Generate comprehensive metrics report
    */
   static async generateMetricsReport(): Promise<any> {

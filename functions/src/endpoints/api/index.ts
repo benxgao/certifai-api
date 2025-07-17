@@ -21,6 +21,13 @@ import deleteExam from './users/exams/deleteExam';
 import getUserProfile from './users/getUserProfile';
 import getRateLimit from './users/getRateLimit';
 
+// Admin endpoints
+import autoFailStuckExams from './admin/exams/autoFailStuckExams';
+import stuckExams from './admin/exam-generation/stuck-exams';
+import healthCheck from './admin/exam-generation/health';
+import metricsReport from './admin/exam-generation/metrics';
+import forceComplete from './admin/exam-generation/force-complete';
+
 const router = createRouter();
 
 /** ******************* PUBLIC ROUTES ************************* */
@@ -116,6 +123,39 @@ router.delete(
   '/users/:user_id/exams/:exam_id',
   verifyFirebaseToken,
   deleteExam,
+);
+
+/** *********************** ADMIN ENDPOINTS ******************************** */
+
+// Admin: Get stuck exams
+router.get(
+  '/admin/exam-generation/stuck-exams',
+  verifyFirebaseToken,
+  stuckExams,
+);
+
+// Admin: Get system health
+router.get('/admin/exam-generation/health', verifyFirebaseToken, healthCheck);
+
+// Admin: Get metrics report
+router.get(
+  '/admin/exam-generation/metrics',
+  verifyFirebaseToken,
+  metricsReport,
+);
+
+// Admin: Force complete stuck exam
+router.post(
+  '/admin/exam-generation/force-complete',
+  verifyFirebaseToken,
+  forceComplete,
+);
+
+// Admin: Auto-fail stuck exams
+router.post(
+  '/admin/exams/auto-fail-stuck',
+  verifyFirebaseToken,
+  autoFailStuckExams,
 );
 
 export default router;
