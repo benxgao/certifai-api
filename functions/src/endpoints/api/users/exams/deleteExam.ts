@@ -66,16 +66,61 @@ async function deleteExamFromRtdb(exam_id: string): Promise<{
 }
 
 /**
- * Deletes an exam along with all associated data
+ * Validates that all related data has been properly deleted for an exam
+ * This is a safety check to ensure complete cleanup
+ */
+async function validateExamDeletion(exam_id: string): Promise<{
+  isCompletelyDeleted: boolean;
+  remainingData: {
+    examAttempt: number;
+    quizQuestions: number;
+    answerOptions: number;
+    examUserAnswers: number;
+  };
+}> {
+  const [examAttempt, quizQuestions, answerOptions, examUserAnswers] =
+    await Promise.all([
+      prismaInstance.examAttempt.count({ where: { exam_id } }),
+      prismaInstance.quizQuestion.count({ where: { generated_from: exam_id } }),
+      prismaInstance.answerOption.count({
+        where: {
+          quizQuestion: {
+            generated_from: exam_id,
+          },
+        },
+      }),
+      prismaInstance.examUserAnswer.count({ where: { exam_id } }),
+    ]);
+
+  const remainingData = {
+    examAttempt,
+    quizQuestions,
+    answerOptions,
+    examUserAnswers,
+  };
+
+  const isCompletelyDeleted = Object.values(remainingData).every(
+    (count) => count === 0,
+  );
+
+  return {
+    isCompletelyDeleted,
+    remainingData,
+  };
+}
+
+/**
+ * Deletes an exam along with all associated data in proper cascade order
  * Allows deletion of exams in specific statuses to prevent accidental deletion
  * of active or completed exams with valuable user data
  *
- * This endpoint deletes:
- * 1. All quiz questions that were generated specifically for this exam (generated_from = exam_id)
- * 2. All answer options for those quiz questions
- * 3. All exam user answers for this exam
- * 4. The exam attempt record itself
+ * This endpoint explicitly deletes all related data in the correct order:
+ * 1. ExamUserAnswer records (foreign key references)
+ * 2. AnswerOption records (for quiz questions generated for this exam)
+ * 3. QuizQuestion records (generated specifically for this exam)
+ * 4. ExamAttempt record (the main exam record)
  * 5. RTDB data: exam plans and exam questions/topics data
+ * 6. Cache invalidation
  */
 const handler = async (req: any | CustomRequest, res: Response) => {
   try {
@@ -177,69 +222,147 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       return;
     }
 
-    // Get all quiz questions that were specifically generated for this exam and exam user answers count in parallel
+    // Get all quiz questions that were specifically generated for this exam
+    // and count related data in parallel for better performance
     const [associatedQuizQuestions, examUserAnswersCount] = await Promise.all([
       prismaInstance.quizQuestion.findMany({
         where: { generated_from: exam_id },
-        select: { quiz_question_id: true },
+        select: {
+          quiz_question_id: true,
+          _count: {
+            select: {
+              answerOptions: true,
+            },
+          },
+        },
       }),
       prismaInstance.examUserAnswer.count({
         where: { exam_id },
       }),
     ]);
 
-    // Extract question IDs once for reuse
+    // Extract question IDs and calculate total answer options
     const questionIds = associatedQuizQuestions.map((q) => q.quiz_question_id);
+    const totalAnswerOptions = associatedQuizQuestions.reduce(
+      (sum, q) => sum + q._count.answerOptions,
+      0,
+    );
 
     logger.info(
-      `deleteExam: Found ${questionIds.length} quiz questions and ${examUserAnswersCount} user answers to delete for exam ${exam_id}`,
+      `deleteExam: Found data to delete for exam ${exam_id}: ${questionIds.length} quiz questions, ${totalAnswerOptions} answer options, ${examUserAnswersCount} user answers`,
     );
 
     // Use a transaction to ensure all related data is cleaned up atomically
-    await prismaInstance.$transaction(async (prisma) => {
-      // Delete any exam user answers (if any exist)
+    // Delete in proper cascade order to avoid foreign key constraint violations
+    const deletionCounts = await prismaInstance.$transaction(async (prisma) => {
+      let deletedAnswerOptions = 0;
+      let deletedQuestions = 0;
+      let deletedUserAnswers = 0;
+
+      // Step 1: Delete exam user answers first (they reference both exam and questions)
       if (examUserAnswersCount > 0) {
-        await prisma.examUserAnswer.deleteMany({
+        const userAnswerResult = await prisma.examUserAnswer.deleteMany({
           where: { exam_id },
         });
+        deletedUserAnswers = userAnswerResult.count;
         logger.info(
-          `deleteExam: Deleted ${examUserAnswersCount} exam user answers for exam ${exam_id}`,
+          `deleteExam: Deleted ${deletedUserAnswers} exam user answers for exam ${exam_id}`,
         );
+
+        // Verify we deleted the expected number of user answers
+        if (deletedUserAnswers !== examUserAnswersCount) {
+          logger.warn(
+            `deleteExam: User answer count mismatch for exam ${exam_id}. Expected: ${examUserAnswersCount}, Deleted: ${deletedUserAnswers}`,
+          );
+        }
       }
 
-      // Delete quiz questions that were generated specifically for this exam
-      // Answer options will be automatically deleted due to onDelete: Cascade
+      // Step 2: Delete answer options for questions generated for this exam
       if (questionIds.length > 0) {
-        const deletedQuestions = await prisma.quizQuestion.deleteMany({
+        const answerOptionsResult = await prisma.answerOption.deleteMany({
+          where: {
+            quiz_question_id: {
+              in: questionIds,
+            },
+          },
+        });
+        deletedAnswerOptions = answerOptionsResult.count;
+        logger.info(
+          `deleteExam: Deleted ${deletedAnswerOptions} answer options for quiz questions of exam ${exam_id}`,
+        );
+
+        // Verify we deleted the expected number of answer options
+        if (deletedAnswerOptions !== totalAnswerOptions) {
+          logger.warn(
+            `deleteExam: Answer option count mismatch for exam ${exam_id}. Expected: ${totalAnswerOptions}, Deleted: ${deletedAnswerOptions}`,
+          );
+        }
+
+        // Step 3: Delete quiz questions generated specifically for this exam
+        const questionsResult = await prisma.quizQuestion.deleteMany({
           where: { generated_from: exam_id },
         });
-
+        deletedQuestions = questionsResult.count;
         logger.info(
-          `deleteExam: Deleted ${deletedQuestions.count} quiz questions (and their answer options) generated for exam ${exam_id}`,
+          `deleteExam: Deleted ${deletedQuestions} quiz questions generated for exam ${exam_id}`,
         );
+
+        // Verify we deleted the expected number of questions
+        if (deletedQuestions !== questionIds.length) {
+          logger.warn(
+            `deleteExam: Quiz question count mismatch for exam ${exam_id}. Expected: ${questionIds.length}, Deleted: ${deletedQuestions}`,
+          );
+        }
       }
 
-      // Delete the exam attempt itself
+      // Step 4: Delete the exam attempt record itself
       await prisma.examAttempt.delete({
         where: { exam_id },
       });
 
       logger.info(
-        `deleteExam: Successfully deleted exam ${exam_id} for user ${user_id}`,
+        `deleteExam: Successfully deleted exam ${exam_id} for user ${user_id} with all related data:`,
+        {
+          exam_id,
+          user_id,
+          deleted_user_answers: deletedUserAnswers,
+          deleted_answer_options: deletedAnswerOptions,
+          deleted_quiz_questions: deletedQuestions,
+        },
       );
+
+      // Return deletion counts for response
+      return {
+        deletedUserAnswers,
+        deletedAnswerOptions,
+        deletedQuestions,
+      };
     });
 
     // Clean up RTDB data after successful database deletion
     logger.info(`deleteExam: Starting RTDB cleanup for exam ${exam_id}`);
     const rtdbCleanupResults = await deleteExamFromRtdb(exam_id);
 
+    // Validate that all related data has been completely removed
+    const validationResults = await validateExamDeletion(exam_id);
+    if (!validationResults.isCompletelyDeleted) {
+      logger.warn(
+        `deleteExam: Validation check found remaining data for exam ${exam_id}:`,
+        validationResults.remainingData,
+      );
+    } else {
+      logger.info(
+        `deleteExam: Validation confirmed complete deletion of exam ${exam_id}`,
+      );
+    }
+
     // Invalidate user exam cache since exam was deleted
     await CacheManager.invalidateUserExamCache(user_id);
 
-    // Return success response with exam details
+    // Return success response with comprehensive deletion details
     res.status(200).json({
       success: true,
-      message: 'Exam deleted successfully.',
+      message: 'Exam and all related data deleted successfully.',
       data: {
         exam_id,
         user_id,
@@ -248,12 +371,22 @@ const handler = async (req: any | CustomRequest, res: Response) => {
         exam_status: exam.exam_status,
         total_questions: exam.total_questions,
         token_cost: exam.token_cost,
-        deleted_answers: examUserAnswersCount,
-        deleted_quiz_questions: questionIds.length,
-        deleted_quiz_question_ids: questionIds,
+        deletion_summary: {
+          exam_user_answers_deleted: deletionCounts.deletedUserAnswers,
+          exam_user_answers_expected: examUserAnswersCount,
+          answer_options_deleted: deletionCounts.deletedAnswerOptions,
+          answer_options_expected: totalAnswerOptions,
+          quiz_questions_deleted: deletionCounts.deletedQuestions,
+          quiz_questions_expected: questionIds.length,
+          quiz_question_ids_deleted: questionIds,
+        },
         rtdb_cleanup: {
           exam_plan_deleted: rtdbCleanupResults.examPlanDeleted,
           exam_data_deleted: rtdbCleanupResults.examDataDeleted,
+        },
+        validation: {
+          completely_deleted: validationResults.isCompletelyDeleted,
+          remaining_data_check: validationResults.remainingData,
         },
       },
     });
