@@ -144,26 +144,28 @@ const handler = async (
     const rateLimitResult = await OptimizedRateLimitService.checkExamRateLimit(
       user_id,
     );
+
     timingAudit.external_services.rate_limit_check =
       Date.now() - rateLimitStart;
-    if (!rateLimitResult.isAllowed) {
-      logger.warn(
-        `Rate limit exceeded for user ${user_id}: ${rateLimitResult.currentCount}/${MAX_EXAMS_PER_24_HOURS} exams in 24 hours`,
-      );
-      res.status(429).json({
-        success: false,
-        error:
-          rateLimitResult.error ||
-          'Rate limit exceeded. You can create a maximum of 3 exams per 24 hours.',
-        data: {
-          maxExamsAllowed: MAX_EXAMS_PER_24_HOURS,
-          currentCount: rateLimitResult.currentCount,
-          remainingCount: rateLimitResult.remainingCount,
-          resetTime: new Date(rateLimitResult.resetTimeMs).toISOString(),
-        },
-      });
-      return;
-    }
+
+    // if (!rateLimitResult.isAllowed) {
+    //   logger.warn(
+    //     `Rate limit exceeded for user ${user_id}: ${rateLimitResult.currentCount}/${MAX_EXAMS_PER_24_HOURS} exams in 24 hours`,
+    //   );
+    //   res.status(429).json({
+    //     success: false,
+    //     error:
+    //       rateLimitResult.error ||
+    //       'Rate limit exceeded. You can create a maximum of 3 exams per 24 hours.',
+    //     data: {
+    //       maxExamsAllowed: MAX_EXAMS_PER_24_HOURS,
+    //       currentCount: rateLimitResult.currentCount,
+    //       remainingCount: rateLimitResult.remainingCount,
+    //       resetTime: new Date(rateLimitResult.resetTimeMs).toISOString(),
+    //     },
+    //   });
+    //   return;
+    // }
 
     logger.info(
       `Rate limit check passed for user ${user_id}: ${rateLimitResult.currentCount}/${MAX_EXAMS_PER_24_HOURS} exams used`,
@@ -360,7 +362,7 @@ const handler = async (
 
       // RACE CONDITION FIX: Add 5-second delay for first batch to ensure RTDB write completes
       // This prevents the "all topics already assigned" issue on batch 1 processing
-      const delaySeconds = 5;
+      const delaySeconds = 10;
 
       logger.info(
         `FIRST_BATCH_DELAYED: Scheduling first batch with 5-second delay to prevent RTDB race condition`,

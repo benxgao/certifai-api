@@ -104,7 +104,7 @@ const buildExamPlanPrompt = (
   return basePrompt + customSection + formatSection;
 };
 
-// Create a singleton promise for the AI instance
+// Use the shared singleton AI instance
 const aiInstancePromise: Promise<Genkit> = createAiInstancePromise();
 
 type ExamPlannerInputType = z.infer<typeof ExamPlannerInput>;

@@ -1830,7 +1830,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
           questions_per_batch,
         };
 
-        const delaySeconds = 5;
+        const delaySeconds = 15;
 
         const nextTaskName = await createCloudTask(
           'exam-questions-queue',

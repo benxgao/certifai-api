@@ -98,7 +98,7 @@ const buildQuizPrompt = (
   return basePrompt + customSection + formatSection;
 };
 
-// Create a singleton promise for the AI instance to ensure it's initialized only once.
+// Use the shared singleton AI instance
 const aiInstancePromise: Promise<Genkit> = createAiInstancePromise();
 
 type QuizGeneratorInputType = z.infer<typeof QuizGeneratorInput>;

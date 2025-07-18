@@ -138,10 +138,19 @@ export const generateWithValidation = async <T>(
 };
 
 /**
- * Create a singleton AI instance promise
+ * Singleton AI instance promise - shared across all flows
+ */
+let aiInstancePromise: Promise<Genkit> | null = null;
+
+/**
+ * Create or return the singleton AI instance promise
  */
 export const createAiInstancePromise = (): Promise<Genkit> => {
-  return initializeAiInstance();
+  if (!aiInstancePromise) {
+    logger.info('Creating new Genkit AI instance...');
+    aiInstancePromise = initializeAiInstance();
+  }
+  return aiInstancePromise;
 };
 
 /**
