@@ -200,17 +200,15 @@ function findMatchingExamTopic(
 }
 
 /**
- * Updates the realtime database with exam questions data
+ * Updates the realtime database with exam topic information only (removed quizQuestions to avoid path conflicts)
  * @param exam_id - The exam identifier
  * @param createdQuestions - The questions created in the database
  * @param validQuestions - The original valid questions from AI generation
- * @param answerOptions - The answer options created in the database
  */
 async function updateExamQuestionsInRtdb(
   exam_id: string,
   createdQuestions: any[],
   validQuestions: any[],
-  answerOptions: any[],
 ): Promise<void> {
   try {
     // Get existing exam data from RTDB or initialize if not exists
@@ -220,45 +218,19 @@ async function updateExamQuestionsInRtdb(
     if (!examData) {
       examData = {
         exam_id,
-        quizQuestions: {},
         examTopics: {},
         createdAt: new Date().toISOString(),
         lastUpdated: new Date().toISOString(),
       };
     }
 
-    // Create question updates for RTDB
-    const questionUpdates: Record<string, any> = {};
+    // Create exam topics updates for RTDB (removed quizQuestions to avoid path conflicts)
     const examTopicsUpdates: Record<string, any> = {};
 
     createdQuestions.forEach((createdQuestion, index) => {
       const originalQuestion = validQuestions[index];
       const questionId = createdQuestion.quiz_question_id;
       const examTopic = normalizeExamTopic(originalQuestion.examTopic);
-
-      // Get answer options for this question
-      const questionOptions = answerOptions.filter(
-        (opt) => opt.quiz_question_id === questionId,
-      );
-
-      // Add question data with complete answer options
-      questionUpdates[`quizQuestions/${questionId}`] = {
-        question_id: questionId,
-        exam_topic: examTopic,
-        question_text: createdQuestion.question_text,
-        explanations: createdQuestion.explanations,
-        cert_id: createdQuestion.cert_id,
-        generated_from: exam_id,
-        createdAt: new Date().toISOString(),
-        answer_options: questionOptions.map((opt) => ({
-          option_id: opt.option_id,
-          option_text: opt.option_text,
-          is_correct: opt.is_correct,
-        })),
-        correct_answer:
-          questionOptions.find((opt) => opt.is_correct)?.option_text || '',
-        total_options: questionOptions.length,
-      };
 
       // Group questions by topic - use direct object structure instead of paths
       if (!examTopicsUpdates[examTopic]) {
@@ -273,13 +245,6 @@ async function updateExamQuestionsInRtdb(
       examTopicsUpdates[examTopic].question_ids.push(questionId);
       examTopicsUpdates[examTopic].question_count += 1;
     });
-
-    // Merge with existing data if any
-    if (examData.quizQuestions) {
-      Object.assign(questionUpdates, {
-        quizQuestions: { ...examData.quizQuestions },
-      });
-    }
 
     // Merge existing exam topics with new ones
     const mergedExamTopics = { ...examData.examTopics };
@@ -311,9 +276,8 @@ async function updateExamQuestionsInRtdb(
       totalTopics: Object.keys(mergedExamTopics).length,
     };
 
-    // Combine all updates - use proper structure to avoid path conflicts
+    // Combine updates without quizQuestions to avoid path conflicts
     const allUpdates = {
-      ...questionUpdates,
       examTopics: mergedExamTopics,
       ...examMetaUpdates,
     };
@@ -1406,12 +1370,11 @@ const handler = async (req: any | CustomRequest, res: Response) => {
             }
           }
 
-          // Update realtime database with complete exam questions data including answer options
+          // Update realtime database with exam topic information (removed quizQuestions to avoid path conflicts)
           await updateExamQuestionsInRtdb(
             exam_id,
             createdQuestions,
             validQuestions,
-            createdOptions,
           );
 
           const batchDuration = Date.now() - batchStartTime;
