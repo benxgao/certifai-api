@@ -32,21 +32,53 @@ export const DEFAULT_GENERATION_CONFIG: GenerationConfig = {
  * @returns Promise<Genkit> - Initialized AI instance
  */
 export const initializeAiInstance = async (): Promise<Genkit> => {
-  try {
-    const apiKey = await getSecret('GOOGLE_GENAI_API_KEY');
+  const maxRetries = 3;
+  const retryDelay = 2000; // 2 seconds
 
-    const ai = genkit({
-      plugins: [googleAI({ apiKey })],
-      model: gemini20Flash,
-    });
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      logger.info(
+        `Attempting to initialize Genkit AI instance (attempt ${attempt}/${maxRetries})`,
+      );
 
-    logger.info('Genkit AI instance initialized successfully.');
+      const apiKey = await getSecret('GOOGLE_GENAI_API_KEY');
 
-    return ai;
-  } catch (error) {
-    logger.error('Failed to initialize Genkit AI instance:', error as any);
-    throw new Error('Could not initialize AI services.');
+      const ai = genkit({
+        plugins: [googleAI({ apiKey })],
+        model: gemini20Flash,
+      });
+
+      logger.info('Genkit AI instance initialized successfully.');
+
+      return ai;
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      logger.error(
+        `Failed to initialize Genkit AI instance (attempt ${attempt}/${maxRetries}):`,
+        {
+          error: errorMessage,
+          attempt,
+          maxRetries,
+        },
+      );
+
+      if (attempt === maxRetries) {
+        logger.error(
+          'All attempts to initialize Genkit AI instance failed. AI services will be unavailable.',
+        );
+        throw new Error(
+          `Could not initialize AI services after ${maxRetries} attempts: ${errorMessage}`,
+        );
+      }
+
+      // Wait before retrying
+      await new Promise((resolve) => setTimeout(resolve, retryDelay * attempt));
+    }
   }
+
+  // This should never be reached, but TypeScript requires it
+  throw new Error('Unexpected error in AI instance initialization');
 };
 
 /**
@@ -143,12 +175,40 @@ export const generateWithValidation = async <T>(
 let aiInstancePromise: Promise<Genkit> | null = null;
 
 /**
- * Create or return the singleton AI instance promise
+ * Create or return the singleton AI instance promise with timeout protection
  */
 export const createAiInstancePromise = (): Promise<Genkit> => {
   if (!aiInstancePromise) {
     logger.info('Creating new Genkit AI instance...');
-    aiInstancePromise = initializeAiInstance();
+
+    // Create a timeout wrapper around the initialization
+    const timeoutMs = 45000; // 45 seconds timeout
+    const initWithTimeout = Promise.race([
+      initializeAiInstance(),
+      new Promise<never>((_, reject) =>
+        setTimeout(
+          () =>
+            reject(
+              new Error(
+                `AI instance initialization timed out after ${timeoutMs}ms`,
+              ),
+            ),
+          timeoutMs,
+        ),
+      ),
+    ]);
+
+    // Handle failures by resetting the promise so it can be retried later
+    aiInstancePromise = initWithTimeout.catch((error) => {
+      logger.error(
+        'AI instance initialization failed, resetting singleton for retry:',
+        {
+          error: error instanceof Error ? error.message : 'Unknown error',
+        },
+      );
+      aiInstancePromise = null; // Reset so it can be retried
+      throw error;
+    });
   }
   return aiInstancePromise;
 };

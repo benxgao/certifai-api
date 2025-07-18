@@ -7,7 +7,6 @@
 import { inspect } from 'util';
 import { Response } from 'express';
 import logger from '../../../services/firebase/logger';
-import { examPlannerPromise } from '../../../services/genkit/examPlanner';
 
 /**
  * Handles exam planning requests to generate an AI-powered study plan
@@ -45,6 +44,9 @@ import { examPlannerPromise } from '../../../services/genkit/examPlanner';
 export const examPlannerHandler = async (req: any, res: Response) => {
   try {
     // Ensure the AI instance and flow are initialized before proceeding
+    const { examPlannerPromise } = await import(
+      '../../../services/genkit/examPlanner.js'
+    );
     const examPlanner = await examPlannerPromise;
 
     const { exam_id, cert_id, cert_name, totalQuestionCounts, customPrompt } =

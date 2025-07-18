@@ -109,106 +109,124 @@ const aiInstancePromise: Promise<Genkit> = createAiInstancePromise();
 
 type ExamPlannerInputType = z.infer<typeof ExamPlannerInput>;
 
-export const examPlannerPromise = aiInstancePromise.then((ai) => {
-  return ai.defineFlow(
-    {
-      name: 'examPlanner',
-      inputSchema: ExamPlannerInput,
-      outputSchema: ExamPlanSchema,
-      streamSchema: z.string(),
-    },
-    async (
-      input: ExamPlannerInputType,
-      { sendChunk }: FlowSideChannel<string>,
-    ): Promise<ExamPlan> => {
-      try {
-        const {
-          cert_name,
-          totalQuestionCounts,
-          exam_id,
-          cert_id,
-          user_id,
-          customPrompt,
-        } = input;
-
-        logGenerationStart('exam plan generation', {
-          cert_name,
-          totalQuestionCounts,
-          exam_id,
-          cert_id,
-          user_id,
-          customPrompt: customPrompt?.substring(0, 100),
-        });
-
-        const prompt = buildExamPlanPrompt(
-          cert_name,
-          totalQuestionCounts,
-          customPrompt || undefined,
-        );
-
-        // Generate topics using shared utility
-        const generatedTopics = await generateWithValidation(
-          ai,
-          prompt,
-          z.array(z.string()),
-          sendChunk,
-        );
-
-        // Validate and filter topics using shared utility
-        const validTopics = validateAndFilterResponse(
-          generatedTopics,
-          (topic: string) =>
-            !!(topic && typeof topic === 'string' && topic.trim() !== ''),
-          'exam topics',
-        );
-
-        // Transform generated topics into questions structure
-        const questions = validTopics.map((topic) => ({
-          exam_topic: topic,
-          question_id: null,
-        }));
-
-        // Create exam plan object
-        const examPlan: ExamPlan = {
-          questions,
-          cert_id,
-          user_id,
-          created_at: Math.floor(Date.now() / 1000),
-          customPrompt: customPrompt ?? null,
-        };
-
-        // Store the exam plan in Firebase Realtime Database
-        const rtdbPath = `exam_plans/${exam_id}`;
-        await setRtdbValue(rtdbPath, examPlan);
-
-        logger.info(
-          `Exam plan stored successfully in RTDB at path: ${rtdbPath}`,
-          {
+export const examPlannerPromise = aiInstancePromise
+  .then((ai) => {
+    return ai.defineFlow(
+      {
+        name: 'examPlanner',
+        inputSchema: ExamPlannerInput,
+        outputSchema: ExamPlanSchema,
+        streamSchema: z.string(),
+      },
+      async (
+        input: ExamPlannerInputType,
+        { sendChunk }: FlowSideChannel<string>,
+      ): Promise<ExamPlan> => {
+        try {
+          const {
+            cert_name,
+            totalQuestionCounts,
             exam_id,
-            questionsCount: questions.length,
             cert_id,
             user_id,
-            structuredData: true,
-          },
-        );
+            customPrompt,
+          } = input;
 
-        logGenerationComplete('exam plan', examPlan, {
-          exam_id,
-          questionsCount: questions.length,
-        });
+          logGenerationStart('exam plan generation', {
+            cert_name,
+            totalQuestionCounts,
+            exam_id,
+            cert_id,
+            user_id,
+            customPrompt: customPrompt?.substring(0, 100),
+          });
 
-        return examPlan;
-      } catch (error) {
-        return handleGenerationError(
-          error,
-          {
-            cert_name: input.cert_name,
-            totalQuestionCounts: input.totalQuestionCounts,
-            exam_id: input.exam_id,
-          },
-          'generate exam plan',
-        );
-      }
-    },
-  );
-});
+          const prompt = buildExamPlanPrompt(
+            cert_name,
+            totalQuestionCounts,
+            customPrompt || undefined,
+          );
+
+          // Generate topics using shared utility
+          const generatedTopics = await generateWithValidation(
+            ai,
+            prompt,
+            z.array(z.string()),
+            sendChunk,
+          );
+
+          // Validate and filter topics using shared utility
+          const validTopics = validateAndFilterResponse(
+            generatedTopics,
+            (topic: string) =>
+              !!(topic && typeof topic === 'string' && topic.trim() !== ''),
+            'exam topics',
+          );
+
+          // Transform generated topics into questions structure
+          const questions = validTopics.map((topic) => ({
+            exam_topic: topic,
+            question_id: null,
+          }));
+
+          // Create exam plan object
+          const examPlan: ExamPlan = {
+            questions,
+            cert_id,
+            user_id,
+            created_at: Math.floor(Date.now() / 1000),
+            customPrompt: customPrompt ?? null,
+          };
+
+          // Store the exam plan in Firebase Realtime Database
+          const rtdbPath = `exam_plans/${exam_id}`;
+          await setRtdbValue(rtdbPath, examPlan);
+
+          logger.info(
+            `Exam plan stored successfully in RTDB at path: ${rtdbPath}`,
+            {
+              exam_id,
+              questionsCount: questions.length,
+              cert_id,
+              user_id,
+              structuredData: true,
+            },
+          );
+
+          logGenerationComplete('exam plan', examPlan, {
+            exam_id,
+            questionsCount: questions.length,
+          });
+
+          return examPlan;
+        } catch (error) {
+          return handleGenerationError(
+            error,
+            {
+              cert_name: input.cert_name,
+              totalQuestionCounts: input.totalQuestionCounts,
+              exam_id: input.exam_id,
+            },
+            'generate exam plan',
+          );
+        }
+      },
+    );
+  })
+  .catch((initError) => {
+    logger.error(
+      'Failed to initialize examPlanner due to AI instance failure:',
+      {
+        error: initError instanceof Error ? initError.message : 'Unknown error',
+      },
+    );
+
+    // Return a function that throws an error when called to match the expected interface
+    return async (): Promise<ExamPlan> => {
+      throw new Error(
+        `ExamPlanner is unavailable: AI service initialization failed - ${
+          initError instanceof Error ? initError.message : 'Unknown error'
+        }`,
+      );
+    };
+  });

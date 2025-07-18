@@ -1,7 +1,6 @@
 import { Response } from 'express';
 import logger from '../../services/firebase/logger';
 import { CustomRequest } from '../../types';
-import { quizGeneratorPromise } from '../../services/genkit/quizGenerator';
 import prismaInstance, { ExamStatus } from '../../services/prisma';
 import { createCloudTask } from '../../services/gcp/cloudTasks';
 import {
@@ -105,7 +104,17 @@ async function getExamTopicsFromRtdb(
         },
       );
 
-      return examPlan.questions;
+      // Ensure all question_id values are properly initialized as null (not undefined)
+      // This normalizes any potential data inconsistencies from RTDB
+      const normalizedQuestions = examPlan.questions.map((q: any) => ({
+        ...q,
+        question_id:
+          q.question_id === null || q.question_id === undefined
+            ? null
+            : q.question_id,
+      }));
+
+      return normalizedQuestions;
     } else {
       logger.error(
         `No exam plan found in RTDB for exam ${exam_id}. This is a critical error as exam plan should exist.`,
@@ -683,8 +692,14 @@ async function updateExamPlanInRtdb(
       );
 
       // Update only the questions array with the new assignments
+      // Ensure all question_id values are explicitly null or a valid string
+      const normalizedQuestions = updatedTopicList.map((topic) => ({
+        ...topic,
+        question_id: topic.question_id === undefined ? null : topic.question_id,
+      }));
+
       const updateData: any = {
-        questions: updatedTopicList,
+        questions: normalizedQuestions,
         updated_at: Math.floor(Date.now() / 1000),
       };
 
@@ -767,6 +782,16 @@ const handler = async (req: any | CustomRequest, res: Response) => {
             total_topics: totalTopicsCount,
             assigned_topics: assignedTopicsCount,
             corruption_detected: true,
+            corruption_analysis: {
+              all_question_ids_type: examTopicList.map((t) => ({
+                exam_topic: t.exam_topic.substring(0, 20),
+                question_id: t.question_id,
+                question_id_type: typeof t.question_id,
+                is_null: t.question_id === null,
+                is_undefined: t.question_id === undefined,
+                is_falsy: !t.question_id,
+              })),
+            },
             topics_sample: examTopicList.slice(0, 5).map((t) => ({
               exam_topic: t.exam_topic.substring(0, 30),
               question_id: t.question_id,
@@ -797,11 +822,10 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       }
     }
 
-    // Additional safety check: Ensure exam plan wasn't corrupted by checking if we have any unassigned topics
-    // for intermediate batches that expect to have work to do
     const currentUnassignedCount = examTopicList.filter(
-      (t) => t.question_id === null,
+      (t) => !t.question_id,
     ).length;
+
     if (batch_number > 1 && currentUnassignedCount === 0) {
       logger.warn(
         `POTENTIAL_ISSUE: Batch ${batch_number} has no unassigned topics but this is not batch 1`,
@@ -822,9 +846,8 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       );
     }
 
-    // Filter topics that don't have questions assigned yet (question_id is null)
     const unassignedTopics = examTopicList.filter(
-      (topic) => topic.question_id === null,
+      (topic) => !topic.question_id,
     );
 
     // Limit topics to batch size for generation
@@ -852,6 +875,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
         topics_for_this_batch: topicsForThisBatch.length,
         questions_to_generate,
         batch_size_limit: questions_per_batch,
+        current_batch_topics: topicsForThisBatch.map((t) => t.exam_topic),
         topic_sample: examTopicList.slice(0, 3).map((t) => ({
           exam_topic:
             t.exam_topic.substring(0, 50) +
@@ -991,6 +1015,9 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       const aiStartTime = Date.now();
 
       // Generate questions using the quiz generator
+      const { quizGeneratorPromise } = await import(
+        '../../services/genkit/quizGenerator.js'
+      );
       const quizGenerator = await quizGeneratorPromise;
       const generatedQuestions = await quizGenerator({
         // Use only unassigned topics for generation
@@ -1067,16 +1094,17 @@ const handler = async (req: any | CustomRequest, res: Response) => {
           validationErrors.push(`Invalid answerIndex: ${question.answerIndex}`);
         }
 
-        // Check if we can find a matching topic for this question
+        // CRITICAL FIX: Check if we can find a matching topic for this question
+        // ONLY within the topics assigned to this batch to prevent cross-batch assignment
         let matchingTopic = null;
         if (question.examTopic && question.examTopic.trim() !== '') {
           matchingTopic = findMatchingExamTopic(
             question.examTopic,
-            examTopicList,
+            topicsForThisBatch, // Use only current batch topics, not all topics
           );
           if (!matchingTopic) {
             validationErrors.push(
-              `No matching exam topic found for "${question.examTopic}"`,
+              `No matching exam topic found for "${question.examTopic}" in current batch topics`,
             );
           }
         }

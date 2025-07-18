@@ -1,6 +1,7 @@
 import { z, FlowSideChannel, Genkit } from 'genkit';
 import { enableFirebaseTelemetry } from '@genkit-ai/firebase';
 
+import logger from '../firebase/logger';
 import {
   createAiInstancePromise,
   generateWithValidation,
@@ -104,86 +105,104 @@ const aiInstancePromise: Promise<Genkit> = createAiInstancePromise();
 type QuizGeneratorInputType = z.infer<typeof QuizGeneratorInput>;
 
 // MARKED pass in users prompt text
-export const quizGeneratorPromise = aiInstancePromise.then((ai) => {
-  return ai.defineFlow(
-    {
-      name: 'quizGenerator',
-      inputSchema: QuizGeneratorInput,
-      outputSchema: z.array(QuizSchema),
-      streamSchema: z.string(),
-    },
-    async (
-      input: QuizGeneratorInputType,
-      { sendChunk }: FlowSideChannel<string>,
-    ): Promise<QuizItem[]> => {
-      try {
-        const { subject, examTopicList, exam_id, customPromptText } = input;
-        const count = examTopicList.length;
+export const quizGeneratorPromise = aiInstancePromise
+  .then((ai) => {
+    return ai.defineFlow(
+      {
+        name: 'quizGenerator',
+        inputSchema: QuizGeneratorInput,
+        outputSchema: z.array(QuizSchema),
+        streamSchema: z.string(),
+      },
+      async (
+        input: QuizGeneratorInputType,
+        { sendChunk }: FlowSideChannel<string>,
+      ): Promise<QuizItem[]> => {
+        try {
+          const { subject, examTopicList, exam_id, customPromptText } = input;
+          const count = examTopicList.length;
 
-        logGenerationStart('quiz generation', {
-          subject,
-          count,
-          exam_id,
-          examTopicList: examTopicList.join(', '),
-          customPromptText: customPromptText?.substring(0, 100),
-        });
+          logGenerationStart('quiz generation', {
+            subject,
+            count,
+            exam_id,
+            examTopicList: examTopicList.join(', '),
+            customPromptText: customPromptText?.substring(0, 100),
+          });
 
-        const prompt = buildQuizPrompt(
-          subject,
-          examTopicList,
-          customPromptText,
-        );
+          const prompt = buildQuizPrompt(
+            subject,
+            examTopicList,
+            customPromptText,
+          );
 
-        // Generate quiz items using shared utility with custom config
-        const actualQuizItems = await generateWithValidation(
-          ai,
-          prompt,
-          z.array(QuizSchema),
-          sendChunk,
-          {
-            maxOutputTokens: 4096 * 100,
-            temperature: 0.6,
-            topP: 0.9,
-            topK: 40,
-          },
-        );
+          // Generate quiz items using shared utility with custom config
+          const actualQuizItems = await generateWithValidation(
+            ai,
+            prompt,
+            z.array(QuizSchema),
+            sendChunk,
+            {
+              maxOutputTokens: 4096 * 100,
+              temperature: 0.6,
+              topP: 0.9,
+              topK: 40,
+            },
+          );
 
-        // Validate and filter questions with missing examTopic using shared utility
-        const validQuizItems = validateAndFilterResponse(
-          actualQuizItems,
-          (item: QuizItem) =>
-            !!(
-              item.examTopic &&
-              item.examTopic.trim() !== '' &&
-              examTopicList.includes(item.examTopic)
-            ),
-          'quiz items with valid examTopic from the provided list',
-        );
+          // Validate and filter questions with missing examTopic using shared utility
+          const validQuizItems = validateAndFilterResponse(
+            actualQuizItems,
+            (item: QuizItem) =>
+              !!(
+                item.examTopic &&
+                item.examTopic.trim() !== '' &&
+                examTopicList.includes(item.examTopic)
+              ),
+            'quiz items with valid examTopic from the provided list',
+          );
 
-        // Associate exam_id with each quiz item
-        const quizItemsWithExamId = validQuizItems.map((item) => ({
-          ...item,
-          exam_id,
-        }));
+          // Associate exam_id with each quiz item
+          const quizItemsWithExamId = validQuizItems.map((item) => ({
+            ...item,
+            exam_id,
+          }));
 
-        logGenerationComplete('quiz items', quizItemsWithExamId, {
-          count: quizItemsWithExamId.length,
-          exam_id,
-          examTopicList: examTopicList.join(', '),
-        });
+          logGenerationComplete('quiz items', quizItemsWithExamId, {
+            count: quizItemsWithExamId.length,
+            exam_id,
+            examTopicList: examTopicList.join(', '),
+          });
 
-        return quizItemsWithExamId;
-      } catch (error) {
-        return handleGenerationError(
-          error,
-          {
-            subject: input.subject,
-            examTopicList: input.examTopicList.join(', '),
-            exam_id: input.exam_id,
-          },
-          'generate quiz items',
-        );
-      }
-    },
-  );
-});
+          return quizItemsWithExamId;
+        } catch (error) {
+          return handleGenerationError(
+            error,
+            {
+              subject: input.subject,
+              examTopicList: input.examTopicList.join(', '),
+              exam_id: input.exam_id,
+            },
+            'generate quiz items',
+          );
+        }
+      },
+    );
+  })
+  .catch((initError) => {
+    logger.error(
+      'Failed to initialize quizGenerator due to AI instance failure:',
+      {
+        error: initError instanceof Error ? initError.message : 'Unknown error',
+      },
+    );
+
+    // Return a function that throws an error when called to match the expected interface
+    return async (): Promise<QuizItem[]> => {
+      throw new Error(
+        `QuizGenerator is unavailable: AI service initialization failed - ${
+          initError instanceof Error ? initError.message : 'Unknown error'
+        }`,
+      );
+    };
+  });

@@ -6,7 +6,6 @@ import { createCloudTask } from '../../../../services/gcp/cloudTasks';
 import { OptimizedRateLimitService } from '../../../../services/optimizedRateLimit';
 import { CacheManager } from '../../../../services/cache';
 import { ExamGenerationLogger } from '../../../../services/exam-generation-logger';
-import { examPlannerPromise } from '../../../../services/genkit/examPlanner';
 import { getRtdbValue } from '../../../../services/firebase/rtdb';
 
 const DEFAULT_NUMBER_OF_QUESTIONS = 20;
@@ -263,6 +262,9 @@ const handler = async (
     try {
       // Use examPlanner to generate topics and store in RTDB
       const topicGenerationStart = Date.now();
+      const { examPlannerPromise } = await import(
+        '../../../../services/genkit/examPlanner.js'
+      );
       const examPlanner = await examPlannerPromise;
       const examPlan = await examPlanner({
         cert_name: certification.name,
