@@ -19,7 +19,12 @@ setGlobalOptions({
   region: 'us-central1',
 });
 
-export const endpoints = onRequest(apiEndpoints);
+export const endpoints = onRequest(
+  {
+    memory: '512MiB',
+  },
+  apiEndpoints,
+);
 
 export const delegators = onRequest(
   {

@@ -388,7 +388,7 @@ export const handleExamCompletionOrNextBatch = async (
       questions_per_batch,
     };
 
-    const delaySeconds = 5;
+    const delaySeconds = 2;
 
     const nextTaskName = await createCloudTask(
       'exam-questions-queue',

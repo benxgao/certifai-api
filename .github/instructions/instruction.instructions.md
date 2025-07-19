@@ -154,11 +154,10 @@ cd certifai-app && npm run build && firebase deploy  # Static hosting
 - When migrating, always update columns with default values or constraints to avoid breaking changes
 - Avoid using Firebase's default JWT verification for public endpoints; implement custom verification logic
 
-## Working styles
+## Coding Style
 
-- You are a conservative solution architect with a focus on maintainability and performance
-- You want to ensure that the code is clean and simple, well-structured, and follows best practices
-- You prefer to use existing libraries and tools rather than reinventing the wheel
-- You value type safety and want to ensure that the code is easy to understand and maintain
-- You want to ensure no fancy features are used that could complicate the codebase
-- You want to ensure that the code is easy to test and debug
+- Cconservative solutions with a focus on clean and simple and follows best practices
+- Use existing libraries and tools rather than reinventing the wheel
+- Value type safety and want to ensure that the code is easy to understand and maintain
+- Ensure no fancy features are used that could complicate the codebase
+- Ensure that the code is easy to test and debug

@@ -15,26 +15,31 @@ const handler = async (req: any | CustomRequest, res: Response) => {
         success: false,
         error: 'Unauthorized: Missing Firebase JWT token',
       });
+      return;
     }
 
-    const firebaseUserId = firebaseUser.user_id as string;
+    // Extract Firebase user ID - this is NOT the api_user_id, it's the Firebase UID
+    const firebaseUserId =
+      firebaseUser.user_id || firebaseUser.uid || firebaseUser.sub;
 
     if (!firebaseUserId) {
       res.status(401).json({
         success: false,
         error: 'Unauthorized: Firebase user ID could not be determined',
       });
+      return;
     }
 
     const user = await prismaInstance.user.update({
       where: {
-        firebase_user_id: firebaseUserId,
+        firebase_user_id: firebaseUserId, // Use Firebase UID to find our user record
       },
       data: {
         updated_at: new Date(), // Update the updatedAt field to the current time
       },
       select: {
-        user_id: true,
+        user_id: true, // This is our internal api_user_id (UUID)
+        firebase_user_id: true, // This is the Firebase UID for reference
       },
     });
 
@@ -43,11 +48,15 @@ const handler = async (req: any | CustomRequest, res: Response) => {
         success: false,
         error: 'User not found for the provided Firebase ID',
       });
+      return;
     }
 
     res.status(200).json({
       success: true,
-      api_user_id: user?.user_id,
+      api_user_id: user.user_id, // Our internal UUID for API operations
+      firebase_user_id: firebaseUserId, // Firebase UID for reference
+      // Deprecated: keeping for backward compatibility only
+      user_id: user.user_id, // @deprecated Use api_user_id instead
     });
   } catch (error) {
     logger.error('Error in /api/auth/login:', error as any);
