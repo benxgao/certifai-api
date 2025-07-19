@@ -364,7 +364,7 @@ const handler = async (
 
       // RACE CONDITION FIX: Add 5-second delay for first batch to ensure RTDB write completes
       // This prevents the "all topics already assigned" issue on batch 1 processing
-      const delaySeconds = 10;
+      const delaySeconds = 5;
 
       logger.info(
         `FIRST_BATCH_DELAYED: Scheduling first batch with 5-second delay to prevent RTDB race condition`,
