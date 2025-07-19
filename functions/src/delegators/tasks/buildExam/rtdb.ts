@@ -1,6 +1,6 @@
 import logger from '../../../services/firebase/logger';
 import { updateRtdbValue, getRtdbValue } from '../../../services/firebase/rtdb';
-import { ExamTopicItem, normalizeExamTopic } from './helper';
+import { ExamTopicItem } from './helper';
 
 /**
  * Retrieves exam topics from RTDB
@@ -83,102 +83,26 @@ export async function getExamTopicsFromRtdb(
  * Updates the realtime database with exam topic information only (removed quizQuestions to avoid path conflicts)
  * @param exam_id - The exam identifier
  * @param createdQuestions - The questions created in the database
- * @param validQuestions - The original valid questions from AI generation
+ * @param validQuestions - The original valid questions from AI generation (unused after refactor)
+ * @deprecated This function has been removed as the "exams" collection in RTDB was not being used
  */
 export async function updateExamQuestionsInRtdb(
   exam_id: string,
   createdQuestions: any[],
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   validQuestions: any[],
 ): Promise<void> {
-  try {
-    // Get existing exam data from RTDB or initialize if not exists
-    const examPath = `exams/${exam_id}`;
-    let examData = await getRtdbValue(examPath);
-
-    if (!examData) {
-      examData = {
-        exam_id,
-        examTopics: {},
-        createdAt: new Date().toISOString(),
-        lastUpdated: new Date().toISOString(),
-      };
-    }
-
-    // Create exam topics updates for RTDB (removed quizQuestions to avoid path conflicts)
-    const examTopicsUpdates: Record<string, any> = {};
-
-    createdQuestions.forEach((createdQuestion, index) => {
-      const originalQuestion = validQuestions[index];
-      const questionId = createdQuestion.quiz_question_id;
-      const examTopic = normalizeExamTopic(originalQuestion.examTopic);
-
-      // Group questions by topic - use direct object structure instead of paths
-      if (!examTopicsUpdates[examTopic]) {
-        examTopicsUpdates[examTopic] = {
-          topic_name: originalQuestion.examTopic, // Store original topic text
-          normalized_topic: examTopic, // Store normalized version for matching
-          question_ids: [],
-          question_count: 0,
-        };
-      }
-
-      examTopicsUpdates[examTopic].question_ids.push(questionId);
-      examTopicsUpdates[examTopic].question_count += 1;
-    });
-
-    // Merge existing exam topics with new ones
-    const mergedExamTopics = { ...examData.examTopics };
-
-    Object.keys(examTopicsUpdates).forEach((topicKey) => {
-      if (mergedExamTopics[topicKey]) {
-        // Merge existing topic data
-        const existingTopic = mergedExamTopics[topicKey];
-        const newTopic = examTopicsUpdates[topicKey];
-
-        mergedExamTopics[topicKey] = {
-          ...existingTopic,
-          question_ids: [
-            ...(existingTopic.question_ids || []),
-            ...newTopic.question_ids,
-          ],
-          question_count:
-            (existingTopic.question_count || 0) + newTopic.question_count,
-        };
-      } else {
-        mergedExamTopics[topicKey] = examTopicsUpdates[topicKey];
-      }
-    });
-
-    // Update exam metadata
-    const examMetaUpdates = {
-      lastUpdated: new Date().toISOString(),
-      totalQuestions: (examData.totalQuestions || 0) + createdQuestions.length,
-      totalTopics: Object.keys(mergedExamTopics).length,
-    };
-
-    // Combine updates without quizQuestions to avoid path conflicts
-    const allUpdates = {
-      examTopics: mergedExamTopics,
-      ...examMetaUpdates,
-    };
-
-    // Update RTDB with all the data
-    await updateRtdbValue(examPath, allUpdates);
-
-    logger.info(
-      `RTDB updated for exam ${exam_id}: ${
-        createdQuestions.length
-      } questions across ${Object.keys(examTopicsUpdates).length} topics`,
-      {
-        exam_id,
-        questionsAdded: createdQuestions.length,
-        topicsUpdated: Object.keys(examTopicsUpdates).length,
-      },
-    );
-  } catch (error) {
-    logger.error(`Failed to update RTDB for exam ${exam_id}:`, error as any);
-    // Don't throw error - RTDB update failure shouldn't break the main flow
-  }
+  // REFACTORED: Removed RTDB "exams" collection storage as it was not being consumed
+  // The data was only being written but never read by any other part of the application
+  logger.info(
+    `RTDB update skipped for exam ${exam_id}: ${createdQuestions.length} questions processed (exams collection removed)`,
+    {
+      exam_id,
+      questionsProcessed: createdQuestions.length,
+      reason: 'exams_collection_removed_as_unused',
+      structuredData: true,
+    },
+  );
 }
 
 /**

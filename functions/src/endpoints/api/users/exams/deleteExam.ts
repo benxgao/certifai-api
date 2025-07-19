@@ -43,21 +43,17 @@ async function deleteExamFromRtdb(exam_id: string): Promise<{
   }
 
   try {
-    // Delete exam questions/topics data
-    const examDataPath = `exams/${exam_id}`;
-    const examData = await getRtdbValue(examDataPath);
-
-    if (examData) {
-      await deleteRtdbValue(examDataPath);
-      results.examDataDeleted = true;
-      logger.info(
-        `deleteExam: Deleted exam data from RTDB at path: ${examDataPath}`,
-      );
-    } else {
-      logger.info(
-        `deleteExam: No exam data found in RTDB at path: ${examDataPath}`,
-      );
-    }
+    // REFACTORED: Removed exam data deletion as "exams" collection is no longer used in RTDB
+    // The exam topics data was only being written but never read by any other part of the application
+    logger.info(
+      `deleteExam: Skipped exam data deletion from RTDB (exams collection removed as unused)`,
+      {
+        exam_id,
+        reason: 'exams_collection_removed_as_unused',
+        structuredData: true,
+      },
+    );
+    results.examDataDeleted = true; // Mark as successful since there's nothing to delete
   } catch (error) {
     logger.warn(`deleteExam: Failed to delete exam data from RTDB: ${error}`);
   }
