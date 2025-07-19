@@ -1,20 +1,20 @@
 import { Response } from 'express';
-import logger from '../../services/firebase/logger';
-import { CustomRequest } from '../../types';
-import prismaInstance, { ExamStatus } from '../../services/prisma';
-import { createCloudTask } from '../../services/gcp/cloudTasks';
+import logger from '../../../services/firebase/logger';
+import { CustomRequest } from '../../../types';
+import prismaInstance, { ExamStatus } from '../../../services/prisma';
+import { createCloudTask } from '../../../services/gcp/cloudTasks';
 import {
   associateQuestionsWithExam,
   updateExamAfterQuestionAssociation,
-} from '../../utils/examQuestionAssociation';
-import { PerformanceMonitor } from '../../services/performance';
-import { ExamGenerationLogger } from '../../services/exam-generation-logger';
-import { ExamGenerationMetrics } from '../../services/exam-generation-metrics';
+} from '../../../utils/examQuestionAssociation';
+import { PerformanceMonitor } from '../../../services/performance';
+import { ExamGenerationLogger } from '../../../services/exam-generation-logger';
+import { ExamGenerationMetrics } from '../../../services/exam-generation-metrics';
 import {
   updateRtdbValue,
   getRtdbValue,
   deleteRtdbValue,
-} from '../../services/firebase/rtdb';
+} from '../../../services/firebase/rtdb';
 
 interface TaskPayload {
   exam_id: string;
@@ -1016,7 +1016,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
 
       // Generate questions using the quiz generator
       const { quizGeneratorPromise } = await import(
-        '../../services/genkit/quizGenerator.js'
+        '../../../services/genkit/quizGenerator.js'
       );
       const quizGenerator = await quizGeneratorPromise;
       const generatedQuestions = await quizGenerator({

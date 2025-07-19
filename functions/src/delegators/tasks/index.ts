@@ -1,10 +1,8 @@
 import { Router as createRouter } from 'express';
-import handleTasksInit from './init';
-import handleTasksTake from './take';
+import handleExamBuild from './buildExam';
 
 const router = createRouter();
 
-router.post('/init', handleTasksInit);
-router.post('/take', handleTasksTake);
+router.post('/take', handleExamBuild);
 
 export default router;
