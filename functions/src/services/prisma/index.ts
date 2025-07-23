@@ -13,14 +13,27 @@ declare global {
 // Optimized logging configuration for Prisma client (reduced for performance)
 const loggingLevels: Array<'warn' | 'error'> = ['warn', 'error'];
 
-// Factory to create a new PrismaClient with optimized configuration
+// Factory to create a new PrismaClient with optimized configuration for write performance
 function createPrismaClient(): PrismaClient {
   return new PrismaClient({
     log: loggingLevels,
-    // Optimize transaction settings for better performance
+    // Optimized transaction settings for high-concurrency writes
     transactionOptions: {
-      timeout: 5000, // 5 seconds timeout
-      maxWait: 3000, // 3 seconds max wait
+      timeout: 15000, // 15 seconds for complex operations with batches
+      maxWait: 8000, // 8 seconds max wait to handle concurrent load
+      isolationLevel: 'ReadCommitted', // Optimal for concurrent writes, reduces locking
+    },
+    // Optimize connection pooling for write performance
+    datasources: {
+      db: {
+        url:
+          process.env.DATABASE_URL +
+          '?connection_limit=20' + // Limit connections per instance
+          '&pool_timeout=20' + // Pool timeout in seconds
+          '&statement_timeout=30s' + // Statement timeout
+          '&idle_timeout=300s' + // Idle connection timeout
+          '&connect_timeout=10s', // Connection timeout
+      },
     },
   });
 }

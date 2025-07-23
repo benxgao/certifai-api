@@ -1,6 +1,7 @@
 import logger from '../services/firebase/logger';
 import prismaInstance, { ExamStatus } from '../services/prisma';
 import { validateMultipleQuestionsExamConstraint } from './questionExamConstraint';
+import { BatchWriteOptimizer } from '../services/database/batchWriteOptimizer';
 
 export interface QuestionAssociationOptions {
   exam_id: string;
@@ -170,18 +171,35 @@ export async function associateQuestionsWithExam(
       };
     }
 
-    // Create ExamUserAnswer entries for selected questions
+    // Create ExamUserAnswer entries using optimized batch operations
     const examUserAnswers = selectedQuestions.map((questionId) => ({
       exam_id,
       quiz_question_id: questionId,
       selected_option_id: null,
       is_correct: null,
+      created_at: new Date(), // Add timestamp for better performance
     }));
 
-    await prismaInstance.examUserAnswer.createMany({
-      data: examUserAnswers,
-      skipDuplicates: true,
-    });
+    // Use optimized batch operations for better concurrent performance
+    await BatchWriteOptimizer.batchOperations(
+      prismaInstance,
+      [
+        {
+          operation: async (tx: any) => {
+            return tx.examUserAnswer.createMany({
+              data: examUserAnswers,
+              skipDuplicates: true,
+            });
+          },
+          description: `Create exam user answers for exam ${exam_id}`,
+        },
+      ],
+      {
+        batchSize: 50, // Optimal size for answer creation
+        useTransaction: true,
+        maxRetries: 3,
+      },
+    );
 
     logger.info(
       `associateQuestionsWithExam: Successfully associated ${selectedQuestions.length} questions with exam ${exam_id} ` +

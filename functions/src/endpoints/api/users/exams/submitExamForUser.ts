@@ -163,31 +163,54 @@ const handler = async (
     // Calculate energy tokens to award (2x the number of correct answers)
     const energyTokensToAward = correctlyAnsweredCount * 2;
 
-    // Use a transaction to ensure both user credit deduction, energy token award, and exam update happen atomically
-    await prismaInstance.$transaction(async (prisma) => {
-      // Deduct credit tokens and award energy tokens to user
-      await prisma.user.update({
-        where: { user_id: user_id },
-        data: {
-          credit_tokens: {
-            decrement: tokenCost,
-          },
-          energy_tokens: {
-            increment: energyTokensToAward,
-          },
-        },
-      });
+    // Use an optimized transaction with proper isolation level for better concurrent performance
+    await prismaInstance.$transaction(
+      async (prisma) => {
+        // Batch update both user tokens and exam status in parallel for better performance
+        await Promise.all([
+          // Deduct credit tokens and award energy tokens to user
+          prisma.user.update({
+            where: { user_id: user_id },
+            data: {
+              credit_tokens: {
+                decrement: tokenCost,
+              },
+              energy_tokens: {
+                increment: energyTokensToAward,
+              },
+            },
+          }),
+          // Update the exam record with the new score and submission timestamp
+          prisma.examAttempt.update({
+            where: { exam_id: exam_id },
+            data: {
+              score: parseFloat(currentScore.toFixed(2)),
+              submitted_at: new Date(),
+              exam_status: ExamStatus.COMPLETED,
+            },
+          }),
+        ]);
 
-      // Update the exam record with the new score and submission timestamp
-      await prisma.examAttempt.update({
-        where: { exam_id: exam_id },
-        data: {
-          score: parseFloat(currentScore.toFixed(2)),
-          submitted_at: new Date(),
-          exam_status: ExamStatus.COMPLETED,
-        },
-      });
-    });
+        // Log the parallel update performance
+        logger.info(
+          `PARALLEL_UPDATE_SUCCESS: Completed user and exam updates concurrently`,
+          {
+            exam_id,
+            user_id,
+            tokens_deducted: tokenCost,
+            energy_awarded: energyTokensToAward,
+            performance_optimization: 'parallel_updates',
+            structuredData: true,
+          },
+        );
+      },
+      {
+        // Optimized transaction settings for concurrent writes
+        timeout: 10000, // 10 seconds
+        maxWait: 5000, // 5 seconds max wait
+        isolationLevel: 'ReadCommitted', // Better for concurrent operations
+      },
+    );
 
     logger.info(
       `EXAM_SUBMIT_SUCCESS: exam_id=${exam_id}, score=${currentScore.toFixed(
