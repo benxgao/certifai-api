@@ -24,18 +24,52 @@ function createPrismaClient(): PrismaClient {
       isolationLevel: 'ReadCommitted', // Optimal for concurrent writes, reduces locking
     },
     // Optimize connection pooling for write performance
-    // datasources: {
-    //   db: {
-    //     url:
-    //       process.env.DATABASE_URL +
-    //       '?connection_limit=20' + // Limit connections per instance
-    //       '&pool_timeout=20' + // Pool timeout in seconds
-    //       '&statement_timeout=30s' + // Statement timeout
-    //       '&idle_timeout=300s' + // Idle connection timeout
-    //       '&connect_timeout=10s', // Connection timeout
-    //   },
-    // },
+    datasources: {
+      db: {
+        url: getOptimizedConnectionUrl(),
+      },
+    },
   });
+}
+
+// Helper function to build optimized connection URL for Supabase
+function getOptimizedConnectionUrl(): string {
+  const baseUrl = process.env.DATABASE_URL;
+
+  if (!baseUrl) {
+    throw new Error('DATABASE_URL environment variable is not set');
+  }
+
+  // Parse the existing URL to check if it already has parameters
+  const url = new URL(baseUrl);
+
+  // Supabase-optimized connection parameters
+  const supabaseParams: Record<string, string> = {
+    // Connection pooling settings for Supabase
+    connection_limit: '10', // Lower limit for Supabase pooling
+    pool_timeout: '20', // Pool timeout in seconds
+    statement_timeout: '30000', // 30 seconds in milliseconds (Supabase format)
+    idle_timeout: '300', // 5 minutes idle timeout
+    connect_timeout: '10', // 10 seconds connection timeout
+    application_name: 'certifai-api',
+  };
+
+  // Check if this is a Supabase pooled connection
+  const isSupabasePooled = baseUrl.includes('pooler.supabase.com');
+
+  if (isSupabasePooled) {
+    // For Supabase pooled connections, ensure pgbouncer is enabled
+    supabaseParams['pgbouncer'] = 'true';
+    // Reduce connection limit for pooled connections
+    supabaseParams['connection_limit'] = '5';
+  }
+
+  // Add parameters to the URL
+  Object.entries(supabaseParams).forEach(([key, value]) => {
+    url.searchParams.set(key, value);
+  });
+
+  return url.toString();
 }
 
 // Use existing client or create a new one (singleton)
