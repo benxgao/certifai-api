@@ -177,7 +177,7 @@ export async function associateQuestionsWithExam(
       quiz_question_id: questionId,
       selected_option_id: null,
       is_correct: null,
-      created_at: new Date(), // Add timestamp for better performance
+      // Note: created_at field is not defined in ExamUserAnswer schema
     }));
 
     // Use optimized batch operations for better concurrent performance

@@ -25,9 +25,9 @@ ON "User" (user_id, updated_at DESC)
 INCLUDE (credit_tokens, energy_tokens);
 
 -- 5. Index for exam user answer batch writes
--- Optimizes batch creation of exam answers
+-- Optimizes batch creation of exam answers (using user_answer_id since no created_at field exists)
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_exam_user_answer_batch_write
-ON "ExamUserAnswer" (exam_id, created_at DESC);
+ON "ExamUserAnswer" (exam_id, user_answer_id);
 
 -- 6. Index for user certification status updates
 -- Optimizes concurrent certification status changes

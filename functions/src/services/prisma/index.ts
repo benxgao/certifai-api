@@ -24,17 +24,17 @@ function createPrismaClient(): PrismaClient {
       isolationLevel: 'ReadCommitted', // Optimal for concurrent writes, reduces locking
     },
     // Optimize connection pooling for write performance
-    datasources: {
-      db: {
-        url:
-          process.env.DATABASE_URL +
-          '?connection_limit=20' + // Limit connections per instance
-          '&pool_timeout=20' + // Pool timeout in seconds
-          '&statement_timeout=30s' + // Statement timeout
-          '&idle_timeout=300s' + // Idle connection timeout
-          '&connect_timeout=10s', // Connection timeout
-      },
-    },
+    // datasources: {
+    //   db: {
+    //     url:
+    //       process.env.DATABASE_URL +
+    //       '?connection_limit=20' + // Limit connections per instance
+    //       '&pool_timeout=20' + // Pool timeout in seconds
+    //       '&statement_timeout=30s' + // Statement timeout
+    //       '&idle_timeout=300s' + // Idle connection timeout
+    //       '&connect_timeout=10s', // Connection timeout
+    //   },
+    // },
   });
 }
 
