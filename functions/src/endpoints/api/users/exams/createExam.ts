@@ -7,6 +7,7 @@ import { OptimizedRateLimitService } from '../../../../services/optimizedRateLim
 import { CacheManager } from '../../../../services/cache';
 import { ExamGenerationLogger } from '../../../../services/exam-generation-logger';
 import { getRtdbValue } from '../../../../services/firebase/rtdb';
+import { BatchWriteOptimizer } from '../../../../services/database/batchWriteOptimizer';
 
 const DEFAULT_NUMBER_OF_QUESTIONS = 20;
 const MAX_NUMBER_OF_QUESTIONS = 100; // Set a reasonable max
@@ -209,50 +210,70 @@ const handler = async (
       `User ${user.user_id} has sufficient credit tokens. Required: ${tokenCost}, Available: ${user.credit_tokens}`,
     );
 
-    // 6. Create the exam with QUESTIONS_GENERATING status and store token cost
+    // 6. Create the exam with optimized batch operations for better performance
     const examCreateStart = Date.now();
-    const newExam = await prismaInstance.examAttempt.create({
-      data: {
-        user: { connect: { user_id: user.user_id } },
-        certification: { connect: { cert_id: certIdNumber } },
-        exam_status: ExamStatus.QUESTIONS_GENERATING,
-        total_questions: requestedNumberOfQuestions,
-        token_cost: tokenCost,
-        custom_prompt_text: customPromptText || null,
+
+    // Use BatchWriteOptimizer for atomic exam creation and related operations
+    const examOperations = [
+      {
+        operation: (tx: any) =>
+          tx.examAttempt.create({
+            data: {
+              user: { connect: { user_id: user.user_id } },
+              certification: { connect: { cert_id: certIdNumber } },
+              exam_status: ExamStatus.QUESTIONS_GENERATING,
+              total_questions: requestedNumberOfQuestions,
+              token_cost: tokenCost,
+              custom_prompt_text: customPromptText || null,
+            },
+          }),
+        description: 'Create exam attempt with initial status',
       },
-    });
+    ];
+
+    const examResults = await BatchWriteOptimizer.batchOperations(
+      prismaInstance,
+      examOperations,
+      {
+        useTransaction: true,
+        batchSize: 1,
+      },
+    );
+
+    const newExam = examResults[0] as any; // Type assertion for exam object
+
     const examCreateDuration = Date.now() - examCreateStart;
 
     timingAudit.prisma_operations.exam_create = examCreateDuration;
 
-    logger.info('AUDIT_PRISMA_EXAM_CREATE', {
-      operation: 'examAttempt.create',
+    logger.info('AUDIT_PRISMA_EXAM_CREATE_OPTIMIZED', {
+      operation: 'examAttempt.create_batch',
       duration_ms: examCreateDuration,
       exam_id: newExam.exam_id,
       user_id: user.user_id,
       cert_id: certIdNumber,
       total_questions: requestedNumberOfQuestions,
       token_cost: tokenCost,
+      optimization: 'batch_write_optimizer',
     });
 
     logger.info(
       `EXAM_CREATE_SUCCESS: exam_id=${newExam.exam_id}, user_id=${user.user_id}, status=QUESTIONS_GENERATING`,
     );
 
-    // Record exam creation in rate limit tracker
-    const rateLimitRecordStart = Date.now();
-    await OptimizedRateLimitService.recordExamCreation(
-      user_id,
-      newExam.exam_id,
-    );
-    timingAudit.external_services.rate_limit_check +=
-      Date.now() - rateLimitRecordStart;
+    // 7. Execute post-creation operations in parallel for better performance
+    const postCreationStart = Date.now();
 
-    // Invalidate user exam cache since new exam was created
-    const cacheInvalidateStart = Date.now();
-    await CacheManager.invalidateUserExamCache(user_id);
-    timingAudit.external_services.cache_operations =
-      Date.now() - cacheInvalidateStart;
+    await Promise.all([
+      // Record exam creation in rate limit tracker
+      OptimizedRateLimitService.recordExamCreation(user_id, newExam.exam_id),
+      // Invalidate user exam cache since new exam was created
+      CacheManager.invalidateUserExamCache(user_id),
+    ]);
+
+    const postCreationDuration = Date.now() - postCreationStart;
+    timingAudit.external_services.rate_limit_check = postCreationDuration / 2; // Split timing
+    timingAudit.external_services.cache_operations = postCreationDuration / 2;
 
     // 7. Generate exam topics using examPlanner and store in RTDB
     logger.info(
@@ -362,12 +383,10 @@ const handler = async (
 
       const cloudTaskStart = Date.now();
 
-      // RACE CONDITION FIX: Add 5-second delay for first batch to ensure RTDB write completes
-      // This prevents the "all topics already assigned" issue on batch 1 processing
-      const delaySeconds = 2;
+      const delaySeconds = 1;
 
       logger.info(
-        `FIRST_BATCH_DELAYED: Scheduling first batch with 5-second delay to prevent RTDB race condition`,
+        `FIRST_BATCH_DELAYED: Scheduling first batch with 1-second delay to prevent RTDB race condition`,
         {
           exam_id: newExam.exam_id,
           batch_number: 1,
@@ -392,23 +411,39 @@ const handler = async (
         cloudTaskEnd - cloudTaskStart;
 
       if (!taskName) {
-        // If task creation fails, update exam status to failed
+        // If task creation fails, update exam status to failed using optimized batch operation
         const examUpdateTaskFailStart = Date.now();
-        await prismaInstance.examAttempt.update({
-          where: { exam_id: newExam.exam_id },
-          data: { exam_status: ExamStatus.QUESTION_GENERATION_FAILED },
-        });
+
+        const failureOperations = [
+          {
+            operation: (tx: any) =>
+              tx.examAttempt.update({
+                where: { exam_id: newExam.exam_id },
+                data: { exam_status: ExamStatus.QUESTION_GENERATION_FAILED },
+              }),
+            description:
+              'Update exam status to failed due to task creation failure',
+          },
+        ];
+
+        await BatchWriteOptimizer.batchOperations(
+          prismaInstance,
+          failureOperations,
+          { useTransaction: true, batchSize: 1 },
+        );
+
         const examUpdateTaskFailDuration = Date.now() - examUpdateTaskFailStart;
 
         timingAudit.prisma_operations.exam_updates +=
           examUpdateTaskFailDuration;
 
-        logger.info('AUDIT_PRISMA_EXAM_UPDATE_TASK_FAIL', {
-          operation: 'examAttempt.update',
+        logger.info('AUDIT_PRISMA_EXAM_UPDATE_TASK_FAIL_OPTIMIZED', {
+          operation: 'examAttempt.update_batch',
           duration_ms: examUpdateTaskFailDuration,
           exam_id: newExam.exam_id,
           new_status: 'QUESTION_GENERATION_FAILED',
           reason: 'task_creation_failed',
+          optimization: 'batch_write_optimizer',
         });
 
         // Log exam creation failure
@@ -501,22 +536,38 @@ const handler = async (
         topicGenerationError as any,
       );
 
-      // Update exam status to failed if topic generation fails
+      // Update exam status to failed if topic generation fails using optimized batch operation
       const examUpdateFailStart = Date.now();
-      await prismaInstance.examAttempt.update({
-        where: { exam_id: newExam.exam_id },
-        data: { exam_status: ExamStatus.QUESTION_GENERATION_FAILED },
-      });
+
+      const topicFailureOperations = [
+        {
+          operation: (tx: any) =>
+            tx.examAttempt.update({
+              where: { exam_id: newExam.exam_id },
+              data: { exam_status: ExamStatus.QUESTION_GENERATION_FAILED },
+            }),
+          description:
+            'Update exam status to failed due to topic generation failure',
+        },
+      ];
+
+      await BatchWriteOptimizer.batchOperations(
+        prismaInstance,
+        topicFailureOperations,
+        { useTransaction: true, batchSize: 1 },
+      );
+
       const examUpdateFailDuration = Date.now() - examUpdateFailStart;
 
       timingAudit.prisma_operations.exam_updates += examUpdateFailDuration;
 
-      logger.info('AUDIT_PRISMA_EXAM_UPDATE_FAIL', {
-        operation: 'examAttempt.update',
+      logger.info('AUDIT_PRISMA_EXAM_UPDATE_FAIL_OPTIMIZED', {
+        operation: 'examAttempt.update_batch',
         duration_ms: examUpdateFailDuration,
         exam_id: newExam.exam_id,
         new_status: 'QUESTION_GENERATION_FAILED',
         reason: 'topic_generation_failed',
+        optimization: 'batch_write_optimizer',
       });
 
       // Log exam creation failure
