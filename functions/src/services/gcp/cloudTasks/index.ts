@@ -26,7 +26,15 @@ export const createCloudTask = async (
 ): Promise<string | undefined> => {
   if (!GCP_PROJECT_ID || !GCP_REGION) {
     logger.error(
-      'Missing required environment variables for Cloud Tasks: GCP_PROJECT, GCP_REGION',
+      'Missing required environment variables for Cloud Tasks: GCP_PROJECT_ID, GCP_REGION',
+    );
+    return undefined;
+  }
+
+  const serviceAccountEmail = process.env.GCP_TASKS_SERVICE_ACCOUNT;
+  if (!serviceAccountEmail) {
+    logger.error(
+      'Missing required environment variable: GCP_TASKS_SERVICE_ACCOUNT',
     );
     return undefined;
   }
@@ -38,14 +46,14 @@ export const createCloudTask = async (
     queueName,
   );
 
-  const serviceAccountEmail = process.env.GCP_TASKS_SERVICE_ACCOUNT;
+  // Use the exact audience URL that matches the protected function
   const audience = `https://${GCP_REGION}-${GCP_PROJECT_ID}.cloudfunctions.net/delegators`;
 
   logger.info(`Creating Cloud Task for queue: ${queueName}, URL: ${url}
     | serviceAccountEmail: ${serviceAccountEmail}
     | audience: ${audience}`);
 
-  // Construct the task body.
+  // Construct the task body with OIDC authentication for protected Cloud Functions
   const task = {
     httpRequest: {
       httpMethod: 'POST' as const,
@@ -56,7 +64,7 @@ export const createCloudTask = async (
       url,
       oidcToken: {
         serviceAccountEmail,
-        audience,
+        audience, // Must match exactly: https://us-central1-certifai-prod.cloudfunctions.net/delegators
       },
     },
     scheduleTime: scheduleTimeInSeconds
@@ -65,13 +73,19 @@ export const createCloudTask = async (
   };
 
   try {
-    // Send create task request.
-    logger.info(`Sending task: ${JSON.stringify(task)}`);
+    // Send create task request with authentication
+    logger.info(`Sending authenticated task: ${JSON.stringify(task, null, 2)}`);
     const [response] = await cloudTasksClient.createTask({ parent, task });
-    logger.info(`Created task ${response.name}`);
+    logger.info(`Successfully created authenticated task ${response.name}`);
     return response.name || undefined;
   } catch (error) {
-    logger.error('Error creating Cloud Task:', error);
+    logger.error('Error creating authenticated Cloud Task:', error);
+    // Log specific authentication errors if they occur
+    if (error instanceof Error && error.message.includes('permission')) {
+      logger.error(
+        'Authentication Error: Ensure the service account has Cloud Tasks Enqueuer and Cloud Functions Invoker roles',
+      );
+    }
     return undefined;
   }
 };

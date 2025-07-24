@@ -63,3 +63,34 @@ This will start the Node.js server, typically on `http://localhost:3000` (or as 
 ## Contributing
 
 Please read CONTRIBUTING.md (if available) for details on our code of conduct, and the process for submitting pull requests to us.
+
+## Cloud Tasks Authentication Setup
+
+The delegators Cloud Function is protected with authentication. To ensure Cloud Tasks can properly authenticate:
+
+### Required Environment Variables
+
+```bash
+GCP_PROJECT_ID="your-project-id"
+GCP_REGION="us-central1"
+GCP_TASKS_SERVICE_ACCOUNT="your-service-account@your-project.iam.gserviceaccount.com"
+GCP_TASKS_HOST="https://us-central1-your-project.cloudfunctions.net"
+```
+
+### Service Account Setup
+
+The service account must have these IAM roles:
+
+- `roles/cloudtasks.enqueuer`
+- `roles/run.invoker` (for 2nd generation Cloud Functions)
+
+### Validation
+
+Run the validation script to check your setup:
+
+```bash
+cd functions
+./scripts/validate-cloud-tasks-auth.sh
+```
+
+For detailed setup instructions, see [Cloud Tasks Authentication Setup](docs/cloud-tasks-authentication-setup.md).
