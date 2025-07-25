@@ -4,6 +4,7 @@ import { CustomRequest } from '../../../types';
 import prismaInstance, { ExamStatus } from '../../../services/prisma';
 import { ExamGenerationLogger } from '../../../services/exam-generation-logger';
 import { ExamGenerationMetrics } from '../../../services/exam-generation-metrics';
+import { CacheManager } from '../../../services/cache';
 import { TaskPayload } from './helper';
 import { getExamTopicsFromRtdb } from './rtdb';
 import {
@@ -260,11 +261,25 @@ const handler = async (req: any | CustomRequest, res: Response) => {
         generationError as any,
       );
 
+      // Get exam details for cache invalidation
+      const examForFailure = await prismaInstance.examAttempt.findUnique({
+        where: { exam_id },
+        select: { user_id: true },
+      });
+
       // Update exam status to failed
       await prismaInstance.examAttempt.update({
         where: { exam_id },
         data: { exam_status: ExamStatus.QUESTION_GENERATION_FAILED },
       });
+
+      // Invalidate user exam cache when exam generation fails
+      if (examForFailure?.user_id) {
+        await CacheManager.invalidateUserExamCacheForGenerationChange(
+          examForFailure.user_id,
+          'exam_generation_failed',
+        );
+      }
 
       // Log exam failure
       ExamGenerationLogger.logExamFailure({

@@ -295,6 +295,82 @@ export async function calculateAndLogExamGenerationTime(
 }
 
 /**
+ * Updates exam generation progress in RTDB for real-time tracking
+ * @param exam_id - The exam identifier
+ * @param progressInfo - Progress information to update
+ */
+export async function updateExamGenerationProgress(
+  exam_id: string,
+  progressInfo: {
+    current_batch: number;
+    total_batches: number;
+    questions_generated: number;
+    target_questions?: number;
+    completion_percentage?: number;
+    last_updated: number;
+  },
+): Promise<void> {
+  try {
+    const progressPath = `exam_progress/${exam_id}`;
+
+    // Calculate completion percentage if not provided
+    const completion_percentage =
+      progressInfo.completion_percentage ||
+      (progressInfo.target_questions
+        ? Math.round(
+            (progressInfo.questions_generated / progressInfo.target_questions) *
+              100,
+          )
+        : Math.round(
+            (progressInfo.current_batch / progressInfo.total_batches) * 100,
+          ));
+
+    const progressData = {
+      ...progressInfo,
+      completion_percentage,
+      updated_at: progressInfo.last_updated,
+    };
+
+    await updateRtdbValue(progressPath, progressData);
+
+    logger.info(`EXAM_PROGRESS_UPDATED: exam_id=${exam_id}`, {
+      exam_id,
+      progress: progressData,
+      structuredData: true,
+    });
+  } catch (error) {
+    logger.error(
+      `Failed to update exam progress for ${exam_id}:`,
+      error as any,
+    );
+  }
+}
+
+/**
+ * Gets exam generation progress from RTDB
+ * @param exam_id - The exam identifier
+ * @returns Progress information or null if not found
+ */
+export async function getExamGenerationProgress(exam_id: string): Promise<{
+  current_batch: number;
+  total_batches: number;
+  questions_generated: number;
+  target_questions?: number;
+  completion_percentage: number;
+  updated_at: number;
+} | null> {
+  try {
+    const progressPath = `exam_progress/${exam_id}`;
+    const progressData = await getRtdbValue(progressPath);
+
+    return progressData || null;
+  } catch (error) {
+    logger.error(`Failed to get exam progress for ${exam_id}:`, error as any);
+    return null;
+  }
+}
+
+/**
  * Updates the exam plan in RTDB with the updated topic list
  * @param exam_id - The exam identifier
  * @param updatedTopicList - The updated topic list with question assignments

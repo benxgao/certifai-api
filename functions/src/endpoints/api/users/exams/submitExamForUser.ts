@@ -2,6 +2,7 @@ import { Response } from 'express';
 import logger from '../../../../services/firebase/logger';
 import { CustomRequest } from '../../../../types';
 import prismaInstance, { ExamStatus } from '../../../../services/prisma';
+import { CacheManager } from '../../../../services/cache';
 
 const handler = async (
   req: any | CustomRequest,
@@ -190,6 +191,12 @@ const handler = async (
             },
           }),
         ]);
+
+        // Invalidate user exam cache when exam is completed
+        await CacheManager.invalidateUserExamCacheForGenerationChange(
+          user_id,
+          'exam_completed',
+        );
 
         // Log the parallel update performance
         logger.info(

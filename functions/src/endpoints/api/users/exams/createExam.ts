@@ -267,8 +267,11 @@ const handler = async (
     await Promise.all([
       // Record exam creation in rate limit tracker
       OptimizedRateLimitService.recordExamCreation(user_id, newExam.exam_id),
-      // Invalidate user exam cache since new exam was created
-      CacheManager.invalidateUserExamCache(user_id),
+      // Invalidate user exam cache since new exam was created and is now generating
+      CacheManager.invalidateUserExamCacheForGenerationChange(
+        user_id,
+        'exam_creation_started',
+      ),
     ]);
 
     const postCreationDuration = Date.now() - postCreationStart;

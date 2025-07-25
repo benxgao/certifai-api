@@ -43,6 +43,44 @@ export class CacheManager {
   }
 
   /**
+   * Invalidate user exam cache when exam status changes to/from generating states
+   *
+   * This method is specifically called when:
+   * - Exam status changes to QUESTIONS_GENERATING (exam creation)
+   * - Exam status changes from QUESTIONS_GENERATING to READY (generation complete)
+   * - Exam status changes to QUESTION_GENERATION_FAILED (generation failed)
+   *
+   * The invalidation ensures that subsequent calls to getUserExams will:
+   * - Bypass cache when exams are generating (for real-time progress)
+   * - Return to normal caching when no exams are generating
+   *
+   * @param userId - The user whose exam cache should be invalidated
+   * @param reason - The reason for cache invalidation (for logging)
+   */
+  static async invalidateUserExamCacheForGenerationChange(
+    userId: string,
+    reason: string,
+  ): Promise<void> {
+    try {
+      logger.info(
+        `Invalidating user exam cache for generation status change: user ${userId}, reason: ${reason}`,
+      );
+
+      // Invalidate exam cache to ensure fresh data
+      await RedisService.invalidateUserCache(userId, 'exams');
+
+      logger.info(
+        'User exam cache invalidation completed for generation change',
+      );
+    } catch (error) {
+      logger.error(
+        `Error invalidating user exam cache for generation change: ${error}`,
+      );
+      // Don't throw - cache invalidation failures shouldn't break business logic
+    }
+  }
+
+  /**
    * Invalidate all cache entries related to a user's certification data
    *
    * Called when:

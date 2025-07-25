@@ -128,6 +128,30 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       }`,
     );
 
+    // Check if user has any exams in generating status to determine cache strategy
+    const hasGeneratingExams = await prismaInstance.examAttempt.findFirst({
+      where: {
+        user_id: actualUserId,
+        exam_status: {
+          in: ['QUESTIONS_GENERATING', 'PENDING_QUESTIONS'],
+        },
+      },
+      select: { exam_id: true },
+    });
+
+    const shouldBypassCache = hasGeneratingExams !== null;
+
+    if (shouldBypassCache) {
+      logger.info(
+        `Bypassing cache for user ${actualUserId} due to generating exams`,
+        {
+          user_id: actualUserId,
+          reason: 'exams_generating',
+          bypass_cache: true,
+        },
+      );
+    }
+
     // Create cache key for user exams
     const cacheKey = RedisService.generateUserCacheKey(
       CACHE_CONFIG.KEYS.USER_EXAMS,
@@ -141,33 +165,55 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       },
     );
 
-    // Try to get from cache first, or fetch and cache
-    const { data: examsFromDb, total } = await CacheHierarchyService.getOrSet(
-      cacheKey,
-      async () => {
-        logger.info(
-          `Cache miss - fetching exams from database for user ${actualUserId}`,
-        );
+    // Fetch data either from cache or directly from database based on generating status
+    const { data: examsFromDb, total } = shouldBypassCache
+      ? await (async () => {
+          logger.info(
+            `Fetching exams directly from database for user ${actualUserId} (cache bypassed)`,
+          );
 
-        // Execute findMany and count in parallel
-        return await findManyWithCount(
-          prismaInstance.examAttempt.findMany({
-            where: whereClause,
-            include: {
-              certification: true, // Include certification details
-            },
-            skip: paginationParams.skip,
-            take: paginationParams.take,
-            orderBy,
-          }),
-          prismaInstance.examAttempt.count({
-            where: whereClause,
-          }),
+          // Execute findMany and count in parallel - bypass cache completely
+          return await findManyWithCount(
+            prismaInstance.examAttempt.findMany({
+              where: whereClause,
+              include: {
+                certification: true, // Include certification details
+              },
+              skip: paginationParams.skip,
+              take: paginationParams.take,
+              orderBy,
+            }),
+            prismaInstance.examAttempt.count({
+              where: whereClause,
+            }),
+          );
+        })()
+      : await CacheHierarchyService.getOrSet(
+          cacheKey,
+          async () => {
+            logger.info(
+              `Cache miss - fetching exams from database for user ${actualUserId}`,
+            );
+
+            // Execute findMany and count in parallel
+            return await findManyWithCount(
+              prismaInstance.examAttempt.findMany({
+                where: whereClause,
+                include: {
+                  certification: true, // Include certification details
+                },
+                skip: paginationParams.skip,
+                take: paginationParams.take,
+                orderBy,
+              }),
+              prismaInstance.examAttempt.count({
+                where: whereClause,
+              }),
+            );
+          },
+          CACHE_CONFIG.USER_EXAMS_TTL,
+          { forceMemoryCache: true }, // Use memory cache for frequently accessed user data
         );
-      },
-      CACHE_CONFIG.USER_EXAMS_TTL,
-      { forceMemoryCache: true }, // Use memory cache for frequently accessed user data
-    );
 
     console.log('get_user_exams: examsFromDb', examsFromDb);
     console.log('get_user_exams: total', total);

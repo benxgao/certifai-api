@@ -7,11 +7,13 @@ import {
   updateExamAfterQuestionAssociation,
 } from '../../../utils/examQuestionAssociation';
 import { ExamGenerationLogger } from '../../../services/exam-generation-logger';
+import { CacheManager } from '../../../services/cache';
 import { deleteRtdbValue } from '../../../services/firebase/rtdb';
 import { TaskPayload, logQuestionTopicAssociationSummary } from './helper';
 import {
   checkExamProcessingTimeout,
   calculateAndLogExamGenerationTime,
+  updateExamGenerationProgress,
 } from './rtdb';
 
 /**
@@ -72,6 +74,15 @@ export const handleExamCompletionOrNextBatch = async (
     batch_number >= total_batches ||
     remainingUnassignedTopics.length === 0 ||
     actualQuestionsGenerated >= (exam.total_questions || 0);
+
+  // Calculate adjusted total batches for progress tracking
+  let adjustedTotalBatches = total_batches;
+  if (!shouldCompleteExam && remainingUnassignedTopics.length > 0) {
+    const effectiveRemainingBatches = Math.ceil(
+      remainingUnassignedTopics.length / questions_per_batch,
+    );
+    adjustedTotalBatches = batch_number + effectiveRemainingBatches;
+  }
 
   if (shouldCompleteExam) {
     const completionReason =
@@ -298,12 +309,6 @@ export const handleExamCompletionOrNextBatch = async (
       questions_per_batch,
     );
 
-    // Dynamically calculate remaining batches needed based on actual remaining work
-    const effectiveRemainingBatches = Math.ceil(
-      remainingUnassignedTopics.length / questions_per_batch,
-    );
-    const adjustedTotalBatches = batch_number + effectiveRemainingBatches;
-
     logger.info(
       `EXAM_BATCH_CALCULATION: exam_id=${exam_id}, batch=${batch_number}`,
       {
@@ -312,7 +317,9 @@ export const handleExamCompletionOrNextBatch = async (
         original_total_batches: total_batches,
         remaining_unassigned_topics: remainingUnassignedTopics.length,
         questions_for_next_batch: questionsForNextBatch,
-        effective_remaining_batches: effectiveRemainingBatches,
+        effective_remaining_batches: Math.ceil(
+          remainingUnassignedTopics.length / questions_per_batch,
+        ),
         adjusted_total_batches: adjustedTotalBatches,
         structuredData: true,
       },
@@ -336,10 +343,23 @@ export const handleExamCompletionOrNextBatch = async (
       );
 
       // Mark exam as failed due to timeout
+      const examForTimeout = await prismaInstance.examAttempt.findUnique({
+        where: { exam_id },
+        select: { user_id: true },
+      });
+
       await prismaInstance.examAttempt.update({
         where: { exam_id },
         data: { exam_status: ExamStatus.QUESTION_GENERATION_FAILED },
       });
+
+      // Invalidate user exam cache when exam generation fails due to timeout
+      if (examForTimeout?.user_id) {
+        await CacheManager.invalidateUserExamCacheForGenerationChange(
+          examForTimeout.user_id,
+          'exam_generation_timeout',
+        );
+      }
 
       // Log exam failure due to timeout
       ExamGenerationLogger.logExamFailure({
@@ -415,11 +435,26 @@ export const handleExamCompletionOrNextBatch = async (
           batch_number + 1
         }`,
       );
+
+      // Get exam details for cache invalidation
+      const examForTaskFailure = await prismaInstance.examAttempt.findUnique({
+        where: { exam_id },
+        select: { user_id: true },
+      });
+
       // Update exam status to failed
       await prismaInstance.examAttempt.update({
         where: { exam_id },
         data: { exam_status: ExamStatus.QUESTION_GENERATION_FAILED },
       });
+
+      // Invalidate user exam cache when exam generation fails due to task creation failure
+      if (examForTaskFailure?.user_id) {
+        await CacheManager.invalidateUserExamCacheForGenerationChange(
+          examForTaskFailure.user_id,
+          'exam_generation_task_creation_failed',
+        );
+      }
 
       // Log exam failure
       ExamGenerationLogger.logExamFailure({
@@ -457,6 +492,28 @@ export const handleExamCompletionOrNextBatch = async (
     }
   }
 
+  // Update real-time progress tracking in RTDB for frontend
+  try {
+    const progressInfo = {
+      current_batch: batch_number,
+      total_batches: shouldCompleteExam
+        ? batch_number
+        : adjustedTotalBatches || total_batches,
+      questions_generated: actualQuestionsGenerated,
+      target_questions: exam.total_questions || undefined,
+      completion_percentage: shouldCompleteExam ? 100 : undefined,
+      last_updated: Math.floor(Date.now() / 1000),
+    };
+
+    await updateExamGenerationProgress(exam_id, progressInfo);
+  } catch (progressError) {
+    logger.warn(
+      `Failed to update progress for exam ${exam_id}:`,
+      progressError as any,
+    );
+    // Don't fail the request if progress update fails
+  }
+
   res.status(200).json({
     success: true,
     message: `Successfully processed batch ${batch_number}/${total_batches}`,
@@ -472,6 +529,20 @@ export const handleExamCompletionOrNextBatch = async (
       is_final_batch: shouldCompleteExam,
       current_processing_time_minutes:
         currentProcessingTime?.processingDurationMinutes,
+      // Add real progress information for frontend
+      real_progress: {
+        current_batch: batch_number,
+        total_batches: shouldCompleteExam
+          ? batch_number
+          : adjustedTotalBatches || total_batches,
+        questions_generated: actualQuestionsGenerated,
+        target_questions: exam.total_questions,
+        completion_percentage: shouldCompleteExam
+          ? 100
+          : exam.total_questions
+          ? Math.round((actualQuestionsGenerated / exam.total_questions) * 100)
+          : Math.round((batch_number / total_batches) * 100),
+      },
     },
   });
 };

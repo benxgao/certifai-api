@@ -2,6 +2,7 @@ import logger from '../services/firebase/logger';
 import prismaInstance, { ExamStatus } from '../services/prisma';
 import { validateMultipleQuestionsExamConstraint } from './questionExamConstraint';
 import { BatchWriteOptimizer } from '../services/database/batchWriteOptimizer';
+import { CacheManager } from '../services/cache';
 
 export interface QuestionAssociationOptions {
   exam_id: string;
@@ -241,6 +242,12 @@ export async function updateExamAfterQuestionAssociation(
         ? ExamStatus.READY
         : ExamStatus.QUESTION_GENERATION_FAILED;
 
+    // Get exam details to access user_id for cache invalidation
+    const exam = await prismaInstance.examAttempt.findUnique({
+      where: { exam_id },
+      select: { user_id: true },
+    });
+
     await prismaInstance.examAttempt.update({
       where: { exam_id },
       data: {
@@ -248,6 +255,17 @@ export async function updateExamAfterQuestionAssociation(
         total_questions: associationResult.associatedQuestionCount,
       },
     });
+
+    // Invalidate user exam cache when exam generation completes (status changes to READY or FAILED)
+    if (exam?.user_id) {
+      await CacheManager.invalidateUserExamCacheForGenerationChange(
+        exam.user_id,
+        `exam_status_changed_to_${examStatus}`,
+      );
+      logger.info(
+        `Cache invalidated for user ${exam.user_id} after exam ${exam_id} status change to ${examStatus}`,
+      );
+    }
 
     logger.info(
       `updateExamAfterQuestionAssociation: Updated exam ${exam_id} status to ${examStatus} ` +

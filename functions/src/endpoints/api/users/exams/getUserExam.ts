@@ -2,6 +2,7 @@ import { Response } from 'express';
 import logger from '../../../../services/firebase/logger';
 import { CustomRequest } from '../../../../types';
 import prismaInstance from '../../../../services/prisma';
+import { getExamGenerationProgress } from '../../../../delegators/tasks/buildExam/rtdb';
 
 const handler = async (req: any | CustomRequest, res: Response) => {
   try {
@@ -110,6 +111,21 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       },
     };
 
+    // Get real-time generation progress if exam is currently generating
+    let generationProgress = null;
+    if (examFromDb.exam_status === 'QUESTIONS_GENERATING') {
+      try {
+        generationProgress = await getExamGenerationProgress(
+          examFromDb.exam_id,
+        );
+      } catch (progressError) {
+        logger.warn(
+          `Failed to get generation progress for exam ${examFromDb.exam_id}:`,
+          progressError as any,
+        );
+      }
+    }
+
     const exam = {
       exam_id: examFromDb.exam_id,
       user_id: examFromDb.user_id,
@@ -136,6 +152,8 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       certification: examFromDb.certification ? cert : null,
       // Include answers if needed (for debugging or detailed view)
       answers: examFromDb.answers,
+      // Real-time generation progress (only included if exam is generating)
+      generation_progress: generationProgress,
     };
 
     res.status(200).json({

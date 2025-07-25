@@ -3,6 +3,7 @@ import logger from '../../../../services/firebase/logger';
 import { CustomRequest } from '../../../../types';
 import prismaInstance, { ExamStatus } from '../../../../services/prisma';
 import { associateQuestionsWithExam } from '../../../../utils/examQuestionAssociation';
+import { CacheManager } from '../../../../services/cache';
 
 const handler = async (req: any | CustomRequest, res: Response) => {
   try {
@@ -152,6 +153,12 @@ const handler = async (req: any | CustomRequest, res: Response) => {
         },
       });
 
+      // Invalidate user exam cache when exam status changes to READY
+      await CacheManager.invalidateUserExamCacheForGenerationChange(
+        exam.user.user_id,
+        'manual_exam_update_ready',
+      );
+
       // Get final count for response
       const finalAnswers = await prismaInstance.examUserAnswer.findMany({
         where: { exam_id },
@@ -204,16 +211,24 @@ const handler = async (req: any | CustomRequest, res: Response) => {
     const finalQuestionCount =
       currentQuestionCount + associationResult.associatedQuestionCount;
 
+    const newExamStatus =
+      finalQuestionCount > 0
+        ? ExamStatus.READY
+        : ExamStatus.QUESTION_GENERATION_FAILED;
+
     await prismaInstance.examAttempt.update({
       where: { exam_id },
       data: {
         total_questions: finalQuestionCount,
-        exam_status:
-          finalQuestionCount > 0
-            ? ExamStatus.READY
-            : ExamStatus.QUESTION_GENERATION_FAILED,
+        exam_status: newExamStatus,
       },
     });
+
+    // Invalidate user exam cache when exam status changes
+    await CacheManager.invalidateUserExamCacheForGenerationChange(
+      exam.user.user_id,
+      `manual_exam_update_${newExamStatus}`,
+    );
 
     // Get final count for response
     const finalAnswers = await prismaInstance.examUserAnswer.findMany({
@@ -234,10 +249,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
         previous_questions: currentQuestionCount,
         final_questions: finalAnswers.length,
         target_questions: targetQuestionCount,
-        status:
-          finalQuestionCount > 0
-            ? ExamStatus.READY
-            : ExamStatus.QUESTION_GENERATION_FAILED,
+        status: newExamStatus,
         token_cost: exam.token_cost,
         certification: {
           cert_id,
