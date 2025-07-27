@@ -21,6 +21,7 @@ import submitExamForUser from './users/exams/submitExamForUser';
 import deleteExam from './users/exams/deleteExam';
 import getUserProfile from './users/getUserProfile';
 import getRateLimit from './users/getRateLimit';
+import deleteUser from './users/deleteUser';
 
 // Admin endpoints
 import autoFailStuckExams from './admin/exams/autoFailStuckExams';
@@ -61,6 +62,9 @@ router.get('/users/:user_id/profile', verifyFirebaseToken, getUserProfile);
 
 // Get user rate limit information
 router.get('/users/:user_id/rate-limit', verifyFirebaseToken, getRateLimit);
+
+// Delete user account
+router.delete('/users/:user_id', verifyFirebaseToken, deleteUser);
 
 // Register a certification for a user
 router.post(

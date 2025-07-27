@@ -210,6 +210,31 @@ export class CacheManager {
   }
 
   /**
+   * Invalidate all cache entries related to a specific user
+   * Called when user account is deleted or requires complete cache cleanup
+   *
+   * @param userId - The user whose all cache entries should be invalidated
+   */
+  static async invalidateUserCaches(userId: string): Promise<void> {
+    try {
+      logger.info(`Invalidating all cache entries for user ${userId}`);
+
+      // Invalidate all types of user-specific cache
+      await Promise.all([
+        RedisService.invalidateUserCache(userId, 'exams'),
+        RedisService.invalidateUserCache(userId, 'exam_questions'),
+        RedisService.invalidateUserCache(userId, 'exam_details'),
+        RedisService.invalidateUserCache(userId, 'certifications'),
+      ]);
+
+      logger.info(`All cache invalidation completed for user ${userId}`);
+    } catch (error) {
+      logger.error(`Error invalidating user caches: ${error}`);
+      // Don't throw - cache invalidation failures shouldn't break business logic
+    }
+  }
+
+  /**
    * Warm up cache by pre-loading frequently accessed data
    */
   static async warmUpCache(): Promise<void> {
