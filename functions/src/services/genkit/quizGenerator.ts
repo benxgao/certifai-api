@@ -80,7 +80,7 @@ const buildQuizPrompt = (
   `;
 
   const customSection = customPromptText?.trim()
-    ? `ADDITIONAL FOCUS (the below rules should override any of the above requirements if there are any conflicts):${customPromptText.trim()}`
+    ? `ADDITIONAL FOCUS (the below rules should be applied with each examTopic):${customPromptText.trim()}`
     : '';
 
   const formatSection = `

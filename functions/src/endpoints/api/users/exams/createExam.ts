@@ -11,7 +11,7 @@ import { BatchWriteOptimizer } from '../../../../services/database/batchWriteOpt
 
 const DEFAULT_NUMBER_OF_QUESTIONS = 20;
 const MAX_NUMBER_OF_QUESTIONS = 100; // Set a reasonable max
-const QUESTIONS_PER_BATCH = 20; // Number of questions to generate per task
+const QUESTIONS_PER_BATCH = 10; // Number of questions to generate per task
 export const MAX_EXAMS_PER_24_HOURS = 3; // Maximum number of exams allowed per user in 24 hours
 
 /**

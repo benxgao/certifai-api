@@ -71,18 +71,16 @@ const buildExamPlanPrompt = (
     2. Topics should come from the exam guide of the ${cert_name} certification
     3. Each topic should be 1-2 words
     4. Topics should be realistic and aligned with actual certification content
-    5. Same topic names are more preferable than using different names for the same topic
-    6. Prevent using similar words to describe the same topic
-    7. A topic using 2 words is more preferable than that contains 1 word with camelCase or snake_case
-    8. Select high level concepts as the topic names rather than detailed subtopics
-    9. Avoid using overly technical jargon or abbreviations that are not widely recognized
-    10. Ensure topics are relevant to the certification's scope and objectives
-    11. Avoid using overly broad or vague terms that do not clearly define a specific area
+    5. Duplicate topics can be created if customPrompt is provided
+    6. A topic using 2 words is more preferable than that contains 1 word with camelCase or snake_case
+    7. Select high level concepts as the topic names rather than detailed subtopics if customPrompt is empty
+    8. Avoid using overly technical jargon or abbreviations that are not widely recognized
+    9. Avoid using overly broad or vague terms that do not clearly define a specific area
 
     TOPIC EXAMPLES:
     - "IAM"
     - "VPC Network"
-    - "SQL"
+    - "IAM"
     - "Load Balancing"
     - "Kubernetes"
     - "API Gateway"`;
