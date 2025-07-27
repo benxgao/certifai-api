@@ -9,6 +9,7 @@ import { generateToken } from './auth/generateToken';
 import { generateServiceToken } from './auth/generateServiceToken';
 import getUserExams from './users/exams/getUserExams';
 import getUserExam from './users/exams/getUserExam';
+import getExamGeneratingProgress from './users/exams/getExamGeneratingProgress';
 import publicRoutes from './public';
 
 import registerCert from './users/certifications/register';
@@ -103,6 +104,13 @@ router.get(
 
 // Show a list of questions for a specific exam
 router.get('/users/:user_id/exams/:exam_id', verifyFirebaseToken, getUserExam);
+
+// Get exam generation progress
+router.get(
+  '/users/:user_id/exams/:exam_id/generating-progress',
+  verifyFirebaseToken,
+  getExamGeneratingProgress,
+);
 
 // Answer a specific question in a user exam
 router.put(
