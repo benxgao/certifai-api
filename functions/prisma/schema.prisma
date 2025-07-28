@@ -27,15 +27,6 @@ enum DifficultyLevel {
   EXPERT
 }
 
-// model Product {
-//   id          String   @id @default(uuid())
-//   name        String
-//   description String?
-//   price       Float
-//   createdAt   DateTime @default(now())
-//   updatedAt   DateTime @updatedAt
-// }
-
 model Firm {
   firm_id     Int     @id @default(autoincrement())
   name        String  @unique
@@ -64,38 +55,12 @@ model Certification {
   pass_score      Float
 
   firm               Firm                @relation(fields: [firm_id], references: [firm_id], onDelete: Cascade)
-  // cert_category      CertCategory        @relation(fields: [cert_category_id], references: [cert_category_id])
-  // certTopics         CertTopic[]
   quizQuestions      QuizQuestion[]
   examAttempts       ExamAttempt[]
   userCertifications UserCertification[]
 
   @@index([firm_id])
 }
-
-// model CertCategory {
-//   cert_category_id Int    @id @default(autoincrement())
-//   name             String
-
-//   certifications Certification[]
-// }
-
-// model Topic {
-//   id            Int            @id @default(autoincrement())
-//   name          String         @unique
-//   certTopics    CertTopic[]
-//   quizQuestions QuizQuestion[]
-// }
-
-// model CertTopic {
-//   cert_id  Int
-//   topic_id Int
-
-//   certification Certification @relation(fields: [cert_id], references: [cert_id], onDelete: Cascade)
-//   topic         Topic         @relation(fields: [topic_id], references: [id], onDelete: Cascade)
-
-//   @@id([cert_id, topic_id])
-// }
 
 model User {
   user_id          String  @id @default(uuid())
@@ -121,9 +86,6 @@ model UserCertification {
   user          User          @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
   certification Certification @relation(fields: [cert_id], references: [cert_id], onDelete: Cascade)
 
-  // @@index([status])
-  // @@index([cert_id, status])
-
   @@id([user_id, cert_id])
 }
 
@@ -132,13 +94,12 @@ model QuizQuestion {
   cert_id          Int
   generated_from   String? // References ExamAttempt.exam_id
 
-  difficulty    DifficultyLevel?
+  difficulty    DifficultyLevel @default(EASY)
   question_text String
   explanations  String?
   exam_topic    String?
 
   created_at    DateTime @default(now())
-  updated_at    DateTime @updatedAt
   is_deprecated Boolean  @default(false)
 
   answerOptions     AnswerOption[]
@@ -157,7 +118,6 @@ model AnswerOption {
   is_correct       Boolean
 
   created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
 
   quizQuestion    QuizQuestion     @relation(fields: [quiz_question_id], references: [quiz_question_id], onDelete: Cascade)
   selectedInExams ExamUserAnswer[]
@@ -202,8 +162,6 @@ model ExamUserAnswer {
   examAttempt    ExamAttempt   @relation(fields: [exam_id], references: [exam_id], onDelete: Cascade)
   quizQuestion   QuizQuestion  @relation(fields: [quiz_question_id], references: [quiz_question_id], onDelete: Cascade)
   selectedOption AnswerOption? @relation(fields: [selected_option_id], references: [option_id], onDelete: SetNull)
-  // Application-level constraint enforced: quizQuestion.generated_from must be null or equal exam_id
-  // This ensures questions can only be used in exams they were generated for, or general questions (generated_from = null)
 
   @@unique([exam_id, quiz_question_id])
 }
