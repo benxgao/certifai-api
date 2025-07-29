@@ -19,6 +19,19 @@ enum CertificationStatus {
   PASSED
   IN_PROGRESS
   INTERESTED
+  DELETING
+  NOT_STARTED
+  EXPIRED
+  SUSPENDED
+}
+
+enum ExamStatus {
+  PENDING_QUESTIONS
+  QUESTIONS_GENERATING
+  READY
+  IN_PROGRESS
+  COMPLETED
+  QUESTION_GENERATION_FAILED
 }
 
 enum DifficultyLevel {
@@ -60,6 +73,7 @@ model Certification {
   userCertifications UserCertification[]
 
   @@index([firm_id])
+  @@index([firm_id, name])
 }
 
 model User {
@@ -73,6 +87,8 @@ model User {
 
   examAttempts       ExamAttempt[]
   userCertifications UserCertification[] // Relation to the join table
+
+  @@index([user_id, updated_at, credit_tokens, energy_tokens])
 }
 
 model UserCertification {
@@ -87,6 +103,8 @@ model UserCertification {
   certification Certification @relation(fields: [cert_id], references: [cert_id], onDelete: Cascade)
 
   @@id([user_id, cert_id])
+  @@index([user_id, status, updated_at])
+  @@index([user_id, cert_id, updated_at])
 }
 
 model QuizQuestion {
@@ -121,15 +139,9 @@ model AnswerOption {
 
   quizQuestion    QuizQuestion     @relation(fields: [quiz_question_id], references: [quiz_question_id], onDelete: Cascade)
   selectedInExams ExamUserAnswer[]
-}
 
-enum ExamStatus {
-  PENDING_QUESTIONS
-  QUESTIONS_GENERATING
-  READY
-  IN_PROGRESS
-  COMPLETED
-  QUESTION_GENERATION_FAILED
+  @@index([quiz_question_id])
+  @@index([quiz_question_id, created_at])
 }
 
 model ExamAttempt {
@@ -149,6 +161,8 @@ model ExamAttempt {
   certification      Certification    @relation(fields: [cert_id], references: [cert_id], onDelete: Cascade)
   answers            ExamUserAnswer[]
   generatedQuestions QuizQuestion[]   @relation("GeneratedQuestions")
+
+  @@index([user_id, started_at])
 }
 
 model ExamUserAnswer {
@@ -164,4 +178,6 @@ model ExamUserAnswer {
   selectedOption AnswerOption? @relation(fields: [selected_option_id], references: [option_id], onDelete: SetNull)
 
   @@unique([exam_id, quiz_question_id])
+  @@index([exam_id, user_answer_id])
+  @@index([exam_id, quiz_question_id])
 }

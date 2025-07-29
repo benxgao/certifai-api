@@ -2,7 +2,10 @@ import { Response } from 'express';
 import logger from '../../../../services/firebase/logger';
 import { CustomRequest } from '../../../../types';
 import prismaInstance, { ExamStatus } from '../../../../services/prisma';
-import { associateQuestionsWithExam } from '../../../../utils/examQuestionAssociation';
+import {
+  associateQuestionsWithExam,
+  updateCertificationStatusOnFirstExam,
+} from '../../../../utils/examQuestionAssociation';
 import { CacheManager } from '../../../../services/cache';
 
 const handler = async (req: any | CustomRequest, res: Response) => {
@@ -153,6 +156,13 @@ const handler = async (req: any | CustomRequest, res: Response) => {
         },
       });
 
+      // Update certification status if this is the first exam for the certification
+      await updateCertificationStatusOnFirstExam(
+        exam.user.user_id,
+        cert_id,
+        exam_id,
+      );
+
       // Invalidate user exam cache when exam status changes to READY
       await CacheManager.invalidateUserExamCacheForGenerationChange(
         exam.user.user_id,
@@ -223,6 +233,15 @@ const handler = async (req: any | CustomRequest, res: Response) => {
         exam_status: newExamStatus,
       },
     });
+
+    // Update certification status if this is the first exam for the certification and status is READY
+    if (newExamStatus === ExamStatus.READY) {
+      await updateCertificationStatusOnFirstExam(
+        exam.user.user_id,
+        cert_id,
+        exam_id,
+      );
+    }
 
     // Invalidate user exam cache when exam status changes
     await CacheManager.invalidateUserExamCacheForGenerationChange(

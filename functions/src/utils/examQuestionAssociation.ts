@@ -1,5 +1,8 @@
 import logger from '../services/firebase/logger';
-import prismaInstance, { ExamStatus } from '../services/prisma';
+import prismaInstance, {
+  ExamStatus,
+  CertificationStatus,
+} from '../services/prisma';
 import { validateMultipleQuestionsExamConstraint } from './questionExamConstraint';
 import { BatchWriteOptimizer } from '../services/database/batchWriteOptimizer';
 import { CacheManager } from '../services/cache';
@@ -230,6 +233,73 @@ export async function associateQuestionsWithExam(
 }
 
 /**
+ * Updates certification status to IN_PROGRESS if this is the first exam for the certification
+ */
+export async function updateCertificationStatusOnFirstExam(
+  user_id: string,
+  cert_id: number,
+  exam_id: string,
+): Promise<void> {
+  try {
+    // Check if this is the user's first exam for this certification by counting existing exams with READY status
+    const existingReadyExamsCount = await prismaInstance.examAttempt.count({
+      where: {
+        user_id,
+        cert_id,
+        exam_status: ExamStatus.READY,
+      },
+    });
+
+    // If this is the first READY exam (count should be 1, which is the current exam we just updated)
+    if (existingReadyExamsCount === 1) {
+      // Check current certification status
+      const userCertification =
+        await prismaInstance.userCertification.findUnique({
+          where: {
+            user_id_cert_id: {
+              user_id,
+              cert_id,
+            },
+          },
+          select: { status: true },
+        });
+
+      // Only update if status is NOT_STARTED to avoid overriding other statuses like PASSED, etc.
+      if (
+        userCertification &&
+        userCertification.status === CertificationStatus.NOT_STARTED
+      ) {
+        await prismaInstance.userCertification.update({
+          where: {
+            user_id_cert_id: {
+              user_id,
+              cert_id,
+            },
+          },
+          data: {
+            status: CertificationStatus.IN_PROGRESS,
+            updated_at: new Date(),
+          },
+        });
+
+        logger.info(
+          `updateCertificationStatusOnFirstExam: Updated certification status to IN_PROGRESS for user ${user_id}, cert_id ${cert_id} after first exam ${exam_id} became READY`,
+        );
+
+        // Invalidate user certification cache since status changed
+        await CacheManager.invalidateUserCertificationCache(user_id);
+      }
+    }
+  } catch (error) {
+    // Don't fail the operation if certification status update fails
+    logger.error(
+      `updateCertificationStatusOnFirstExam: Failed to update certification status for user ${user_id}, cert_id ${cert_id}:`,
+      error as any,
+    );
+  }
+}
+
+/**
  * Updates an exam's status and total_questions count based on question association results
  */
 export async function updateExamAfterQuestionAssociation(
@@ -242,10 +312,10 @@ export async function updateExamAfterQuestionAssociation(
         ? ExamStatus.READY
         : ExamStatus.QUESTION_GENERATION_FAILED;
 
-    // Get exam details to access user_id for cache invalidation
+    // Get exam details to access user_id and cert_id for cache invalidation and certification status update
     const exam = await prismaInstance.examAttempt.findUnique({
       where: { exam_id },
-      select: { user_id: true },
+      select: { user_id: true, cert_id: true },
     });
 
     await prismaInstance.examAttempt.update({
@@ -255,6 +325,16 @@ export async function updateExamAfterQuestionAssociation(
         total_questions: associationResult.associatedQuestionCount,
       },
     });
+
+    // If exam status is set to READY, check if this is the first exam for this certification
+    // and update certification status to IN_PROGRESS if needed
+    if (examStatus === ExamStatus.READY && exam?.user_id && exam?.cert_id) {
+      await updateCertificationStatusOnFirstExam(
+        exam.user_id,
+        exam.cert_id,
+        exam_id,
+      );
+    }
 
     // Invalidate user exam cache when exam generation completes (status changes to READY or FAILED)
     if (exam?.user_id) {

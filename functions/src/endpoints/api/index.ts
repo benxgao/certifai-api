@@ -16,6 +16,7 @@ import registerCert from './users/certifications/register';
 import getUserExamQuizQuestions from './users/exams/getExamQuestions';
 import createExam from './users/exams/createExam';
 import getUserCertifications from './users/certifications/getUserCertifications';
+import deleteCertification from './users/certifications/deleteCertification';
 import answerUserExamQuestions from './users/exams/answerUserExamQuestions';
 import submitExamForUser from './users/exams/submitExamForUser';
 import deleteExam from './users/exams/deleteExam';
@@ -79,6 +80,13 @@ router.get(
   verifyFirebaseToken,
   mediumPagePagination,
   getUserCertifications,
+);
+
+// Delete a user certification
+router.delete(
+  '/users/:user_id/certifications/:cert_id',
+  verifyFirebaseToken,
+  deleteCertification,
 );
 
 /** *********************** EXAMS ******************************** */

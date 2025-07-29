@@ -20,6 +20,7 @@ setGlobalOptions({
 export const endpoints = onRequest(
   {
     memory: '512MiB',
+    timeoutSeconds: 180,
   },
   apiEndpoints,
 );

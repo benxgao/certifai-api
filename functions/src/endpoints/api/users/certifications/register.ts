@@ -126,7 +126,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
             data: {
               user_id: user_id as string,
               cert_id: certIdNumber,
-              status: CertificationStatus.IN_PROGRESS,
+              status: CertificationStatus.NOT_STARTED,
             },
           }),
         description: 'Create user certification registration',
@@ -153,7 +153,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       cert_id: certIdNumber,
       cert_name: certification.name,
       firm_id: certification.firm_id,
-      status: CertificationStatus.IN_PROGRESS,
+      status: CertificationStatus.NOT_STARTED,
       optimization: 'batch_write_optimizer',
     });
 
