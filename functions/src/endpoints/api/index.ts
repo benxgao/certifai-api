@@ -23,6 +23,10 @@ import deleteExam from './users/exams/deleteExam';
 import getUserProfile from './users/getUserProfile';
 import getRateLimit from './users/getRateLimit';
 import deleteUser from './users/deleteUser';
+import {
+  getExamReport,
+  regenerateExamReport,
+} from './users/exams/getExamReport';
 
 // Admin endpoints
 import autoFailStuckExams from './admin/exams/autoFailStuckExams';
@@ -143,6 +147,20 @@ router.delete(
   '/users/:user_id/exams/:exam_id',
   verifyFirebaseToken,
   deleteExam,
+);
+
+// Get exam report for a user exam
+router.get(
+  '/users/:user_id/exams/:exam_id/exam-report',
+  verifyFirebaseToken,
+  getExamReport,
+);
+
+// Regenerate exam report for a user exam
+router.post(
+  '/users/:user_id/exams/:exam_id/exam-report',
+  verifyFirebaseToken,
+  regenerateExamReport,
 );
 
 /** *********************** ADMIN ENDPOINTS ******************************** */

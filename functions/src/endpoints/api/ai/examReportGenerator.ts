@@ -6,6 +6,25 @@
  * This handler includes full database integration and can be used both as an API endpoint
  * and as a service function for exam submission processing.
  *
+ * Generated Report Format Example:
+ * The exam_report field stores both human-readable text and structured JSON data:
+ * ```
+ * "Your performance analysis shows excellent understanding of IAM and Security with 100% accuracy...
+ *
+ * --- STRUCTURED_DATA ---
+ * {
+ *   "exam_id": "exam_abc123",
+ *   "overall_score": 75,
+ *   "topic_performance": [
+ *     {
+ *       "topic": "IAM and Security",
+ *       "accuracy_rate": 1.0,
+ *       "performance_category": "strong"
+ *     }
+ *   ]
+ * }"
+ * ```
+ *
  * Request Body:
  * - exam_id (string, required): The ID of the completed exam to analyze
  *
@@ -16,8 +35,8 @@
  * This endpoint will:
  * 1. Validate that the exam is completed and belongs to the authenticated user
  * 2. Analyze user performance by topic from ExamUserAnswer data
- * 3. Generate an AI-powered performance report (150 words)
- * 4. Update the examAttempt.exam_report field with the generated report
+ * 3. Generate both structured data and AI-powered text report
+ * 4. Update the examAttempt.exam_report field with combined format
  * 5. Return the report for immediate use
  */
 
@@ -25,6 +44,12 @@ import { Request, Response } from 'express';
 import logger from '../../../services/firebase/logger';
 import prismaInstance from '../../../services/prisma';
 import { CustomRequest } from '../../../types';
+import {
+  StructuredExamReport,
+  TopicPerformance,
+  getPerformanceCategory,
+  getDifficultyLabel,
+} from '../../../types/examReport';
 
 /**
  * Helper function to convert difficulty string to number
@@ -193,7 +218,18 @@ export const generateExamReport = async (
       `EXAM_REPORT_ANALYSIS: exam_id=${exam_id}, topics=${validPerformanceData.length}, score=${overallScore}%`,
     );
 
-    // 7. Generate the AI report
+    // 7. Create structured performance data
+    const structuredTopicPerformance: TopicPerformance[] =
+      validPerformanceData.map((topic) => ({
+        topic: topic.topic,
+        correct_answers: topic.correct_answers,
+        total_attempts: topic.total_attempts,
+        accuracy_rate: topic.accuracy_rate,
+        difficulty_level: getDifficultyLabel(topic.current_difficulty_level),
+        performance_category: getPerformanceCategory(topic.accuracy_rate),
+      }));
+
+    // 8. Generate the AI report
     const { getExamReportGeneratorFlow } = await import(
       '../../../services/genkit/examReportGenerator.js'
     );
@@ -212,11 +248,29 @@ export const generateExamReport = async (
     const reportResult = await examReportGenerator(reportInput);
     const generatedReport = reportResult.report;
 
-    // 8. Update the exam with the generated report
+    // 9. Create structured exam report
+    const structuredReport: StructuredExamReport = {
+      exam_id,
+      overall_score: overallScore,
+      total_questions: totalQuestions,
+      correct_answers: correctAnswers,
+      topic_performance: structuredTopicPerformance,
+      generated_at: new Date().toISOString(),
+      text_summary: generatedReport,
+    };
+
+    // 10. Store combined report (structured data + text for backward compatibility)
+    const combinedReport = `${generatedReport}\n\n--- STRUCTURED_DATA ---\n${JSON.stringify(
+      structuredReport,
+      null,
+      2,
+    )}`;
+
+    // 11. Update the exam with the combined report
     await prismaInstance.examAttempt.update({
       where: { exam_id },
       data: {
-        exam_report: generatedReport,
+        exam_report: combinedReport,
       },
     });
 
@@ -226,17 +280,19 @@ export const generateExamReport = async (
         exam_id,
         user_id: exam.user.user_id,
         certification: exam.certification.name,
-        report_length: generatedReport.length,
+        report_length: combinedReport.length,
         topics_analyzed: validPerformanceData.length,
         overall_score: overallScore,
         structuredData: true,
+        hasStructuredFormat: true,
       },
     );
 
-    // 9. Return the generated report data
+    // 12. Return the generated report data
     return {
       exam_id,
-      report: generatedReport,
+      report: combinedReport,
+      structured_data: structuredReport,
       performance_summary: {
         overall_score: overallScore,
         total_questions: totalQuestions,
