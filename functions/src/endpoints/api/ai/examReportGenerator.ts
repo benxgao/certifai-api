@@ -50,6 +50,7 @@ import {
   getPerformanceCategory,
   getDifficultyLabel,
 } from '../../../types/examReport';
+import { examReportFirestore } from '../../../services/firebase/examReportFirestore';
 
 /**
  * Helper function to convert difficulty string to number
@@ -131,22 +132,28 @@ export const generateExamReport = async (
       throw new Error('Report can only be generated for completed exams');
     }
 
-    // 4. Check if report already exists
-    if (exam.exam_report) {
+    // 4. Check if report already exists in Firestore
+    const existingReport = await examReportFirestore.getExamReport(exam_id);
+    if (existingReport) {
       logger.info(
-        `EXAM_REPORT_EXISTS: Report already exists for exam_id=${exam_id}`,
+        `EXAM_REPORT_EXISTS_FIRESTORE: Report already exists in Firestore for exam_id=${exam_id}`,
       );
       return {
         exam_id,
-        report: exam.exam_report,
+        report: existingReport.text_summary,
+        structured_data: existingReport,
         already_existed: true,
-        generated_at: exam.submitted_at,
+        generated_at: existingReport.generated_at,
         performance_summary: {
-          overall_score: exam.score,
-          total_questions: exam.answers.length,
-          correct_answers: exam.answers.filter(
-            (answer) => answer.is_correct === true,
-          ).length,
+          overall_score: existingReport.overall_score,
+          total_questions: existingReport.total_questions,
+          correct_answers: existingReport.correct_answers,
+          topics_analyzed: existingReport.topic_performance.length,
+          topic_breakdown: existingReport.topic_performance.map((topic) => ({
+            topic: topic.topic,
+            accuracy: Math.round(topic.accuracy_rate * 100),
+            questions: topic.total_attempts,
+          })),
         },
       };
     }
@@ -259,40 +266,36 @@ export const generateExamReport = async (
       text_summary: generatedReport,
     };
 
-    // 10. Store combined report (structured data + text for backward compatibility)
-    const combinedReport = `${generatedReport}\n\n--- STRUCTURED_DATA ---\n${JSON.stringify(
+    // 10. Store structured report in Firestore instead of Prisma
+    await examReportFirestore.storeExamReport(
+      exam_id,
+      exam.user.user_id,
+      exam.certification.name,
       structuredReport,
-      null,
-      2,
-    )}`;
-
-    // 11. Update the exam with the combined report
-    await prismaInstance.examAttempt.update({
-      where: { exam_id },
-      data: {
-        exam_report: combinedReport,
-      },
-    });
+    );
 
     logger.info(
-      `EXAM_REPORT_SUCCESS: Generated and saved report for exam_id=${exam_id}`,
+      `EXAM_REPORT_SUCCESS_FIRESTORE: Generated and saved report in Firestore for exam_id=${exam_id}`,
       {
         exam_id,
         user_id: exam.user.user_id,
         certification: exam.certification.name,
-        report_length: combinedReport.length,
+        report_length: generatedReport.length,
         topics_analyzed: validPerformanceData.length,
         overall_score: overallScore,
         structuredData: true,
         hasStructuredFormat: true,
+        storage: 'firestore',
       },
     );
 
-    // 12. Return the generated report data
+    // 11. Return the generated report data
     return {
       exam_id,
-      report: combinedReport,
+      report: generatedReport, // Return the AI-generated text
       structured_data: structuredReport,
+      already_existed: false,
+      generated_at: structuredReport.generated_at,
       performance_summary: {
         overall_score: overallScore,
         total_questions: totalQuestions,
@@ -304,7 +307,6 @@ export const generateExamReport = async (
           questions: topic.total_attempts,
         })),
       },
-      generated_at: new Date().toISOString(),
       difficulty_adjustments: reportResult.difficulty_adjustments,
     };
   } catch (error) {

@@ -3,17 +3,18 @@
  * GET/POST /api/users/:user_id/exams/:exam_id/exam-report
  *
  * This handler provides a RESTful interface to the exam report generator
- * while maintaining backward compatibility with the existing AI endpoint.
+ * Now uses Firestore for storage instead of Prisma exam_report field.
  */
 
 import { Response } from 'express';
 import logger from '../../../../services/firebase/logger';
 import { CustomRequest } from '../../../../types';
 import { generateExamReport } from '../../ai/examReportGenerator';
+import { examReportFirestore } from '../../../../services/firebase/examReportFirestore';
 
 /**
  * GET /api/users/:user_id/exams/:exam_id/exam-report
- * Fetch existing exam report or generate if it doesn't exist
+ * Fetch existing exam report from Firestore or generate if it doesn't exist
  */
 export const getExamReport = async (
   req: any | CustomRequest,
@@ -40,9 +41,49 @@ export const getExamReport = async (
       return;
     }
 
-    logger.info(`GET_EXAM_REPORT: user_id=${user_id}, exam_id=${exam_id}`);
+    logger.info(
+      `GET_EXAM_REPORT_FIRESTORE: user_id=${user_id}, exam_id=${exam_id}`,
+    );
 
-    // Generate or fetch existing exam report
+    // First try to get existing report from Firestore
+    const existingReport = await examReportFirestore.getExamReport(exam_id);
+
+    if (existingReport) {
+      // Verify the report belongs to the requesting user
+      if (existingReport.user_id !== user_id) {
+        res.status(403).json({
+          success: false,
+          error: 'Access denied: Exam report does not belong to this user',
+        });
+        return;
+      }
+
+      // Return existing report
+      res.status(200).json({
+        success: true,
+        data: {
+          exam_id: existingReport.exam_id,
+          report: existingReport.text_summary,
+          structured_data: existingReport,
+          already_existed: true,
+          generated_at: existingReport.generated_at,
+          performance_summary: {
+            overall_score: existingReport.overall_score,
+            total_questions: existingReport.total_questions,
+            correct_answers: existingReport.correct_answers,
+            topics_analyzed: existingReport.topic_performance.length,
+            topic_breakdown: existingReport.topic_performance.map((topic) => ({
+              topic: topic.topic,
+              accuracy: Math.round(topic.accuracy_rate * 100),
+              questions: topic.total_attempts,
+            })),
+          },
+        },
+      });
+      return;
+    }
+
+    // If no report exists, generate a new one using the existing function
     const result = await generateExamReport(exam_id, firebaseUserIdFromToken);
 
     res.status(200).json({
@@ -50,7 +91,7 @@ export const getExamReport = async (
       data: result,
     });
   } catch (error: any) {
-    logger.error('GET_EXAM_REPORT_ERROR:', error);
+    logger.error('GET_EXAM_REPORT_FIRESTORE_ERROR:', error);
 
     if (error.message.includes('not found')) {
       res.status(404).json({
@@ -85,7 +126,7 @@ export const getExamReport = async (
 
 /**
  * POST /api/users/:user_id/exams/:exam_id/exam-report
- * Force regenerate exam report (e.g., if user wants updated analysis)
+ * Force regenerate exam report (overwrites existing report in Firestore)
  */
 export const regenerateExamReport = async (
   req: any | CustomRequest,
@@ -113,22 +154,38 @@ export const regenerateExamReport = async (
     }
 
     logger.info(
-      `REGENERATE_EXAM_REPORT: user_id=${user_id}, exam_id=${exam_id}`,
+      `REGENERATE_EXAM_REPORT_FIRESTORE: user_id=${user_id}, exam_id=${exam_id}`,
     );
 
-    // For regeneration, we'll need to modify the generateExamReport function
-    // to accept a force parameter, but for now we'll use the existing function
+    // Check if report exists and delete it to force regeneration
+    const existingReport = await examReportFirestore.getExamReport(exam_id);
+    if (existingReport) {
+      // Verify the report belongs to the requesting user
+      if (existingReport.user_id !== user_id) {
+        res.status(403).json({
+          success: false,
+          error: 'Access denied: Exam report does not belong to this user',
+        });
+        return;
+      }
+
+      // Delete existing report to force regeneration
+      await examReportFirestore.deleteExamReport(exam_id);
+      logger.info(
+        `REGENERATE_EXAM_REPORT: Deleted existing report for exam_id=${exam_id}`,
+      );
+    }
+
+    // Generate new report (will now store in Firestore since we deleted the old one)
     const result = await generateExamReport(exam_id, firebaseUserIdFromToken);
 
     res.status(200).json({
       success: true,
       data: result,
-      message: result.already_existed
-        ? 'Exam report already exists'
-        : 'Exam report generated successfully',
+      message: 'Exam report regenerated successfully',
     });
   } catch (error: any) {
-    logger.error('REGENERATE_EXAM_REPORT_ERROR:', error);
+    logger.error('REGENERATE_EXAM_REPORT_FIRESTORE_ERROR:', error);
 
     if (error.message.includes('not found')) {
       res.status(404).json({

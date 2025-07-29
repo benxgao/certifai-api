@@ -284,52 +284,46 @@ const handler = async (
     );
 
     try {
-      // Fetch the last completed exam with a report for adaptive learning
+      // Fetch the last completed exam with a report for adaptive learning from Firestore
       let lastExamReport: string | null = null;
       try {
-        const lastCompletedExam = await prismaInstance.examAttempt.findFirst({
-          where: {
-            user_id: user.user_id,
-            cert_id: certIdNumber,
-            exam_status: ExamStatus.COMPLETED,
-            exam_report: {
-              not: null,
-            },
-          },
-          select: {
-            exam_report: true,
-            exam_id: true,
-            submitted_at: true,
-          },
-          orderBy: {
-            submitted_at: 'desc',
-          },
-        });
+        const { examReportFirestore } = await import(
+          '../../../../services/firebase/examReportFirestore.js'
+        );
 
-        if (lastCompletedExam?.exam_report) {
-          lastExamReport = lastCompletedExam.exam_report;
+        const lastExamReportDoc =
+          await examReportFirestore.getLastExamReportForUser(
+            user.user_id,
+            certification.name,
+          );
+
+        if (lastExamReportDoc?.text_summary) {
+          lastExamReport = lastExamReportDoc.text_summary;
           logger.info(
-            `ADAPTIVE_LEARNING: Found last exam report for user ${user.user_id} on certification ${certification.name}`,
+            `ADAPTIVE_LEARNING_FIRESTORE: Found last exam report for user ${user.user_id} on certification ${certification.name}`,
             {
               exam_id: newExam.exam_id,
-              last_exam_id: lastCompletedExam.exam_id,
-              last_exam_submitted: lastCompletedExam.submitted_at,
+              last_exam_id: lastExamReportDoc.exam_id,
+              last_exam_generated: lastExamReportDoc.generated_at,
               report_length: lastExamReport.length,
+              topics_analyzed: lastExamReportDoc.topic_performance.length,
               structuredData: true,
+              storage: 'firestore',
             },
           );
         } else {
           logger.info(
-            `ADAPTIVE_LEARNING: No previous exam report found for user ${user.user_id} on certification ${certification.name}`,
+            `ADAPTIVE_LEARNING_FIRESTORE: No previous exam report found for user ${user.user_id} on certification ${certification.name}`,
             {
               exam_id: newExam.exam_id,
               structuredData: true,
+              storage: 'firestore',
             },
           );
         }
       } catch (reportFetchError) {
         logger.warn(
-          `Failed to fetch last exam report for adaptive learning, continuing with standard generation`,
+          `Failed to fetch last exam report from Firestore for adaptive learning, continuing with standard generation`,
           {
             exam_id: newExam.exam_id,
             user_id: user.user_id,
@@ -338,6 +332,7 @@ const handler = async (
               reportFetchError instanceof Error
                 ? reportFetchError.message
                 : 'Unknown error',
+            storage: 'firestore',
             structuredData: true,
           },
         );
