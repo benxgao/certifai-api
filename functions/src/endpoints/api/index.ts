@@ -130,7 +130,7 @@ router.post(
   submitExamForUser,
 );
 
-// Delete a user exam (only failed exams)
+// Delete a user exam
 router.delete(
   '/users/:user_id/exams/:exam_id',
   verifyFirebaseToken,

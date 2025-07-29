@@ -25,19 +25,33 @@ async function deleteExamFromRtdb(exam_id: string): Promise<{
   try {
     // Delete exam plan data
     const examPlanPath = `exam_plans/${exam_id}`;
-    const examPlanData = await getRtdbValue(examPlanPath);
 
-    if (examPlanData) {
-      await deleteRtdbValue(examPlanPath);
-      results.examPlanDeleted = true;
-      logger.info(
-        `deleteExam: Deleted exam plan from RTDB at path: ${examPlanPath}`,
-      );
-    } else {
-      logger.info(
-        `deleteExam: No exam plan found in RTDB at path: ${examPlanPath}`,
+    // First check if data exists, but proceed with deletion even if check fails
+    let dataExists = false;
+    try {
+      const examPlanData = await getRtdbValue(examPlanPath);
+      dataExists = !!examPlanData;
+      if (dataExists) {
+        logger.info(
+          `deleteExam: Found exam plan data in RTDB at path: ${examPlanPath}`,
+        );
+      } else {
+        logger.info(
+          `deleteExam: No exam plan found in RTDB at path: ${examPlanPath}`,
+        );
+      }
+    } catch (readError) {
+      logger.warn(
+        `deleteExam: Failed to read exam plan from RTDB, will still attempt deletion: ${readError}`,
       );
     }
+
+    // Always attempt deletion regardless of read result (in case of permission issues)
+    await deleteRtdbValue(examPlanPath);
+    results.examPlanDeleted = true;
+    logger.info(
+      `deleteExam: Successfully deleted exam plan from RTDB at path: ${examPlanPath}`,
+    );
   } catch (error) {
     logger.warn(`deleteExam: Failed to delete exam plan from RTDB: ${error}`);
   }
@@ -107,8 +121,7 @@ async function validateExamDeletion(exam_id: string): Promise<{
 
 /**
  * Deletes an exam along with all associated data in proper cascade order
- * Allows deletion of exams in specific statuses to prevent accidental deletion
- * of active or completed exams with valuable user data
+ * Allows deletion of exams in any status to give users full control over their exam data
  *
  * This endpoint explicitly deletes all related data in the correct order:
  * 1. ExamUserAnswer records (foreign key references)
@@ -197,23 +210,21 @@ const handler = async (req: any | CustomRequest, res: Response) => {
     }
 
     // Define which exam statuses can be safely deleted
+    // Allow deletion of all exam statuses as requested
     const deletableStatuses: ExamStatus[] = [
-      ExamStatus.QUESTION_GENERATION_FAILED,
-      ExamStatus.QUESTIONS_GENERATING,
       ExamStatus.PENDING_QUESTIONS,
-      // Don't allow deletion of READY, SUBMITTED, or other completed statuses
-      // to protect user progress and completed exam data
+      ExamStatus.QUESTIONS_GENERATING,
+      ExamStatus.READY,
+      ExamStatus.IN_PROGRESS,
+      ExamStatus.COMPLETED,
+      ExamStatus.QUESTION_GENERATION_FAILED,
     ];
 
-    // Only allow deletion of exams in specific statuses to prevent accidental data loss
+    // Allow deletion of exams in any status
     if (!deletableStatuses.includes(exam.exam_status)) {
       res.status(400).json({
         success: false,
-        error: `Cannot delete exam. Only exams with status ${deletableStatuses.join(
-          ', ',
-        )} can be deleted. Current status: ${
-          exam.exam_status
-        }. Completed or ready exams cannot be deleted to protect user data.`,
+        error: `Cannot delete exam with status: ${exam.exam_status}. This is an unexpected status.`,
       });
       return;
     }
