@@ -298,7 +298,10 @@ const handler = async (
           );
 
         if (lastExamReportDoc?.text_summary) {
-          lastExamReport = lastExamReportDoc.text_summary;
+          // Use structured data directly for exam planning
+          const structuredDataJson = JSON.stringify(lastExamReportDoc);
+          lastExamReport = structuredDataJson;
+
           logger.info(
             `ADAPTIVE_LEARNING_FIRESTORE: Found last exam report for user ${user.user_id} on certification ${certification.name}`,
             {
@@ -307,8 +310,19 @@ const handler = async (
               last_exam_generated: lastExamReportDoc.generated_at,
               report_length: lastExamReport.length,
               topics_analyzed: lastExamReportDoc.topic_performance.length,
+              overall_score: lastExamReportDoc.overall_score,
+              weak_topics: lastExamReportDoc.topic_performance.filter(
+                (t) => t.performance_category === 'weak',
+              ).length,
+              average_topics: lastExamReportDoc.topic_performance.filter(
+                (t) => t.performance_category === 'average',
+              ).length,
+              strong_topics: lastExamReportDoc.topic_performance.filter(
+                (t) => t.performance_category === 'strong',
+              ).length,
               structuredData: true,
               storage: 'firestore',
+              enhanced_adaptive_learning: true,
             },
           );
         } else {

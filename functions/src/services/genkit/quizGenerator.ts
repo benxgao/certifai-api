@@ -59,7 +59,10 @@ const QuizGeneratorInput = z.object({
 
 // Helper function to build adaptive difficulty instructions from structured data
 /**
- * Generates adaptive difficulty instructions for AI prompt based on previous exam performance
+ * Builds adaptive difficulty instructions from structured Firestore exam report data.
+ *
+ * @param lastExamReport - Structured JSON exam report from Firestore
+ * @returns Formatted difficulty instructions for AI quiz generation
  *
  * Example output with structured data:
  * ```
@@ -72,48 +75,41 @@ const QuizGeneratorInput = z.object({
  * For topics not mentioned above: Generate INTERMEDIATE level questions.
  * Previous exam performance: 75% overall score
  * ```
- *
- * Example output with text-only data (fallback):
- * ```
- * ADAPTIVE DIFFICULTY ADJUSTMENT (text-based analysis):
- * Based on the previous exam performance report below, adjust question difficulty for each topic:
- * - For topics mentioned as "strong areas" or "good performance": Generate ADVANCED to EXPERT level questions
- * - For topics mentioned as "weak areas" or "needs improvement": Generate EASY to INTERMEDIATE level questions
- * - For topics mentioned as "average" or not mentioned: Generate INTERMEDIATE level questions
- *
- * Previous exam report:
- * Your performance analysis shows excellent understanding of IAM and Security...
- * ```
  */
 const buildAdaptiveDifficultyInstructions = (
   lastExamReport: string,
 ): string => {
-  // Try to parse structured data first
+  // Parse structured data from Firestore exam report (required)
   const structuredData = parseStructuredReport(lastExamReport);
 
-  if (structuredData?.topic_performance) {
-    // Use structured data for precise difficulty mapping
-    const topicInstructions = structuredData.topic_performance
-      .map((topic) => {
-        let difficultyLevel: string;
-        switch (topic.performance_category) {
-          case 'strong':
-            difficultyLevel = 'ADVANCED to EXPERT';
-            break;
-          case 'weak':
-            difficultyLevel = 'EASY to INTERMEDIATE';
-            break;
-          default:
-            difficultyLevel = 'INTERMEDIATE';
-        }
+  if (!structuredData?.topic_performance) {
+    throw new Error(
+      'Invalid or missing structured exam report data. Cannot generate adaptive quiz without structured performance data.',
+    );
+  }
 
-        return `    - ${topic.topic}: ${difficultyLevel} level (${Math.round(
-          topic.accuracy_rate * 100,
-        )}% accuracy)`;
-      })
-      .join('\n');
+  // Use structured data for precise difficulty mapping
+  const topicInstructions = structuredData.topic_performance
+    .map((topic) => {
+      let difficultyLevel: string;
+      switch (topic.performance_category) {
+        case 'strong':
+          difficultyLevel = 'ADVANCED to EXPERT';
+          break;
+        case 'weak':
+          difficultyLevel = 'EASY to INTERMEDIATE';
+          break;
+        default:
+          difficultyLevel = 'INTERMEDIATE';
+      }
 
-    return `
+      return `    - ${topic.topic}: ${difficultyLevel} level (${Math.round(
+        topic.accuracy_rate * 100,
+      )}% accuracy)`;
+    })
+    .join('\n');
+
+  return `
 
     ADAPTIVE DIFFICULTY ADJUSTMENT (precise topic-based difficulty mapping):
     Generate questions with the following difficulty levels for each topic:
@@ -121,19 +117,6 @@ ${topicInstructions}
 
     For topics not mentioned above: Generate INTERMEDIATE level questions.
     Previous exam performance: ${structuredData.overall_score}% overall score`;
-  } else {
-    // Fallback to text-based parsing for backward compatibility
-    return `
-
-    ADAPTIVE DIFFICULTY ADJUSTMENT (text-based analysis):
-    Based on the previous exam performance report below, adjust question difficulty for each topic:
-    - For topics mentioned as "strong areas" or "good performance": Generate ADVANCED to EXPERT level questions
-    - For topics mentioned as "weak areas" or "needs improvement": Generate EASY to INTERMEDIATE level questions
-    - For topics mentioned as "average" or not mentioned: Generate INTERMEDIATE level questions
-
-    Previous exam report:
-    ${lastExamReport.trim()}`;
-  }
 };
 
 // Helper function to build the quiz generation prompt

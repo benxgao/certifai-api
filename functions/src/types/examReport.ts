@@ -131,11 +131,8 @@ export const parseStructuredReport = (
   reportString: string,
 ): StructuredExamReport | null => {
   try {
-    // Look for JSON structure in the report string
-    const jsonMatch = reportString.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) return null;
-
-    const parsed = JSON.parse(jsonMatch[0]);
+    // Parse JSON directly (structured data only)
+    const parsed = JSON.parse(reportString);
 
     // Validate basic structure
     if (parsed.topic_performance && Array.isArray(parsed.topic_performance)) {

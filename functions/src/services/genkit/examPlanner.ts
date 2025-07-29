@@ -4,6 +4,10 @@ import { enableFirebaseTelemetry } from '@genkit-ai/firebase';
 import logger from '../firebase/logger';
 import { setRtdbValue } from '../firebase/rtdb';
 import {
+  parseStructuredReport,
+  TopicPerformance,
+} from '../../types/examReport';
+import {
   createAiInstancePromise,
   generateWithValidation,
   validateAndFilterResponse,
@@ -72,6 +76,105 @@ const ExamPlannerInput = z.object({
     ),
 });
 
+// Helper function to build adaptive learning instructions from structured Firestore data
+const buildAdaptiveTopicInstructions = (lastExamReport: string): string => {
+  // Parse structured data from Firestore exam report (required)
+  const structuredData = parseStructuredReport(lastExamReport);
+
+  if (!structuredData?.topic_performance) {
+    throw new Error(
+      'Invalid or missing structured exam report data. Cannot generate adaptive exam plan without structured performance data.',
+    );
+  }
+
+  // Use structured data for precise topic-based exam planning
+  const weakTopics = structuredData.topic_performance
+    .filter((topic: TopicPerformance) => topic.performance_category === 'weak')
+    .sort(
+      (a: TopicPerformance, b: TopicPerformance) =>
+        a.accuracy_rate - b.accuracy_rate,
+    ); // Prioritize weakest topics
+
+  const averageTopics = structuredData.topic_performance.filter(
+    (topic: TopicPerformance) => topic.performance_category === 'average',
+  );
+
+  const strongTopics = structuredData.topic_performance
+    .filter(
+      (topic: TopicPerformance) => topic.performance_category === 'strong',
+    )
+    .sort(
+      (a: TopicPerformance, b: TopicPerformance) =>
+        b.accuracy_rate - a.accuracy_rate,
+    ); // Prioritize strongest topics
+
+  // Calculate topic counts for strategy description
+  const weakCount = weakTopics.length;
+  const averageCount = averageTopics.length;
+  const strongCount = strongTopics.length;
+
+  // Build detailed topic allocation instructions
+  let adaptiveInstructions = `
+
+    ADAPTIVE TOPIC ALLOCATION (based on structured performance data):
+    Generate exam topics using the following performance-based strategy:
+
+    WEAK PERFORMANCE AREAS (${weakCount} topics, prioritize 60% of exam topics):
+    Focus heavily on these areas where improvement is needed:`;
+
+  weakTopics.forEach((topic: TopicPerformance) => {
+    adaptiveInstructions += `\n    - ${topic.topic}: ${Math.round(
+      topic.accuracy_rate * 100,
+    )}% accuracy (${
+      topic.difficulty_level
+    } level) - Generate multiple related topics`;
+  });
+
+  if (averageTopics.length > 0) {
+    adaptiveInstructions += `
+
+    AVERAGE PERFORMANCE AREAS (${averageCount} topics, allocate 25% of exam topics):
+    Include moderate coverage for reinforcement:`;
+
+    averageTopics.forEach((topic: TopicPerformance) => {
+      adaptiveInstructions += `\n    - ${topic.topic}: ${Math.round(
+        topic.accuracy_rate * 100,
+      )}% accuracy (${
+        topic.difficulty_level
+      } level) - Include some related topics`;
+    });
+  }
+
+  if (strongTopics.length > 0) {
+    adaptiveInstructions += `
+
+    STRONG PERFORMANCE AREAS (${strongCount} topics, allocate 15% of exam topics):
+    Include minimal coverage for mastery validation:`;
+
+    strongTopics.forEach((topic: TopicPerformance) => {
+      adaptiveInstructions += `\n    - ${topic.topic}: ${Math.round(
+        topic.accuracy_rate * 100,
+      )}% accuracy (${
+        topic.difficulty_level
+      } level) - Include occasionally for validation`;
+    });
+  }
+
+  adaptiveInstructions += `
+
+    TOPIC GENERATION STRATEGY:
+    1. Generate topics that are RELATED TO or SUBTOPICS OF the weak performance areas listed above
+    2. Use topic names that would help improve understanding in the weak areas
+    3. For weak topics with <50% accuracy, generate 3-4 related subtopics each
+    4. For average topics (50-79% accuracy), generate 1-2 related subtopics each
+    5. For strong topics (≥80% accuracy), generate at most 1 related topic for validation
+    6. Fill remaining topics with general certification topics if needed
+
+    Previous exam overall score: ${structuredData.overall_score}% (${structuredData.correct_answers}/${structuredData.total_questions} questions)`;
+
+  return adaptiveInstructions;
+};
+
 // Helper function to build the exam planning prompt
 const buildExamPlanPrompt = (
   cert_name: string,
@@ -108,12 +211,7 @@ const buildExamPlanPrompt = (
     : '';
 
   const adaptiveSection = lastExamReport?.trim()
-    ? `
-
-    ADAPTIVE LEARNING INSIGHTS (use this to focus on areas needing improvement):
-    Based on the previous exam performance report below, prioritize topics that need strengthening and adjust difficulty for areas of mastery:
-
-    ${lastExamReport.trim()}`
+    ? buildAdaptiveTopicInstructions(lastExamReport)
     : '';
 
   const formatSection = `
@@ -165,6 +263,10 @@ export const examPlannerPromise = aiInstancePromise
             hasLastExamReport: !!lastExamReport,
             lastExamReportLength: lastExamReport?.length || 0,
             adaptiveLearningEnabled: !!lastExamReport,
+            structuredAdaptiveLearning:
+              !!lastExamReport &&
+              parseStructuredReport(lastExamReport) !== null,
+            enhancedTopicAllocation: !!lastExamReport,
           });
 
           const prompt = buildExamPlanPrompt(
