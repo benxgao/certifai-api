@@ -406,6 +406,7 @@ export const handleExamCompletionOrNextBatch = async (
       total_batches: adjustedTotalBatches, // Use adjusted total based on remaining work
       custom_prompt_text: payload.custom_prompt_text,
       questions_per_batch,
+      last_exam_report: payload.last_exam_report,
     };
 
     const delaySeconds = 1;

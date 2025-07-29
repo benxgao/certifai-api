@@ -8,6 +8,7 @@ export interface TaskPayload {
   total_batches: number;
   custom_prompt_text?: string;
   questions_per_batch: number;
+  last_exam_report?: string;
 }
 
 export interface ExamTopicItem {

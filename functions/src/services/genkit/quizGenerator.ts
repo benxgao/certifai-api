@@ -47,6 +47,12 @@ const QuizGeneratorInput = z.object({
     .describe(
       'Optional custom prompt text to focus on specific topics or requirements',
     ),
+  lastExamReport: z
+    .string()
+    .optional()
+    .describe(
+      'Optional exam report from the last completed exam to inform adaptive difficulty adjustment',
+    ),
 });
 // Using shared AI instance initialization
 
@@ -55,6 +61,7 @@ const buildQuizPrompt = (
   subject: string,
   examTopicList: string[],
   customPromptText?: string,
+  lastExamReport?: string,
 ): string => {
   const count = examTopicList.length;
   const topicsSection = examTopicList
@@ -83,6 +90,19 @@ const buildQuizPrompt = (
     ? `ADDITIONAL FOCUS (the below rules should be applied with each examTopic):${customPromptText.trim()}`
     : '';
 
+  const adaptiveDifficultySection = lastExamReport?.trim()
+    ? `
+
+    ADAPTIVE DIFFICULTY ADJUSTMENT (use this to determine appropriate question difficulty levels):
+    Based on the previous exam performance report below, adjust question difficulty for each topic:
+    - For topics mentioned as "strong areas" or "good performance": Generate ADVANCED to EXPERT level questions
+    - For topics mentioned as "weak areas" or "needs improvement": Generate EASY to INTERMEDIATE level questions
+    - For topics mentioned as "average" or not mentioned: Generate INTERMEDIATE level questions
+
+    Previous exam report:
+    ${lastExamReport.trim()}`
+    : '';
+
   const formatSection = `
     JSON format:[{
       "question": "string",
@@ -96,7 +116,7 @@ const buildQuizPrompt = (
     IMPORTANT: Each question MUST have an examTopic value that exactly matches one of the provided topic names.
   `;
 
-  return basePrompt + customSection + formatSection;
+  return basePrompt + customSection + adaptiveDifficultySection + formatSection;
 };
 
 // Use the shared singleton AI instance
@@ -119,7 +139,13 @@ export const quizGeneratorPromise = aiInstancePromise
         { sendChunk }: FlowSideChannel<string>,
       ): Promise<QuizItem[]> => {
         try {
-          const { subject, examTopicList, exam_id, customPromptText } = input;
+          const {
+            subject,
+            examTopicList,
+            exam_id,
+            customPromptText,
+            lastExamReport,
+          } = input;
           const count = examTopicList.length;
 
           logGenerationStart('quiz generation', {
@@ -128,12 +154,15 @@ export const quizGeneratorPromise = aiInstancePromise
             exam_id,
             examTopicList: examTopicList.join(', '),
             customPromptText: customPromptText?.substring(0, 100),
+            hasLastExamReport: !!lastExamReport,
+            adaptiveDifficultyEnabled: !!lastExamReport,
           });
 
           const prompt = buildQuizPrompt(
             subject,
             examTopicList,
             customPromptText,
+            lastExamReport,
           );
 
           // Generate quiz items using shared utility with custom config

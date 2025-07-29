@@ -14,8 +14,13 @@ export const generateQuestionsWithAI = async (
   topicNamesForGeneration: string[],
   questions_to_generate: number,
 ): Promise<any[]> => {
-  const { exam_id, batch_number, certification_name, custom_prompt_text } =
-    payload;
+  const {
+    exam_id,
+    batch_number,
+    certification_name,
+    custom_prompt_text,
+    last_exam_report,
+  } = payload;
 
   logger.info(`EXAM_BATCH_QUESTION_GENERATOR_START: exam_id=${exam_id}, batch=${batch_number}
     | task_payload: ${JSON.stringify(payload)}`);
@@ -42,6 +47,7 @@ export const generateQuestionsWithAI = async (
     examTopicList: topicNamesForGeneration,
     exam_id,
     customPromptText: custom_prompt_text,
+    lastExamReport: last_exam_report,
   });
 
   const aiDuration = Date.now() - aiStartTime;

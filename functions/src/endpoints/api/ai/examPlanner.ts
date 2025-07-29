@@ -17,6 +17,7 @@ import logger from '../../../services/firebase/logger';
  *   "cert_id": "cert_456",
  *   "cert_name": "AWS Solutions Architect Associate",
  *   "customPrompt": "Focus on advanced networking, security best practices, and cost optimization strategies",
+ *   "lastExamReport": "Previous exam showed weakness in VPC networking and strong performance in IAM...",
  *   "totalQuestionCounts": 65
  * }
  *
@@ -37,7 +38,8 @@ import logger from '../../../services/firebase/logger';
  *     "cert_id": "cert_456",
  *     "user_id": "user_789",
  *     "created_at": 1721030400,
- *     "customPrompt": "Focus on advanced networking, security best practices, and cost optimization strategies"
+ *     "customPrompt": "Focus on advanced networking, security best practices, and cost optimization strategies",
+ *     "lastExamReport": "Previous exam showed weakness in VPC networking..."
  *   }
  * }
  */
@@ -49,8 +51,14 @@ export const examPlannerHandler = async (req: any, res: Response) => {
     );
     const examPlanner = await examPlannerPromise;
 
-    const { exam_id, cert_id, cert_name, totalQuestionCounts, customPrompt } =
-      req.body;
+    const {
+      exam_id,
+      cert_id,
+      cert_name,
+      totalQuestionCounts,
+      customPrompt,
+      lastExamReport,
+    } = req.body;
 
     // Extract user_id from Firebase auth token
     const user_id = req.firebase_user_info?.user_id;
@@ -101,6 +109,10 @@ export const examPlannerHandler = async (req: any, res: Response) => {
         customPrompt
           ? `, customPrompt: ${customPrompt.substring(0, 100)}...`
           : ''
+      }${
+        lastExamReport
+          ? `, lastExamReport: ${lastExamReport.substring(0, 100)}...`
+          : ''
       }`,
     );
 
@@ -111,6 +123,7 @@ export const examPlannerHandler = async (req: any, res: Response) => {
       cert_id,
       user_id,
       customPrompt,
+      lastExamReport,
     });
 
     logger.info(

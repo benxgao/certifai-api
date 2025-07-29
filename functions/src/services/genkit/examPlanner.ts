@@ -31,6 +31,13 @@ const ExamPlanSchema = z.object({
     .nullable()
     .optional()
     .describe('Optional custom prompt used to focus exam planning'),
+  lastExamReport: z
+    .string()
+    .nullable()
+    .optional()
+    .describe(
+      'Optional exam report from the last completed exam used for adaptive learning',
+    ),
 });
 
 type ExamPlan = z.infer<typeof ExamPlanSchema>;
@@ -56,6 +63,13 @@ const ExamPlannerInput = z.object({
     .describe(
       'Optional custom prompt text to focus on specific topics or requirements for exam planning',
     ),
+  lastExamReport: z
+    .string()
+    .nullable()
+    .optional()
+    .describe(
+      'Optional exam report from the last completed exam to inform adaptive topic generation',
+    ),
 });
 
 // Helper function to build the exam planning prompt
@@ -63,6 +77,7 @@ const buildExamPlanPrompt = (
   cert_name: string,
   totalQuestionCounts: number,
   customPrompt?: string,
+  lastExamReport?: string,
 ): string => {
   const basePrompt = `Generate a generic list of exam topics for the ${cert_name} certification.
 
@@ -92,6 +107,15 @@ const buildExamPlanPrompt = (
     ${customPrompt.trim()}`
     : '';
 
+  const adaptiveSection = lastExamReport?.trim()
+    ? `
+
+    ADAPTIVE LEARNING INSIGHTS (use this to focus on areas needing improvement):
+    Based on the previous exam performance report below, prioritize topics that need strengthening and adjust difficulty for areas of mastery:
+
+    ${lastExamReport.trim()}`
+    : '';
+
   const formatSection = `
 
     Return the response as a JSON array of strings, where each string is a topic:
@@ -99,7 +123,7 @@ const buildExamPlanPrompt = (
 
     Generate exactly ${totalQuestionCounts} unique and relevant topics for ${cert_name}.`;
 
-  return basePrompt + customSection + formatSection;
+  return basePrompt + customSection + adaptiveSection + formatSection;
 };
 
 // Use the shared singleton AI instance
@@ -128,6 +152,7 @@ export const examPlannerPromise = aiInstancePromise
             cert_id,
             user_id,
             customPrompt,
+            lastExamReport,
           } = input;
 
           logGenerationStart('exam plan generation', {
@@ -137,12 +162,16 @@ export const examPlannerPromise = aiInstancePromise
             cert_id,
             user_id,
             customPrompt: customPrompt?.substring(0, 100),
+            hasLastExamReport: !!lastExamReport,
+            lastExamReportLength: lastExamReport?.length || 0,
+            adaptiveLearningEnabled: !!lastExamReport,
           });
 
           const prompt = buildExamPlanPrompt(
             cert_name,
             totalQuestionCounts,
             customPrompt || undefined,
+            lastExamReport || undefined,
           );
 
           // Generate topics using shared utility
@@ -174,6 +203,7 @@ export const examPlannerPromise = aiInstancePromise
             user_id,
             created_at: Math.floor(Date.now() / 1000),
             customPrompt: customPrompt ?? null,
+            lastExamReport: lastExamReport ?? null,
           };
 
           // Store the exam plan in Firebase Realtime Database
@@ -187,6 +217,9 @@ export const examPlannerPromise = aiInstancePromise
               questionsCount: questions.length,
               cert_id,
               user_id,
+              hasCustomPrompt: !!customPrompt,
+              hasLastExamReport: !!lastExamReport,
+              adaptiveLearningEnabled: !!lastExamReport,
               structuredData: true,
             },
           );

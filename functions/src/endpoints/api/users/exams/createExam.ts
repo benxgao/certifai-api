@@ -284,6 +284,65 @@ const handler = async (
     );
 
     try {
+      // Fetch the last completed exam with a report for adaptive learning
+      let lastExamReport: string | null = null;
+      try {
+        const lastCompletedExam = await prismaInstance.examAttempt.findFirst({
+          where: {
+            user_id: user.user_id,
+            cert_id: certIdNumber,
+            exam_status: ExamStatus.COMPLETED,
+            exam_report: {
+              not: null,
+            },
+          },
+          select: {
+            exam_report: true,
+            exam_id: true,
+            submitted_at: true,
+          },
+          orderBy: {
+            submitted_at: 'desc',
+          },
+        });
+
+        if (lastCompletedExam?.exam_report) {
+          lastExamReport = lastCompletedExam.exam_report;
+          logger.info(
+            `ADAPTIVE_LEARNING: Found last exam report for user ${user.user_id} on certification ${certification.name}`,
+            {
+              exam_id: newExam.exam_id,
+              last_exam_id: lastCompletedExam.exam_id,
+              last_exam_submitted: lastCompletedExam.submitted_at,
+              report_length: lastExamReport.length,
+              structuredData: true,
+            },
+          );
+        } else {
+          logger.info(
+            `ADAPTIVE_LEARNING: No previous exam report found for user ${user.user_id} on certification ${certification.name}`,
+            {
+              exam_id: newExam.exam_id,
+              structuredData: true,
+            },
+          );
+        }
+      } catch (reportFetchError) {
+        logger.warn(
+          `Failed to fetch last exam report for adaptive learning, continuing with standard generation`,
+          {
+            exam_id: newExam.exam_id,
+            user_id: user.user_id,
+            cert_id: certIdNumber,
+            error:
+              reportFetchError instanceof Error
+                ? reportFetchError.message
+                : 'Unknown error',
+            structuredData: true,
+          },
+        );
+      }
+
       // Use examPlanner to generate topics and store in RTDB
       const topicGenerationStart = Date.now();
       const { examPlannerPromise } = await import(
@@ -297,6 +356,7 @@ const handler = async (
         cert_id: certification.cert_id.toString(),
         user_id: user.user_id,
         customPrompt: customPromptText || null,
+        lastExamReport: lastExamReport,
       });
       timingAudit.ai_operations.topic_generation =
         Date.now() - topicGenerationStart;
@@ -337,6 +397,7 @@ const handler = async (
         total_batches: totalBatches,
         custom_prompt_text: customPromptText || '',
         questions_per_batch: QUESTIONS_PER_BATCH,
+        last_exam_report: lastExamReport || undefined,
       };
 
       // CRITICAL FIX: Verify exam plan is accessible in RTDB before creating Cloud Task

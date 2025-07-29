@@ -8,6 +8,7 @@
  * - examTopicList (string[], required): Array of specific topics to generate questions for (batch size limited)
  * - exam_id (string, required): Unique exam identifier
  * - customPromptText (string, optional): Additional prompt text to focus generation
+ * - lastExamReport (string, optional): Previous exam report for adaptive difficulty adjustment
  *
  * Response:
  * - success (boolean): Whether the operation was successful
@@ -34,6 +35,7 @@ export const quizGeneratorHandler = async (req: Request, res: Response) => {
     const examTopicList = req.body.examTopicList;
     const exam_id = req.body.exam_id;
     const customPromptText = req.body.customPromptText;
+    const lastExamReport = req.body.lastExamReport;
 
     if (!exam_id) {
       res.status(400).json({
@@ -87,6 +89,8 @@ export const quizGeneratorHandler = async (req: Request, res: Response) => {
       {
         examTopicList: cleanExamTopicList,
         customPromptText: customPromptText?.substring(0, 100),
+        hasLastExamReport: !!lastExamReport,
+        adaptiveDifficultyEnabled: !!lastExamReport,
       },
     );
 
@@ -95,6 +99,7 @@ export const quizGeneratorHandler = async (req: Request, res: Response) => {
       examTopicList: cleanExamTopicList,
       exam_id,
       customPromptText,
+      lastExamReport,
     });
 
     logger.info(
