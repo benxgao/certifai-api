@@ -156,6 +156,7 @@ model ExamAttempt {
   custom_prompt_text String? // Store the custom prompt used for question generation
   started_at         DateTime   @default(now())
   submitted_at       DateTime?
+  exam_report        String?
 
   user               User             @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
   certification      Certification    @relation(fields: [cert_id], references: [cert_id], onDelete: Cascade)
