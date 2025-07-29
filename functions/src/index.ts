@@ -8,8 +8,6 @@ import serviceDelegators from './delegators';
 
 // Import scheduled functions
 import {
-  collectExamGenerationMetrics,
-  dailyExamGenerationReport,
   automatedStuckExamCleanup,
   autoFailStuckExams,
 } from './scheduledFunctions/examGenerationMonitoring';
@@ -34,9 +32,4 @@ export const delegators = onRequest(
 );
 
 // Export scheduled functions
-export {
-  collectExamGenerationMetrics,
-  dailyExamGenerationReport,
-  automatedStuckExamCleanup,
-  autoFailStuckExams,
-};
+export { automatedStuckExamCleanup, autoFailStuckExams };
