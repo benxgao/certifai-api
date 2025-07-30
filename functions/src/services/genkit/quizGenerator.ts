@@ -35,7 +35,7 @@ const QuizGeneratorInput = z.object({
     .min(1)
     .max(100) // Maximum 100 topics to handle larger batches
     .describe(
-      'List of exam topics for this batch - one question will be generated for each topic (batch size limited)',
+      'List of exam topics for this batch - one question will be generated for each topic. Duplicate topics are allowed for adaptive learning.',
     ),
   exam_id: z
     .string()
@@ -135,18 +135,22 @@ const buildQuizPrompt = (
     Each question MUST focus on one of the following specific topics (use the exact topic name as examTopic):
     ${topicsSection}
 
+    NOTE: Some topics may appear multiple times in the list above for adaptive learning. Generate a UNIQUE question for EACH occurrence.
+
     REQUIREMENTS:
     1. Sophisticated distractors requiring expertise
     2. All 4 choices plausible and technically accurate
     3. Wrong answers: common misconceptions, not obvious fakes
     4. Make questions text simple and clear, avoiding unnecessary complexity
     5. examTopic MUST be the exact topic name from the list above for each question
-    6. Each provided exam topic must have a corresponding question
+    6. Each provided exam topic must have a corresponding question (including duplicates)
+    7. For duplicate topics, create different questions that test different aspects of the same topic
 
     CONSTRUCTION:
     - Business scenarios with specific constraints
     - Exact 4 options, can be commands, code snippets, or concepts
     - Each question MUST use one of the provided examTopic values exactly as listed
+    - For repeated topics, vary the question content while keeping the same examTopic value
   `;
 
   const customSection = customPromptText?.trim()
@@ -166,8 +170,11 @@ const buildQuizPrompt = (
       "examTopic": "string (REQUIRED - must be one of the exact topic names from the list above)"
     }]
 
-    Explanation: simple sentences to exlain why correct option is correct and why wrong answers are wrong.
-    IMPORTANT: Each question MUST have an examTopic value that exactly matches one of the provided topic names.
+    Explanation: simple sentences to explain why correct option is correct and why wrong answers are wrong.
+    IMPORTANT:
+    - Each question MUST have an examTopic value that exactly matches one of the provided topic names.
+    - For duplicate topics in the list, create different questions with the same examTopic value.
+    - Generate exactly ${count} questions, one for each topic occurrence (including duplicates).
   `;
 
   return basePrompt + customSection + adaptiveDifficultySection + formatSection;
@@ -201,15 +208,25 @@ export const quizGeneratorPromise = aiInstancePromise
             lastExamReport,
           } = input;
           const count = examTopicList.length;
+          const uniqueTopics = [...new Set(examTopicList)];
+          const duplicateTopics = examTopicList.filter(
+            (topic, index) => examTopicList.indexOf(topic) !== index,
+          );
 
           logGenerationStart('quiz generation', {
             subject,
             count,
             exam_id,
             examTopicList: examTopicList.join(', '),
+            uniqueTopicsCount: uniqueTopics.length,
+            duplicateTopicsCount: duplicateTopics.length,
+            duplicateTopics:
+              duplicateTopics.length > 0 ? [...new Set(duplicateTopics)] : [],
             customPromptText: customPromptText?.substring(0, 100),
             hasLastExamReport: !!lastExamReport,
             adaptiveDifficultyEnabled: !!lastExamReport,
+            adaptiveLearningWithDuplicates:
+              !!lastExamReport && duplicateTopics.length > 0,
           });
 
           const prompt = buildQuizPrompt(
@@ -234,14 +251,29 @@ export const quizGeneratorPromise = aiInstancePromise
           );
 
           // Validate and filter questions with missing examTopic using shared utility
+          // Use normalized comparison to handle case differences and whitespace
           const validQuizItems = validateAndFilterResponse(
             actualQuizItems,
-            (item: QuizItem) =>
-              !!(
-                item.examTopic &&
-                item.examTopic.trim() !== '' &&
-                examTopicList.includes(item.examTopic)
-              ),
+            (item: QuizItem) => {
+              if (!item.examTopic || item.examTopic.trim() === '') {
+                return false;
+              }
+
+              // Normalize the generated topic for comparison
+              const normalizedGenerated = item.examTopic
+                .trim()
+                .toLowerCase()
+                .replace(/\s+/g, ' ');
+
+              // Check if any of the expected topics match (normalized)
+              return examTopicList.some((expectedTopic) => {
+                const normalizedExpected = expectedTopic
+                  .trim()
+                  .toLowerCase()
+                  .replace(/\s+/g, ' ');
+                return normalizedExpected === normalizedGenerated;
+              });
+            },
             'quiz items with valid examTopic from the provided list',
           );
 

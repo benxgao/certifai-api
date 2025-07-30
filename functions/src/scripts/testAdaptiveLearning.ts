@@ -263,4 +263,136 @@ export {
   testCompleteAdaptiveLearningWorkflow,
   mockStructuredExamReport,
   createMockExamReportString,
+  testDuplicateTopicGeneration,
+};
+
+/**
+ * Test function specifically for duplicate topic generation in adaptive learning
+ */
+const testDuplicateTopicGeneration = async () => {
+  logger.info(
+    '🔄 DUPLICATE_TOPIC_TEST: Testing adaptive learning with duplicate weak topics',
+  );
+
+  try {
+    // Import exam planner
+    const { examPlannerPromise } = await import(
+      '../services/genkit/examPlanner.js'
+    );
+    const examPlanner = await examPlannerPromise;
+
+    // Create a mock report with very weak topics for testing duplication
+    const mockReportWithWeakTopics = JSON.stringify({
+      exam_id: 'test_duplicate_exam_123',
+      overall_score: 45, // Low score to trigger more weak topic focus
+      total_questions: 30,
+      correct_answers: 14,
+      topic_performance: [
+        {
+          topic: 'VPC Security',
+          correct_answers: 1,
+          total_attempts: 5,
+          accuracy_rate: 0.2, // Very weak - should be duplicated multiple times
+          difficulty_level: 'advanced',
+          performance_category: 'weak',
+        },
+        {
+          topic: 'IAM Policies',
+          correct_answers: 2,
+          total_attempts: 6,
+          accuracy_rate: 0.33, // Weak - should be duplicated
+          difficulty_level: 'intermediate',
+          performance_category: 'weak',
+        },
+        {
+          topic: 'Load Balancing',
+          correct_answers: 4,
+          total_attempts: 5,
+          accuracy_rate: 0.8, // Strong - should appear once or not at all
+          difficulty_level: 'easy',
+          performance_category: 'strong',
+        },
+      ],
+      generated_at: new Date().toISOString(),
+    });
+
+    // Test with small exam for clear duplicate analysis
+    const examPlan = await examPlanner({
+      cert_name: 'Google Cloud Professional Cloud Architect',
+      totalQuestionCounts: 20, // Small exam to see duplicates clearly
+      exam_id: 'test_duplicate_exam_456',
+      cert_id: '1',
+      user_id: 'test_user_duplicate',
+      customPrompt: null,
+      lastExamReport: mockReportWithWeakTopics,
+    });
+
+    // Analyze duplicate topics
+    const topicCounts = examPlan.questions.reduce((counts, question) => {
+      const topic = question.exam_topic;
+      counts[topic] = (counts[topic] || 0) + 1;
+      return counts;
+    }, {} as Record<string, number>);
+
+    const duplicatedTopics = Object.entries(topicCounts).filter(
+      ([, count]) => count > 1,
+    );
+    const topicDistribution = Object.entries(topicCounts)
+      .sort(([, a], [, b]) => b - a) // Sort by frequency
+      .slice(0, 10); // Top 10 most frequent
+
+    logger.info('🎯 DUPLICATE_TOPIC_ANALYSIS: Topic frequency analysis', {
+      exam_id:
+        examPlan.questions.length > 0 ? 'test_duplicate_exam_456' : 'failed',
+      total_topics: examPlan.questions.length,
+      unique_topics: Object.keys(topicCounts).length,
+      duplicated_topics_count: duplicatedTopics.length,
+      duplicated_topics: duplicatedTopics,
+      topic_distribution: topicDistribution,
+      weak_topics_in_report: ['VPC Security', 'IAM Policies'],
+      expected_behavior: 'Weak topics should appear multiple times',
+    });
+
+    // Verify that weak topics from the report appear multiple times
+    const weakTopicsFromReport = ['VPC Security', 'IAM Policies'];
+    const weakTopicDuplicates = weakTopicsFromReport.filter((weakTopic) => {
+      const occurrences = examPlan.questions.filter(
+        (q) =>
+          q.exam_topic.toLowerCase().includes(weakTopic.toLowerCase()) ||
+          weakTopic.toLowerCase().includes(q.exam_topic.toLowerCase()),
+      ).length;
+      return occurrences > 1;
+    });
+
+    logger.info('📊 WEAK_TOPIC_DUPLICATION_RESULT:', {
+      weak_topics_checked: weakTopicsFromReport,
+      topics_with_duplicates: weakTopicDuplicates,
+      duplication_success: weakTopicDuplicates.length > 0,
+      total_weak_topic_occurrences: weakTopicsFromReport.reduce(
+        (total, weakTopic) => {
+          return (
+            total +
+            examPlan.questions.filter(
+              (q) =>
+                q.exam_topic.toLowerCase().includes(weakTopic.toLowerCase()) ||
+                weakTopic.toLowerCase().includes(q.exam_topic.toLowerCase()),
+            ).length
+          );
+        },
+        0,
+      ),
+    });
+
+    return {
+      success: true,
+      duplicatedTopics,
+      topicDistribution,
+      weakTopicDuplicates,
+    };
+  } catch (error) {
+    logger.error('💥 DUPLICATE_TOPIC_TEST: Test failed', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+    throw error;
+  }
 };

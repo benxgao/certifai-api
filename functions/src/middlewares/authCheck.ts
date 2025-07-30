@@ -15,7 +15,10 @@ export const verifyFirebaseToken = async (
   logger.info(`verifyFirebaseToken: token received: ${token}`);
 
   if (!token) {
-    res.sendStatus(401);
+    res.status(401).json({
+      success: false,
+      error: 'Authentication token is required',
+    });
     return;
   }
 
@@ -30,7 +33,10 @@ export const verifyFirebaseToken = async (
 
     if (decodedToken.exp < Date.now() / 1000) {
       logger.info('verifyFirebaseToken: token expired');
-      res.sendStatus(401);
+      res.status(401).json({
+        success: false,
+        error: 'Authentication token has expired',
+      });
       return;
     }
 
@@ -41,7 +47,10 @@ export const verifyFirebaseToken = async (
   } catch (err) {
     console.error('verifyFirebaseToken: JWT verification failed:', err);
 
-    res.sendStatus(403);
+    res.status(403).json({
+      success: false,
+      error: 'Invalid authentication token',
+    });
     return;
   }
 };

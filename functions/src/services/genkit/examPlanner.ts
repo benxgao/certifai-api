@@ -117,8 +117,7 @@ const buildAdaptiveTopicInstructions = (lastExamReport: string): string => {
   let adaptiveInstructions = `
 
     ADAPTIVE TOPIC ALLOCATION (based on structured performance data):
-    Generate exam topics using the following performance-based strategy:
-
+    Generate exam topics using the following performance-based strategy. DUPLICATE weak topics as needed to ensure sufficient coverage and reinforcement. The resulting array may contain repeated topics, especially for weak areas:
     WEAK PERFORMANCE AREAS (${weakCount} topics, prioritize 60% of exam topics):
     Focus heavily on these areas where improvement is needed:`;
 
@@ -127,7 +126,7 @@ const buildAdaptiveTopicInstructions = (lastExamReport: string): string => {
       topic.accuracy_rate * 100,
     )}% accuracy (${
       topic.difficulty_level
-    } level) - Generate multiple related topics`;
+    } level) - DUPLICATE this topic in the exam plan array (e.g., include it 2-4 times if accuracy <50%) to reinforce learning.`;
   });
 
   if (averageTopics.length > 0) {
@@ -165,9 +164,9 @@ const buildAdaptiveTopicInstructions = (lastExamReport: string): string => {
     TOPIC GENERATION STRATEGY:
     1. Generate topics that are RELATED TO or SUBTOPICS OF the weak performance areas listed above
     2. Use topic names that would help improve understanding in the weak areas
-    3. For weak topics with <50% accuracy, generate 3-4 related subtopics each
-    4. For average topics (50-79% accuracy), generate 1-2 related subtopics each
-    5. For strong topics (≥80% accuracy), generate at most 1 related topic for validation
+    3. For weak topics with <50% accuracy, DUPLICATE the topic in the array 3-4 times (not just subtopics, but the same topic string can appear multiple times)
+    4. For average topics (50-79% accuracy), include 1-2 related subtopics each (can duplicate if needed)
+    5. For strong topics (≥80% accuracy), include at most 1 related topic for validation
     6. Fill remaining topics with general certification topics if needed
 
     Previous exam overall score: ${structuredData.overall_score}% (${structuredData.correct_answers}/${structuredData.total_questions} questions)`;
@@ -185,11 +184,11 @@ const buildExamPlanPrompt = (
   const basePrompt = `Generate a generic list of exam topics for the ${cert_name} certification.
 
     REQUIREMENTS:
-    1. Create exactly ${totalQuestionCounts} distinct exam topics
+    1. Create exactly ${totalQuestionCounts} exam topics (topics may be duplicated, especially for weak areas)
     2. Topics should come from the exam guide of the ${cert_name} certification
     3. Each topic should be 1-2 words
     4. Topics should be realistic and aligned with actual certification content
-    5. Duplicate topics can be created if customPrompt is provided
+    5. DUPLICATE topics as needed to reinforce weak areas (see adaptive instructions below)
     6. A topic using 2 words is more preferable than that contains 1 word with camelCase or snake_case
     7. Select high level concepts as the topic names rather than detailed subtopics if customPrompt is empty
     8. Avoid using overly technical jargon or abbreviations that are not widely recognized
@@ -198,7 +197,7 @@ const buildExamPlanPrompt = (
     TOPIC EXAMPLES:
     - "IAM"
     - "VPC Network"
-    - "IAM"
+    - "IAM" (duplicated for reinforcement)
     - "Load Balancing"
     - "Kubernetes"
     - "API Gateway"`;
@@ -216,10 +215,10 @@ const buildExamPlanPrompt = (
 
   const formatSection = `
 
-    Return the response as a JSON array of strings, where each string is a topic:
+    Return the response as a JSON array of strings, where each string is a topic (topics may be duplicated for reinforcement):
     ["Topic 1", "Topic 2", "Topic 3", ...]
 
-    Generate exactly ${totalQuestionCounts} unique and relevant topics for ${cert_name}.`;
+    Generate exactly ${totalQuestionCounts} relevant topics for ${cert_name}. DUPLICATE weak topics as needed to reinforce learning.`;
 
   return basePrompt + customSection + adaptiveSection + formatSection;
 };
