@@ -19,6 +19,10 @@ export type FirebaseJwtToken = {
 
 export type CustomRequest = Request & {
   firebase_user_info: FirebaseJwtToken;
+  verified_user?: {
+    user_id: string;
+    firebase_user_id: string;
+  };
 };
 
 // Re-export pagination types for convenience

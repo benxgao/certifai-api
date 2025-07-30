@@ -9,12 +9,14 @@ const handler = async (
 ): Promise<void> => {
   try {
     const { user_id } = req.params;
-    const firebaseUserIdFromToken = req.firebase_user_info?.user_id;
+    const firebaseUserIdFromToken = (req as CustomRequest).firebase_user_info
+      ?.uid;
+    const verifiedUser = (req as any).verified_user; // Added by verifyUserAccess middleware
 
     if (!user_id) {
       res.status(400).json({
         success: false,
-        error: 'User ID is required in path.',
+        error: 'User ID is required.',
       });
       return;
     }
@@ -27,9 +29,19 @@ const handler = async (
       return;
     }
 
+    // User verification is now handled by verifyUserAccess middleware
+    // We can use the verified user directly
+    if (!verifiedUser) {
+      res.status(500).json({
+        success: false,
+        error: 'User verification middleware not properly configured',
+      });
+      return;
+    }
+
     logger.info(`Getting user profile for user_id: ${user_id}`);
 
-    // Find the user by the provided user_id (internal UUID)
+    // Get the full user profile data
     const user = await prismaInstance.user.findUnique({
       where: { user_id: user_id },
       select: {
@@ -46,18 +58,6 @@ const handler = async (
       res.status(404).json({
         success: false,
         error: `User with ID: ${user_id} not found.`,
-      });
-      return;
-    }
-
-    // Authorization: Check if the firebase_user_id from token matches the user's firebase_user_id
-    if (user.firebase_user_id !== firebaseUserIdFromToken) {
-      logger.warn(
-        `Forbidden: Firebase user ${firebaseUserIdFromToken} attempted to access profile for user ${user_id}.`,
-      );
-      res.status(403).json({
-        success: false,
-        error: 'Forbidden: You can only access your own user profile.',
       });
       return;
     }

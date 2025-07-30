@@ -24,6 +24,7 @@ export const getExamReport = async (
     const { user_id, exam_id } = req.params;
     const firebaseUserIdFromToken = (req as CustomRequest).firebase_user_info
       ?.uid;
+    const verifiedUser = (req as any).verified_user; // Added by verifyUserAccess middleware
 
     if (!firebaseUserIdFromToken) {
       res.status(401).json({
@@ -41,11 +42,21 @@ export const getExamReport = async (
       return;
     }
 
+    // User verification is now handled by verifyUserAccess middleware
+    // We can use the verified user directly
+    if (!verifiedUser) {
+      res.status(500).json({
+        success: false,
+        error: 'User verification middleware not properly configured',
+      });
+      return;
+    }
+
     logger.info(
       `GET_EXAM_REPORT_FIRESTORE: user_id=${user_id}, exam_id=${exam_id}`,
     );
 
-    // First try to get existing report from Firestore
+    // Now try to get existing report from Firestore
     const existingReport = await examReportFirestore.getExamReport(exam_id);
 
     if (existingReport) {
@@ -136,6 +147,7 @@ export const regenerateExamReport = async (
     const { user_id, exam_id } = req.params;
     const firebaseUserIdFromToken = (req as CustomRequest).firebase_user_info
       ?.uid;
+    const verifiedUser = (req as any).verified_user; // Added by verifyUserAccess middleware
 
     if (!firebaseUserIdFromToken) {
       res.status(401).json({
@@ -153,6 +165,16 @@ export const regenerateExamReport = async (
       return;
     }
 
+    // User verification is now handled by verifyUserAccess middleware
+    // We can use the verified user directly
+    if (!verifiedUser) {
+      res.status(500).json({
+        success: false,
+        error: 'User verification middleware not properly configured',
+      });
+      return;
+    }
+
     logger.info(
       `REGENERATE_EXAM_REPORT_FIRESTORE: user_id=${user_id}, exam_id=${exam_id}`,
     );
@@ -160,7 +182,7 @@ export const regenerateExamReport = async (
     // Check if report exists and delete it to force regeneration
     const existingReport = await examReportFirestore.getExamReport(exam_id);
     if (existingReport) {
-      // Verify the report belongs to the requesting user
+      // Verify the report belongs to the requesting user before deleting
       if (existingReport.user_id !== user_id) {
         res.status(403).json({
           success: false,
@@ -169,10 +191,10 @@ export const regenerateExamReport = async (
         return;
       }
 
-      // Delete existing report to force regeneration
+      // Delete the existing report to force regeneration
       await examReportFirestore.deleteExamReport(exam_id);
       logger.info(
-        `REGENERATE_EXAM_REPORT: Deleted existing report for exam_id=${exam_id}`,
+        `REGENERATE_EXAM_REPORT_FIRESTORE: Deleted existing report for exam_id=${exam_id}`,
       );
     }
 

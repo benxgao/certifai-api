@@ -1,6 +1,7 @@
 import { Router as createRouter } from 'express';
 import ai from './ai';
 import { verifyFirebaseToken } from '../../middlewares/authCheck';
+import { verifyUserAccess } from '../../middlewares/verifyUserAccess';
 import { mediumPagePagination } from '../../middlewares/pagination';
 import protectedResources from './protected_resources';
 import authRegister from './auth/register';
@@ -29,11 +30,11 @@ import {
 } from './users/exams/getExamReport';
 
 // Admin endpoints
-import autoFailStuckExams from './admin/exams/autoFailStuckExams';
-import stuckExams from './admin/exam-generation/stuck-exams';
-import healthCheck from './admin/exam-generation/health';
-import metricsReport from './admin/exam-generation/metrics';
-import forceComplete from './admin/exam-generation/force-complete';
+// import autoFailStuckExams from './admin/exams/autoFailStuckExams';
+// import stuckExams from './admin/exam-generation/stuck-exams';
+// import healthCheck from './admin/exam-generation/health';
+// import metricsReport from './admin/exam-generation/metrics';
+// import forceComplete from './admin/exam-generation/force-complete';
 
 const router = createRouter();
 
@@ -63,18 +64,34 @@ router.post('/auth/generate-service-token', generateServiceToken);
 /** ******************* USERS ************************* */
 
 // Get user profile (including credit tokens)
-router.get('/users/:user_id/profile', verifyFirebaseToken, getUserProfile);
+router.get(
+  '/users/:user_id/profile',
+  verifyFirebaseToken,
+  verifyUserAccess,
+  getUserProfile,
+);
 
 // Get user rate limit information
-router.get('/users/:user_id/rate-limit', verifyFirebaseToken, getRateLimit);
+router.get(
+  '/users/:user_id/rate-limit',
+  verifyFirebaseToken,
+  verifyUserAccess,
+  getRateLimit,
+);
 
 // Delete user account
-router.delete('/users/:user_id', verifyFirebaseToken, deleteUser);
+router.delete(
+  '/users/:user_id',
+  verifyFirebaseToken,
+  verifyUserAccess,
+  deleteUser,
+);
 
 // Register a certification for a user
 router.post(
   '/users/:user_id/certifications',
   verifyFirebaseToken,
+  verifyUserAccess,
   registerCert,
 );
 
@@ -82,6 +99,7 @@ router.post(
 router.get(
   '/users/:user_id/certifications',
   verifyFirebaseToken,
+  verifyUserAccess,
   mediumPagePagination,
   getUserCertifications,
 );
@@ -90,6 +108,7 @@ router.get(
 router.delete(
   '/users/:user_id/certifications/:cert_id',
   verifyFirebaseToken,
+  verifyUserAccess,
   deleteCertification,
 );
 
@@ -99,6 +118,7 @@ router.delete(
 router.post(
   '/users/:user_id/certifications/:cert_id/exams',
   verifyFirebaseToken,
+  verifyUserAccess,
   createExam,
 );
 
@@ -106,6 +126,7 @@ router.post(
 router.get(
   '/users/:user_id/exams',
   verifyFirebaseToken,
+  verifyUserAccess,
   mediumPagePagination,
   getUserExams,
 );
@@ -114,17 +135,24 @@ router.get(
 router.get(
   '/users/:user_id/exams/:exam_id/questions',
   verifyFirebaseToken,
+  verifyUserAccess,
   mediumPagePagination,
   getUserExamQuizQuestions,
 );
 
 // Show a list of questions for a specific exam
-router.get('/users/:user_id/exams/:exam_id', verifyFirebaseToken, getUserExam);
+router.get(
+  '/users/:user_id/exams/:exam_id',
+  verifyFirebaseToken,
+  verifyUserAccess,
+  getUserExam,
+);
 
 // Get exam generation progress
 router.get(
   '/users/:user_id/exams/:exam_id/generating-progress',
   verifyFirebaseToken,
+  verifyUserAccess,
   getExamGeneratingProgress,
 );
 
@@ -132,6 +160,7 @@ router.get(
 router.put(
   '/users/:user_id/exams/:exam_id/questions/:quiz_question_id',
   verifyFirebaseToken,
+  verifyUserAccess,
   answerUserExamQuestions,
 );
 
@@ -139,6 +168,7 @@ router.put(
 router.post(
   '/users/:user_id/certifications/:cert_id/exams/:exam_id/submit',
   verifyFirebaseToken,
+  verifyUserAccess,
   submitExamForUser,
 );
 
@@ -146,6 +176,7 @@ router.post(
 router.delete(
   '/users/:user_id/exams/:exam_id',
   verifyFirebaseToken,
+  verifyUserAccess,
   deleteExam,
 );
 
@@ -153,6 +184,7 @@ router.delete(
 router.get(
   '/users/:user_id/exams/:exam_id/exam-report',
   verifyFirebaseToken,
+  verifyUserAccess,
   getExamReport,
 );
 
@@ -160,40 +192,41 @@ router.get(
 router.post(
   '/users/:user_id/exams/:exam_id/exam-report',
   verifyFirebaseToken,
+  verifyUserAccess,
   regenerateExamReport,
 );
 
 /** *********************** ADMIN ENDPOINTS ******************************** */
 
-// Admin: Get stuck exams
-router.get(
-  '/admin/exam-generation/stuck-exams',
-  verifyFirebaseToken,
-  stuckExams,
-);
+// // Admin: Get stuck exams
+// router.get(
+//   '/admin/exam-generation/stuck-exams',
+//   verifyFirebaseToken,
+//   stuckExams,
+// );
 
-// Admin: Get system health
-router.get('/admin/exam-generation/health', verifyFirebaseToken, healthCheck);
+// // Admin: Get system health
+// router.get('/admin/exam-generation/health', verifyFirebaseToken, healthCheck);
 
-// Admin: Get metrics report
-router.get(
-  '/admin/exam-generation/metrics',
-  verifyFirebaseToken,
-  metricsReport,
-);
+// // Admin: Get metrics report
+// router.get(
+//   '/admin/exam-generation/metrics',
+//   verifyFirebaseToken,
+//   metricsReport,
+// );
 
-// Admin: Force complete stuck exam
-router.post(
-  '/admin/exam-generation/force-complete',
-  verifyFirebaseToken,
-  forceComplete,
-);
+// // Admin: Force complete stuck exam
+// router.post(
+//   '/admin/exam-generation/force-complete',
+//   verifyFirebaseToken,
+//   forceComplete,
+// );
 
-// Admin: Auto-fail stuck exams
-router.post(
-  '/admin/exams/auto-fail-stuck',
-  verifyFirebaseToken,
-  autoFailStuckExams,
-);
+// // Admin: Auto-fail stuck exams
+// router.post(
+//   '/admin/exams/auto-fail-stuck',
+//   verifyFirebaseToken,
+//   autoFailStuckExams,
+// );
 
 export default router;
