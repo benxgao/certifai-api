@@ -269,8 +269,13 @@ const handler = async (req: any | CustomRequest, res: Response) => {
         );
       }
 
-      const isExamSubmittedAndScored =
-        exam.score !== null && exam.submitted_at !== null;
+      // Show explanations and correct answers if exam is submitted (regardless of score)
+      const isExamSubmitted = exam.submitted_at !== null;
+
+      // Debug log to check exam state for explanations
+      logger.info(
+        `EXPLANATIONS_DEBUG: exam_id=${exam_id}, submitted_at=${exam.submitted_at}, score=${exam.score}, isExamSubmitted=${isExamSubmitted}`,
+      );
 
       const questionResponse: QuestionResponse = {
         quiz_question_id: quizQuestion.quiz_question_id,
@@ -287,16 +292,25 @@ const handler = async (req: any | CustomRequest, res: Response) => {
             option_id: ao.option_id,
             option_text: ao.option_text,
           };
-          if (isExamSubmittedAndScored) {
+          if (isExamSubmitted) {
             option.is_correct = ao.is_correct;
           }
           return option;
         }),
       };
 
-      if (isExamSubmittedAndScored) {
+      if (isExamSubmitted) {
         questionResponse.explanations = quizQuestion.explanations;
         questionResponse.user_answer_is_correct = eau.is_correct;
+
+        // Debug log for explanations
+        logger.info(
+          `EXPLANATIONS_DEBUG: Adding explanations for question ${
+            quizQuestion.quiz_question_id
+          }, explanations_present=${!!quizQuestion.explanations}, explanations_length=${
+            quizQuestion.explanations?.length || 0
+          }`,
+        );
       }
 
       return questionResponse;

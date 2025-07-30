@@ -74,8 +74,8 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       ) {
         status =
           examFromDb.score >= examFromDb.certification.pass_score
-            ? 'PASSED'
-            : 'FAILED';
+            ? 'SCORE_ABOVE_THRESHOLD'
+            : 'SCORE_BELOW_THRESHOLD';
       } else {
         status = 'COMPLETED'; // Submitted but score or pass_score is not available
       }
@@ -102,11 +102,11 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       pass_score: examFromDb.certification.pass_score,
       // Add status indicators for the user's performance
       performance: {
-        is_passing:
+        meets_threshold:
           examFromDb.score !== null
             ? examFromDb.score >= examFromDb.certification.pass_score
             : null,
-        score_needed_to_pass: examFromDb.certification.pass_score,
+        threshold_score: examFromDb.certification.pass_score,
         current_score: examFromDb.score,
       },
     };
