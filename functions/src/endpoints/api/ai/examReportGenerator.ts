@@ -243,13 +243,15 @@ export const generateExamReport = async (
     const examReportGenerator = await getExamReportGeneratorFlow();
 
     const reportInput = {
-      user_id: exam.user.user_id,
+      api_user_id: exam.user.user_id, // Our internal UUID for API operations
       exam_id,
       certification_name: exam.certification.name,
       performance_data: validPerformanceData,
       overall_score: overallScore,
       total_questions: totalQuestions,
       correct_answers: correctAnswers,
+      // Deprecated: keeping for backward compatibility only
+      user_id: exam.user.user_id, // @deprecated Use api_user_id instead
     };
 
     const reportResult = await examReportGenerator(reportInput);
@@ -278,7 +280,7 @@ export const generateExamReport = async (
       `EXAM_REPORT_SUCCESS_FIRESTORE: Generated and saved report in Firestore for exam_id=${exam_id}`,
       {
         exam_id,
-        user_id: exam.user.user_id,
+        api_user_id: exam.user.user_id, // Our internal UUID for API operations
         certification: exam.certification.name,
         report_length: generatedReport.length,
         topics_analyzed: validPerformanceData.length,
@@ -286,6 +288,8 @@ export const generateExamReport = async (
         structuredData: true,
         hasStructuredFormat: true,
         storage: 'firestore',
+        // Deprecated: keeping for backward compatibility only
+        user_id: exam.user.user_id, // @deprecated Use api_user_id instead
       },
     );
 

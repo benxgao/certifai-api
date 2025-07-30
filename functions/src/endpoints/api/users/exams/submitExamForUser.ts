@@ -83,72 +83,36 @@ const handler = async (
       (ans) => ans.is_correct === true,
     ).length;
 
-    // 2. Determine the total number of questions for this exam's certification.
-    let totalQuestionsInExamDefinition = 0;
-    let parsedCertId: number | undefined;
-
-    if (cert_id && !isNaN(parseInt(cert_id, 10))) {
-      parsedCertId = parseInt(cert_id, 10);
-    } else {
-      logger.warn(
-        `Invalid or missing cert_id in request params for exam_id: ${exam_id}. Param value: '${cert_id}'. Total questions from definition will be 0. Fallback scoring may apply.`,
-      );
-    }
-
-    if (parsedCertId !== undefined) {
-      try {
-        totalQuestionsInExamDefinition =
-          await prismaInstance.quizQuestion.count({
-            where: { cert_id: parsedCertId },
-          });
-        logger.info(
-          `For exam_id: ${exam_id} (using cert_id from params: ${parsedCertId}), determined total questions in definition: ${totalQuestionsInExamDefinition}.`,
-        );
-        if (totalQuestionsInExamDefinition === 0) {
-          logger.warn(
-            `No questions found in definition for cert_id: ${parsedCertId} (associated with exam_id: ${exam_id}). Fallback scoring may apply.`,
-          );
-        }
-      } catch (e: any) {
-        logger.error(
-          `Error while determining total questions for exam_id ${exam_id} (using cert_id from params: ${parsedCertId}): ${
-            e instanceof Error ? e.message : String(e)
-          }. Total questions from definition will be 0. Fallback scoring may apply.`,
-        );
-        // totalQuestionsInExamDefinition remains 0 in case of error.
-      }
-    }
-    // If parsedCertId was undefined, totalQuestionsInExamDefinition remains 0, and a warning has already been logged.
-
     // Summary log before score calculation
     logger.info(
       `Preparing to calculate score for exam_id: ${exam_id}. ` +
         `Correctly answered: ${correctlyAnsweredCount}. ` +
-        `Total questions from definition: ${totalQuestionsInExamDefinition} (derived from cert_id in params: ${
-          parsedCertId ?? 'N/A'
-        }). ` +
+        `Total questions in this exam: ${examAttempt.total_questions}. ` +
         `Total submitted answers: ${allSubmittedAnswers.length}.`,
     );
 
-    // 3. Calculate the score
+    // 3. Calculate the score based on actual exam questions, not certification pool
     let currentScore = 0;
-    let scoreDenominator = totalQuestionsInExamDefinition;
+    let scoreDenominator = examAttempt.total_questions || 0;
 
-    if (totalQuestionsInExamDefinition > 0) {
-      currentScore =
-        (correctlyAnsweredCount / totalQuestionsInExamDefinition) * 100;
+    if (examAttempt.total_questions && examAttempt.total_questions > 0) {
+      // Use the actual number of questions in THIS exam, not the entire certification pool
+      currentScore = Math.round(
+        (correctlyAnsweredCount / examAttempt.total_questions) * 100,
+      );
     } else if (allSubmittedAnswers.length > 0) {
-      // Fallback: If total questions in definition is 0 (e.g., due to error or setup issue),
-      // and answers have been submitted, score based on the number of answered questions.
+      // Fallback: If total questions in exam is 0 or null (shouldn't happen),
+      // score based on the number of answered questions.
       logger.warn(
         `Scoring exam_id ${exam_id} based on ${allSubmittedAnswers.length} answered questions ` +
-          'due to zero total questions in definition. This might indicate an issue with exam setup or certification linkage.',
+          'due to zero or null total questions in exam record. This indicates a data issue.',
       );
       scoreDenominator = allSubmittedAnswers.length;
-      currentScore =
-        (correctlyAnsweredCount / allSubmittedAnswers.length) * 100;
+      currentScore = Math.round(
+        (correctlyAnsweredCount / allSubmittedAnswers.length) * 100,
+      );
     }
-    // If totalQuestionsInExamDefinition is 0 and allSubmittedAnswers.length is 0, score remains 0.
+    // If total_questions is 0/null and allSubmittedAnswers.length is 0, score remains 0.
 
     // 4. Deduct credit tokens from user's account
     const tokenCost = examAttempt.token_cost;
@@ -185,7 +149,7 @@ const handler = async (
           prisma.examAttempt.update({
             where: { exam_id: exam_id },
             data: {
-              score: parseFloat(currentScore.toFixed(2)),
+              score: currentScore, // Use integer score directly
               submitted_at: new Date(),
               exam_status: ExamStatus.COMPLETED,
             },
@@ -220,15 +184,13 @@ const handler = async (
     );
 
     logger.info(
-      `EXAM_SUBMIT_SUCCESS: exam_id=${exam_id}, score=${currentScore.toFixed(
-        2,
-      )}%, correct=${correctlyAnsweredCount}/${scoreDenominator}, tokens_deducted=${tokenCost}, energy_awarded=${energyTokensToAward}`,
+      `EXAM_SUBMIT_SUCCESS: exam_id=${exam_id}, score=${currentScore}%, correct=${correctlyAnsweredCount}/${scoreDenominator}, tokens_deducted=${tokenCost}, energy_awarded=${energyTokensToAward}`,
     );
 
     res.status(200).json({
       success: true,
       data: {
-        score: parseFloat(currentScore.toFixed(2)),
+        score: currentScore, // Return integer score
         tokens_deducted: tokenCost,
         energy_tokens_awarded: energyTokensToAward,
         correct_answers: correctlyAnsweredCount,

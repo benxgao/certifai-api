@@ -372,12 +372,14 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       message: 'Exam and all related data deleted successfully.',
       data: {
         exam_id,
-        user_id,
+        api_user_id: user_id, // Our internal UUID for API operations
         cert_id: exam.cert_id,
         certification_name: exam.certification.name,
         exam_status: exam.exam_status,
         total_questions: exam.total_questions,
         token_cost: exam.token_cost,
+        // Deprecated: keeping for backward compatibility only
+        user_id, // @deprecated Use api_user_id instead
         deletion_summary: {
           exam_user_answers_deleted: deletionCounts.deletedUserAnswers,
           exam_user_answers_expected: examUserAnswersCount,

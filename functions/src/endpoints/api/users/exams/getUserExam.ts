@@ -128,7 +128,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
 
     const exam = {
       exam_id: examFromDb.exam_id,
-      user_id: examFromDb.user_id,
+      api_user_id: examFromDb.user_id, // Our internal UUID for API operations
       cert_id: examFromDb.cert_id,
       exam_status: examFromDb.exam_status,
       total_questions: examFromDb.total_questions,
@@ -138,6 +138,8 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       started_at: examFromDb.started_at,
       submitted_at: examFromDb.submitted_at,
       status,
+      // Deprecated: keeping for backward compatibility only
+      user_id: examFromDb.user_id, // @deprecated Use api_user_id instead
       // Enhanced exam metrics
       progress: {
         total_questions: totalQuestions,

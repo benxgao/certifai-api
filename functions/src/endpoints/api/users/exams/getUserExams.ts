@@ -260,7 +260,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
 
       return {
         exam_id: exam.exam_id,
-        user_id: exam.user_id,
+        api_user_id: exam.user_id, // Our internal UUID for API operations
         cert_id: exam.cert_id,
         exam_status: exam.exam_status, // Include the actual database status for reference
         score: exam.score,
@@ -271,6 +271,8 @@ const handler = async (req: any | CustomRequest, res: Response) => {
         submitted_at: exam.submitted_at, // Use correct field name
         certification: exam.certification, // Include certification details for additional context
         status: computedStatus, // Keep computed status for backward compatibility
+        // Deprecated: keeping for backward compatibility only
+        user_id: exam.user_id, // @deprecated Use api_user_id instead
       };
     });
 

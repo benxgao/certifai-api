@@ -593,7 +593,7 @@ const handler = async (
           'Exam creation initiated. Topics generated and questions are being generated asynchronously. First batch will start in 5 seconds to ensure optimal processing.',
         data: {
           exam_id: newExam.exam_id,
-          user_id: newExam.user_id,
+          api_user_id: newExam.user_id, // Our internal UUID for API operations
           cert_id: newExam.cert_id,
           status: ExamStatus.QUESTIONS_GENERATING,
           total_questions: requestedNumberOfQuestions,
@@ -601,6 +601,8 @@ const handler = async (
           total_batches: totalBatches,
           topics_generated: examPlan.questions.length,
           custom_prompt: customPromptText || '',
+          // Deprecated: keeping for backward compatibility only
+          user_id: newExam.user_id, // @deprecated Use api_user_id instead
         },
       });
     } catch (topicGenerationError) {

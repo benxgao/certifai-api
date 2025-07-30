@@ -69,12 +69,14 @@ const handler = async (
     res.status(200).json({
       success: true,
       data: {
-        user_id: user.user_id,
-        firebase_user_id: user.firebase_user_id,
+        api_user_id: user.user_id, // Our internal UUID for API operations
+        firebase_user_id: user.firebase_user_id, // Firebase UID for reference
         credit_tokens: user.credit_tokens,
         energy_tokens: user.energy_tokens,
         created_at: user.created_at,
         updated_at: user.updated_at,
+        // Deprecated: keeping for backward compatibility only
+        user_id: user.user_id, // @deprecated Use api_user_id instead
       },
     });
   } catch (error) {
