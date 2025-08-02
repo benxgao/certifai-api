@@ -140,7 +140,7 @@ router.get(
   getUserExamQuizQuestions,
 );
 
-// Show a list of questions for a specific exam
+// Show a specific exam
 router.get(
   '/users/:user_id/exams/:exam_id',
   verifyFirebaseToken,

@@ -2,6 +2,8 @@ import { Response } from 'express';
 import logger from '../../../services/firebase/logger';
 import { CustomRequest } from '../../../types';
 import prismaInstance from '../../../services/prisma';
+import { RedisService, CACHE_CONFIG } from '../../../services/redis';
+import { CacheHierarchyService } from '../../../services/cache/cacheHierarchy';
 
 const handler = async (
   req: any | CustomRequest,
@@ -41,18 +43,36 @@ const handler = async (
 
     logger.info(`Getting user profile for user_id: ${user_id}`);
 
-    // Get the full user profile data
-    const user = await prismaInstance.user.findUnique({
-      where: { user_id: user_id },
-      select: {
-        user_id: true,
-        firebase_user_id: true,
-        credit_tokens: true,
-        energy_tokens: true,
-        created_at: true,
-        updated_at: true,
+    // Generate cache key for user profile
+    const cacheKey = RedisService.generateUserCacheKey(
+      CACHE_CONFIG.KEYS.USER_PROFILE,
+      user_id,
+    );
+
+    // Get user profile with cache
+    const user = await CacheHierarchyService.getOrSet(
+      cacheKey,
+      async () => {
+        logger.info(
+          `Cache miss - fetching user profile from database for user ${user_id}`,
+        );
+
+        // Get the full user profile data
+        return await prismaInstance.user.findUnique({
+          where: { user_id: user_id },
+          select: {
+            user_id: true,
+            firebase_user_id: true,
+            credit_tokens: true,
+            energy_tokens: true,
+            created_at: true,
+            updated_at: true,
+          },
+        });
       },
-    });
+      CACHE_CONFIG.USER_PROFILE_TTL,
+      { forceMemoryCache: false }, // Profile data can be large, use Redis cache
+    );
 
     if (!user) {
       res.status(404).json({

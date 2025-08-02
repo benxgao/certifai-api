@@ -105,6 +105,55 @@ export class CacheManager {
   }
 
   /**
+   * Invalidate user profile cache
+   *
+   * Called when:
+   * - User profile data is updated
+   * - Credit tokens are modified
+   * - Energy tokens are modified
+   * - User settings change
+   *
+   * @param userId - The user whose profile cache should be invalidated
+   */
+  static async invalidateUserProfileCache(userId: string): Promise<void> {
+    try {
+      logger.info(`Invalidating user profile cache for user ${userId}`);
+
+      // Invalidate profile cache entries for this user
+      await RedisService.invalidateUserCache(userId, 'profile');
+
+      logger.info('User profile cache invalidation completed');
+    } catch (error) {
+      logger.error(`Error invalidating user profile cache: ${error}`);
+      // Don't throw - cache invalidation failures shouldn't break business logic
+    }
+  }
+
+  /**
+   * Invalidate user rate limit cache
+   *
+   * Called when:
+   * - User creates a new exam (affects rate limit counts)
+   * - Exam creation fails (may affect rate limit state)
+   * - Rate limit window resets
+   *
+   * @param userId - The user whose rate limit cache should be invalidated
+   */
+  static async invalidateUserRateLimitCache(userId: string): Promise<void> {
+    try {
+      logger.info(`Invalidating user rate limit cache for user ${userId}`);
+
+      // Invalidate rate limit cache entries for this user
+      await RedisService.invalidateUserCache(userId, 'rate_limit');
+
+      logger.info('User rate limit cache invalidation completed');
+    } catch (error) {
+      logger.error(`Error invalidating user rate limit cache: ${error}`);
+      // Don't throw - cache invalidation failures shouldn't break business logic
+    }
+  }
+
+  /**
    * Invalidate cache entries when firm data changes
    *
    * This method handles cascade invalidation because firm changes can affect:

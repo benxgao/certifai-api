@@ -1,13 +1,21 @@
-import { PrismaClient } from '../../../src/generated/prisma/client';
+import {
+  PrismaClient,
+  DifficultyLevel,
+} from '../../../src/generated/prisma/client';
 import logger from '../firebase/logger';
 
 /**
  * High-performance batch operations utility for Prisma writes
  * Optimized for concurrent operations and large data sets
  */
+
+/**
+ * Optimized batch operations for database writes
+ * Implements high-performance batch processing for concurrent user scenarios
+ */
 export class BatchWriteOptimizer {
   private static readonly OPTIMAL_BATCH_SIZE = 50;
-  private static readonly MAX_RETRIES = 3;
+  private static readonly MAX_RETRIES = 2;
   private static readonly RETRY_DELAY_BASE = 1000; // 1 second base delay
 
   /**
@@ -36,7 +44,7 @@ export class BatchWriteOptimizer {
               return this.executeBatchOperations(tx, operations, batchSize);
             },
             {
-              timeout: 30000, // 30 seconds for large batches
+              timeout: 180000, // 180 seconds for large batches
               isolationLevel: 'ReadCommitted',
             },
           );
@@ -236,9 +244,9 @@ export class QuestionBatchHelper {
       explanations: question.explanation || '',
       exam_topic: question.examTopic.trim().toLowerCase(),
       generated_from: exam_id,
-      difficulty: question.difficulty || null,
+      difficulty: question.difficulty || DifficultyLevel.EASY, // Default to EASY if no difficulty specified
       created_at: now,
-      updated_at: now,
+      // updated_at: now,
     }));
 
     const getOptionsData = (createdQuestions: any[]) => {
@@ -261,7 +269,7 @@ export class QuestionBatchHelper {
               option_text: choice.trim(),
               is_correct: choiceIndex === originalQuestion.answerIndex,
               created_at: now,
-              updated_at: now,
+              // updated_at: now,
             });
           },
         );

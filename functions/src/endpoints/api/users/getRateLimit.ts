@@ -50,7 +50,7 @@ const handler = async (
     const rateLimitInfo = await getExamRateLimitInfo(user_id);
 
     logger.info(
-      `RATE_LIMIT_INFO_SUCCESS: user_id=${user_id}, canCreateExam=${rateLimitInfo.canCreateExam}, currentCount=${rateLimitInfo.currentCount}`,
+      `RATE_LIMIT_INFO_SUCCESS: user_id=${user_id}, isAllowed=${rateLimitInfo.isAllowed}, currentCount=${rateLimitInfo.currentCount}`,
     );
 
     res.status(200).json({

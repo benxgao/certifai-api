@@ -162,6 +162,9 @@ const handler = async (
           'exam_completed',
         );
 
+        // Invalidate user profile cache since tokens were updated
+        await CacheManager.invalidateUserProfileCache(user_id);
+
         // Log the parallel update performance
         logger.info(
           `PARALLEL_UPDATE_SUCCESS: Completed user and exam updates concurrently`,

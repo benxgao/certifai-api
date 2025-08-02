@@ -272,6 +272,8 @@ const handler = async (
         user_id,
         'exam_creation_started',
       ),
+      // Invalidate rate limit cache since user created a new exam
+      CacheManager.invalidateUserRateLimitCache(user_id),
     ]);
 
     const postCreationDuration = Date.now() - postCreationStart;

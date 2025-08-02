@@ -104,18 +104,20 @@ class RedisConnectionPool {
  */
 export const CACHE_CONFIG = {
   // TTL (Time To Live) in seconds for public data
-  FIRMS_TTL: 3600, // 1 hour - firms data changes infrequently
-  CERTIFICATIONS_TTL: 3600, // 1 hour - certification data is relatively stable
-  FIRM_BY_ID_TTL: 1800, // 30 minutes - individual firm details
-  CERTIFICATION_BY_ID_TTL: 1800, // 30 minutes - individual certification details
-  CERTIFICATIONS_BY_FIRM_TTL: 1800, // 30 minutes - firm's certifications list
+  FIRMS_TTL: 36000, // 10 hours - firms data changes infrequently
+  CERTIFICATIONS_TTL: 36000, // 10 hours - certification data is relatively stable
+  FIRM_BY_ID_TTL: 36000, // 10 hours - individual firm details
+  CERTIFICATION_BY_ID_TTL: 36000, // 10 hours - individual certification details
+  CERTIFICATIONS_BY_FIRM_TTL: 36000, // 10 hours - firm's certifications list
 
   // User-specific cache TTLs (shorter for data consistency)
   // User data needs to be fresh to avoid showing stale exam results or progress
   USER_EXAMS_TTL: 300, // 5 minutes - user exam data changes frequently
-  USER_EXAM_QUESTIONS_TTL: 600, // 10 minutes - exam questions are stable during exam
+  USER_EXAM_QUESTIONS_TTL: 36000, // 10 hours - exam questions are stable during exam
   USER_EXAM_DETAILS_TTL: 300, // 5 minutes - exam details may change based on progress
   USER_CERTIFICATIONS_TTL: 600, // 10 minutes - user certification progress
+  USER_PROFILE_TTL: 1800, // 30 minutes - user profile data changes infrequently
+  USER_RATE_LIMIT_TTL: 300, // 5 minutes - rate limit data changes when exams are created
 
   // Cache key prefixes for organized namespace management
   KEYS: {
@@ -131,6 +133,8 @@ export const CACHE_CONFIG = {
     USER_EXAM_QUESTIONS: 'user:exam:questions',
     USER_EXAM_DETAILS: 'user:exam:details',
     USER_CERTIFICATIONS: 'user:certifications',
+    USER_PROFILE: 'user:profile',
+    USER_RATE_LIMIT: 'user:rate_limit',
   },
 };
 
