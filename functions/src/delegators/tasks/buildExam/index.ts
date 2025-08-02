@@ -25,8 +25,24 @@ const handler = async (req: any | CustomRequest, res: Response) => {
     initial_memory: NodeJS.MemoryUsage;
   } | null = null;
 
+  let payload: TaskPayload | null = null;
+
   try {
-    const payload: TaskPayload = req.body;
+    payload = req.body;
+
+    if (!payload || !payload.exam_id) {
+      logger.error('Invalid or missing payload in task request', {
+        payload_exists: !!payload,
+        has_exam_id: !!(payload && payload.exam_id),
+        structuredData: true,
+      });
+      res.status(400).json({
+        success: false,
+        error: 'Invalid or missing payload',
+      });
+      return;
+    }
+
     const {
       exam_id,
       cert_id,
@@ -303,7 +319,17 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       });
     }
   } catch (error) {
-    logger.error('Error in task handler:', error as any);
+    // Enhanced error logging with more context
+    logger.error('Error in task handler:', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      exam_id: payload?.exam_id || 'unknown',
+      batch_number: payload?.batch_number || 'unknown',
+      error_type:
+        error instanceof Error ? error.constructor.name : typeof error,
+      structuredData: true,
+    });
+
     res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error occurred',

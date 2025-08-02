@@ -1,6 +1,6 @@
 import { Response, NextFunction } from 'express';
 
-import prisma from '../services/prisma';
+import prismaInstance from '../services/prisma';
 import logger from '../services/firebase/logger';
 import { CustomRequest } from '../types';
 
@@ -49,7 +49,7 @@ export const verifyUserAccess = async (
     );
 
     // Find the user by user_id and get their firebase_user_id
-    const user = await prisma.user.findUnique({
+    const user = await prismaInstance.user.findUnique({
       where: { user_id: user_id },
       select: {
         user_id: true,

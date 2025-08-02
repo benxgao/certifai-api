@@ -26,14 +26,14 @@ jobs:
       - name: Install npm Dependencies
         run: npm ci
         working-directory: functions
-        env:
-          NODE_ENV: production
+        # env:
+        #   NODE_ENV: production
 
-      - name: Build Functions
-        run: npm run build
-        working-directory: functions
-        env:
-          NODE_ENV: production
+      # - name: Build Functions
+      #   run: npm run build
+      #   working-directory: functions
+      # env:
+      #   NODE_ENV: production
 
       - name: Create file - gcp_credentials.json
         run: |
@@ -42,7 +42,6 @@ jobs:
 
       - name: Create file - .env
         run: |
-          echo "NODE_ENV=production" >> .env
           echo "GCP_PROJECT_NUMBER=${{ vars.GCP_PROJECT_NUMBER }}" >> .env
           echo "GCP_PROJECT_ID=${{ vars.GCP_PROJECT_ID }}" >> .env
           echo "GCP_REGION=${{ vars.GCP_REGION }}" >> .env
@@ -61,5 +60,5 @@ jobs:
         run: |
           npm run deploy
         working-directory: functions
-        env:
-          NODE_ENV: production
+        # env:
+        #   NODE_ENV: production

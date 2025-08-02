@@ -1,0 +1,15 @@
+{
+  "files.exclude": {
+    "**/node_modules": true,
+    "**/.git": true,
+    "**/build": true,
+    "**/dist": true,
+    "**/.next": true,
+    "**/coverage": true
+  },
+  "typescript.preferences.includePackageJsonAutoImports": "off",
+  "github.copilot.advanced": {
+    "length": 150,
+    "inlineSuggestCount": 1
+  }
+}
