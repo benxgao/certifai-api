@@ -133,7 +133,11 @@ export const generateExamReport = async (
     }
 
     // 4. Check if report already exists in Firestore
-    const existingReport = await examReportFirestore.getExamReport(exam_id);
+    const existingReport = await examReportFirestore.getExamReport(
+      exam_id,
+      exam.user.user_id,
+      exam.certification.cert_id.toString(),
+    );
     if (existingReport) {
       logger.info(
         `EXAM_REPORT_EXISTS_FIRESTORE: Report already exists in Firestore for exam_id=${exam_id}`,
@@ -272,6 +276,7 @@ export const generateExamReport = async (
     await examReportFirestore.storeExamReport(
       exam_id,
       exam.user.user_id,
+      exam.certification.cert_id.toString(),
       exam.certification.name,
       structuredReport,
     );

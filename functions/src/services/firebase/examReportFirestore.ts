@@ -17,12 +17,21 @@ export interface ExamReportDocument extends StructuredExamReport {
 }
 
 export class ExamReportFirestoreService {
-  private static readonly COLLECTION_NAME = 'exam_reports';
+  /**
+   * Build the path for exam reports collection
+   * @param userId - User ID
+   * @param certId - Certification ID
+   * @returns Collection path for exam reports
+   */
+  private static buildExamReportsPath(userId: string, certId: string): string {
+    return `users/${userId}/certs/${certId}/exam_reports`;
+  }
 
   /**
    * Store an exam report in Firestore
    * @param examId - The exam ID to use as the document key
    * @param userId - User ID for ownership tracking
+   * @param certId - Certification ID for nested structure
    * @param certificationName - Certification name for easy querying
    * @param reportData - The structured exam report data
    * @returns Promise<void>
@@ -30,6 +39,7 @@ export class ExamReportFirestoreService {
   static async storeExamReport(
     examId: string,
     userId: string,
+    certId: string,
     certificationName: string,
     reportData: StructuredExamReport,
   ): Promise<void> {
@@ -43,8 +53,9 @@ export class ExamReportFirestoreService {
         certification_name: certificationName,
       };
 
+      const collectionPath = this.buildExamReportsPath(userId, certId);
       await firestoreService.create(
-        this.COLLECTION_NAME,
+        collectionPath,
         documentData,
         examId, // Use exam_id as the document ID
       );
@@ -70,14 +81,19 @@ export class ExamReportFirestoreService {
   /**
    * Retrieve an exam report from Firestore
    * @param examId - The exam ID
+   * @param userId - User ID for the nested path
+   * @param certId - Certification ID for the nested path
    * @returns Promise<ExamReportDocument | null>
    */
   static async getExamReport(
     examId: string,
+    userId: string,
+    certId: string,
   ): Promise<ExamReportDocument | null> {
     try {
+      const collectionPath = this.buildExamReportsPath(userId, certId);
       const report = await firestoreService.read<ExamReportDocument>(
-        this.COLLECTION_NAME,
+        collectionPath,
         examId,
       );
 
@@ -105,15 +121,20 @@ export class ExamReportFirestoreService {
   /**
    * Update an existing exam report in Firestore
    * @param examId - The exam ID
+   * @param userId - User ID for the nested path
+   * @param certId - Certification ID for the nested path
    * @param reportData - The updated structured exam report data
    * @returns Promise<void>
    */
   static async updateExamReport(
     examId: string,
+    userId: string,
+    certId: string,
     reportData: Partial<StructuredExamReport>,
   ): Promise<void> {
     try {
-      await firestoreService.update(this.COLLECTION_NAME, examId, reportData);
+      const collectionPath = this.buildExamReportsPath(userId, certId);
+      await firestoreService.update(collectionPath, examId, reportData);
 
       logger.info(`FIRESTORE_EXAM_REPORT_UPDATED: exam_id=${examId}`, {
         exam_id: examId,
@@ -131,11 +152,18 @@ export class ExamReportFirestoreService {
   /**
    * Delete an exam report from Firestore
    * @param examId - The exam ID
+   * @param userId - User ID for the nested path
+   * @param certId - Certification ID for the nested path
    * @returns Promise<void>
    */
-  static async deleteExamReport(examId: string): Promise<void> {
+  static async deleteExamReport(
+    examId: string,
+    userId: string,
+    certId: string,
+  ): Promise<void> {
     try {
-      await firestoreService.delete(this.COLLECTION_NAME, examId);
+      const collectionPath = this.buildExamReportsPath(userId, certId);
+      await firestoreService.delete(collectionPath, examId);
 
       logger.info(`FIRESTORE_EXAM_REPORT_DELETED: exam_id=${examId}`, {
         exam_id: examId,
@@ -153,25 +181,35 @@ export class ExamReportFirestoreService {
    * Get the most recent exam report for a user and certification
    * Used for adaptive learning to get previous performance data
    * @param userId - User ID
-   * @param certificationName - Certification name
+   * @param certId - Certification ID for the nested path
+   * @param certificationName - Certification name (optional, for filtering)
    * @returns Promise<ExamReportDocument | null>
    */
   static async getLastExamReportForUser(
     userId: string,
-    certificationName: string,
+    certId: string,
+    certificationName?: string,
   ): Promise<ExamReportDocument | null> {
     try {
+      const collectionPath = this.buildExamReportsPath(userId, certId);
+
+      // Build query filters
+      const whereFilters: Array<{ field: string; operator: any; value: any }> =
+        [{ field: 'user_id', operator: '==', value: userId }];
+
+      // Add certification name filter if provided
+      if (certificationName) {
+        whereFilters.push({
+          field: 'certification_name',
+          operator: '==',
+          value: certificationName,
+        });
+      }
+
       const reports = await firestoreService.list<ExamReportDocument>(
-        this.COLLECTION_NAME,
+        collectionPath,
         {
-          where: [
-            { field: 'user_id', operator: '==', value: userId },
-            {
-              field: 'certification_name',
-              operator: '==',
-              value: certificationName,
-            },
-          ],
+          where: whereFilters,
           orderBy: [{ field: 'generated_at', direction: 'desc' }],
           limit: 1,
         },
@@ -210,11 +248,17 @@ export class ExamReportFirestoreService {
   /**
    * Check if an exam report exists in Firestore
    * @param examId - The exam ID
+   * @param userId - User ID for the nested path
+   * @param certId - Certification ID for the nested path
    * @returns Promise<boolean>
    */
-  static async examReportExists(examId: string): Promise<boolean> {
+  static async examReportExists(
+    examId: string,
+    userId: string,
+    certId: string,
+  ): Promise<boolean> {
     try {
-      const report = await this.getExamReport(examId);
+      const report = await this.getExamReport(examId, userId, certId);
       return report !== null;
     } catch (error) {
       logger.error(`FIRESTORE_EXAM_REPORT_EXISTS_ERROR: exam_id=${examId}`, {
@@ -226,18 +270,21 @@ export class ExamReportFirestoreService {
   }
 
   /**
-   * Get all exam reports for a user (for analytics/history)
+   * Get all exam reports for a user and specific certification (for analytics/history)
    * @param userId - User ID
+   * @param certId - Certification ID for the nested path
    * @param limit - Optional limit for pagination
    * @returns Promise<ExamReportDocument[]>
    */
   static async getUserExamReports(
     userId: string,
+    certId: string,
     limit?: number,
   ): Promise<ExamReportDocument[]> {
     try {
+      const collectionPath = this.buildExamReportsPath(userId, certId);
       const reports = await firestoreService.list<ExamReportDocument>(
-        this.COLLECTION_NAME,
+        collectionPath,
         {
           where: [{ field: 'user_id', operator: '==', value: userId }],
           orderBy: [{ field: 'generated_at', direction: 'desc' }],

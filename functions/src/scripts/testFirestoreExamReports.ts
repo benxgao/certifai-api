@@ -35,6 +35,7 @@ const mockExamReport = {
 };
 
 const TEST_USER_ID = 'test_user_123';
+const TEST_CERT_ID = '1';
 const TEST_CERTIFICATION = 'AWS Cloud Practitioner';
 const TEST_EXAM_ID = 'test_exam_123';
 
@@ -50,6 +51,7 @@ export async function testFirestoreExamReports(): Promise<void> {
     await examReportFirestore.storeExamReport(
       TEST_EXAM_ID,
       TEST_USER_ID,
+      TEST_CERT_ID,
       TEST_CERTIFICATION,
       mockExamReport,
     );
@@ -59,6 +61,8 @@ export async function testFirestoreExamReports(): Promise<void> {
     logger.info('FIRESTORE_TEST: Test 2 - Retrieving exam report');
     const retrievedReport = await examReportFirestore.getExamReport(
       TEST_EXAM_ID,
+      TEST_USER_ID,
+      TEST_CERT_ID,
     );
 
     if (!retrievedReport) {
@@ -73,7 +77,11 @@ export async function testFirestoreExamReports(): Promise<void> {
 
     // Test 3: Check if report exists
     logger.info('FIRESTORE_TEST: Test 3 - Checking if report exists');
-    const exists = await examReportFirestore.examReportExists(TEST_EXAM_ID);
+    const exists = await examReportFirestore.examReportExists(
+      TEST_EXAM_ID,
+      TEST_USER_ID,
+      TEST_CERT_ID,
+    );
 
     if (!exists) {
       throw new Error('Report existence check failed');
@@ -85,6 +93,7 @@ export async function testFirestoreExamReports(): Promise<void> {
     logger.info('FIRESTORE_TEST: Test 4 - Getting last exam report for user');
     const lastReport = await examReportFirestore.getLastExamReportForUser(
       TEST_USER_ID,
+      TEST_CERT_ID,
       TEST_CERTIFICATION,
     );
 
@@ -96,12 +105,21 @@ export async function testFirestoreExamReports(): Promise<void> {
 
     // Test 5: Update exam report
     logger.info('FIRESTORE_TEST: Test 5 - Updating exam report');
-    await examReportFirestore.updateExamReport(TEST_EXAM_ID, {
-      overall_score: 90,
-      text_summary: 'Updated test summary',
-    });
+    await examReportFirestore.updateExamReport(
+      TEST_EXAM_ID,
+      TEST_USER_ID,
+      TEST_CERT_ID,
+      {
+        overall_score: 90,
+        text_summary: 'Updated test summary',
+      },
+    );
 
-    const updatedReport = await examReportFirestore.getExamReport(TEST_EXAM_ID);
+    const updatedReport = await examReportFirestore.getExamReport(
+      TEST_EXAM_ID,
+      TEST_USER_ID,
+      TEST_CERT_ID,
+    );
     if (!updatedReport || updatedReport.overall_score !== 90) {
       throw new Error('Report update failed');
     }
@@ -110,9 +128,17 @@ export async function testFirestoreExamReports(): Promise<void> {
 
     // Test 6: Clean up - Delete exam report
     logger.info('FIRESTORE_TEST: Test 6 - Deleting exam report');
-    await examReportFirestore.deleteExamReport(TEST_EXAM_ID);
+    await examReportFirestore.deleteExamReport(
+      TEST_EXAM_ID,
+      TEST_USER_ID,
+      TEST_CERT_ID,
+    );
 
-    const deletedReport = await examReportFirestore.getExamReport(TEST_EXAM_ID);
+    const deletedReport = await examReportFirestore.getExamReport(
+      TEST_EXAM_ID,
+      TEST_USER_ID,
+      TEST_CERT_ID,
+    );
     if (deletedReport) {
       throw new Error('Report deletion failed');
     }
@@ -125,7 +151,11 @@ export async function testFirestoreExamReports(): Promise<void> {
 
     // Clean up on error
     try {
-      await examReportFirestore.deleteExamReport(TEST_EXAM_ID);
+      await examReportFirestore.deleteExamReport(
+        TEST_EXAM_ID,
+        TEST_USER_ID,
+        TEST_CERT_ID,
+      );
     } catch (cleanupError) {
       logger.warn('FIRESTORE_TEST: Cleanup failed', {
         error: cleanupError as any,

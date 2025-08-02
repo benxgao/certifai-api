@@ -296,6 +296,7 @@ const handler = async (
         const lastExamReportDoc =
           await examReportFirestore.getLastExamReportForUser(
             user.user_id,
+            certIdNumber.toString(),
             certification.name,
           );
 

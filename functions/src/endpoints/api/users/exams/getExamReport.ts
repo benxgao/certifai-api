@@ -56,8 +56,39 @@ export const getExamReport = async (
       `GET_EXAM_REPORT_FIRESTORE: user_id=${user_id}, exam_id=${exam_id}`,
     );
 
-    // Now try to get existing report from Firestore
-    const existingReport = await examReportFirestore.getExamReport(exam_id);
+    // First, we need to get the exam to retrieve cert_id for the new nested structure
+    const { prisma } = await import('../../../../services/prisma/index.js');
+    const exam = await prisma.examAttempt.findUnique({
+      where: { exam_id },
+      select: {
+        cert_id: true,
+        user_id: true,
+      },
+    });
+
+    if (!exam) {
+      res.status(404).json({
+        success: false,
+        error: 'Exam not found',
+      });
+      return;
+    }
+
+    // Verify the exam belongs to the requesting user
+    if (exam.user_id !== user_id) {
+      res.status(403).json({
+        success: false,
+        error: 'Access denied: Exam does not belong to this user',
+      });
+      return;
+    }
+
+    // Now try to get existing report from Firestore using the new nested structure
+    const existingReport = await examReportFirestore.getExamReport(
+      exam_id,
+      user_id,
+      exam.cert_id.toString(),
+    );
 
     if (existingReport) {
       // Verify the report belongs to the requesting user
@@ -179,8 +210,39 @@ export const regenerateExamReport = async (
       `REGENERATE_EXAM_REPORT_FIRESTORE: user_id=${user_id}, exam_id=${exam_id}`,
     );
 
+    // First, we need to get the exam to retrieve cert_id for the new nested structure
+    const { prisma } = await import('../../../../services/prisma/index.js');
+    const exam = await prisma.examAttempt.findUnique({
+      where: { exam_id },
+      select: {
+        cert_id: true,
+        user_id: true,
+      },
+    });
+
+    if (!exam) {
+      res.status(404).json({
+        success: false,
+        error: 'Exam not found',
+      });
+      return;
+    }
+
+    // Verify the exam belongs to the requesting user
+    if (exam.user_id !== user_id) {
+      res.status(403).json({
+        success: false,
+        error: 'Access denied: Exam does not belong to this user',
+      });
+      return;
+    }
+
     // Check if report exists and delete it to force regeneration
-    const existingReport = await examReportFirestore.getExamReport(exam_id);
+    const existingReport = await examReportFirestore.getExamReport(
+      exam_id,
+      user_id,
+      exam.cert_id.toString(),
+    );
     if (existingReport) {
       // Verify the report belongs to the requesting user before deleting
       if (existingReport.user_id !== user_id) {
@@ -192,7 +254,11 @@ export const regenerateExamReport = async (
       }
 
       // Delete the existing report to force regeneration
-      await examReportFirestore.deleteExamReport(exam_id);
+      await examReportFirestore.deleteExamReport(
+        exam_id,
+        user_id,
+        exam.cert_id.toString(),
+      );
       logger.info(
         `REGENERATE_EXAM_REPORT_FIRESTORE: Deleted existing report for exam_id=${exam_id}`,
       );
