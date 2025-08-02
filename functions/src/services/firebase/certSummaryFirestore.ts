@@ -1,7 +1,7 @@
 /**
  * Firestore service for managing certification summaries
  * Stores cert summaries as structured JSON data in the Firestore collection
- * Path: users/[user_id]/certs/[cert_id]/cert_summary
+ * Path: users/[user_id]/certs/[cert_id]/summaries/cert_summary
  */
 
 import { firestoreService } from './firestore';
@@ -49,6 +49,7 @@ export interface CertSummaryDocument extends CertificationSummary {
 /**
  * Core service function for generating certification summaries
  * Can be used both by API endpoint and internal service calls
+ * Always regenerates based on latest exam reports, updating existing summaries
  */
 export const generateCertSummary = async (
   user_id: string,
@@ -110,45 +111,52 @@ export const generateCertSummary = async (
       `CERT_SUMMARY_REPORTS_FOUND: Found ${examReports.length} exam reports for user_id=${user_id}, cert_id=${cert_id}`,
     );
 
-    // 4. Check if cert summary already exists in Firestore
-    const existingSummary = await CertSummaryFirestoreService.getCertSummary(
-      user_id,
-      cert_id,
-    );
-
-    if (existingSummary) {
-      logger.info(
-        `CERT_SUMMARY_EXISTS: Summary already exists for user_id=${user_id}, cert_id=${cert_id}`,
-      );
-      return {
-        cert_id,
+    // 4. Check if cert summary already exists in Firestore (for metadata only)
+    let existingSummary = null;
+    try {
+      existingSummary = await CertSummaryFirestoreService.getCertSummary(
         user_id,
-        summary: existingSummary.ai_summary,
-        structured_data: existingSummary,
-        already_existed: true,
-        generated_at: existingSummary.generated_at,
-        summary_stats: {
-          total_exams: existingSummary.total_exams_taken,
-          average_score: existingSummary.average_score,
-          best_score: existingSummary.best_score,
-          topics_mastered: existingSummary.topic_mastery.length,
-        },
-      };
+        cert_id,
+      );
+    } catch (error) {
+      logger.warn(
+        `CERT_SUMMARY_CHECK_EXISTING_FAILED: user_id=${user_id}, cert_id=${cert_id}`,
+        { error },
+      );
+      // Continue with generation even if we can't check existing summary
     }
 
-    // 5. Analyze exam reports to generate summary data
-    const scores = examReports.map((report) => report.overall_score);
+    // Always regenerate with latest exam reports - no early return
+    logger.info(
+      existingSummary
+        ? `CERT_SUMMARY_UPDATE: Updating existing summary for user_id=${user_id}, cert_id=${cert_id}`
+        : `CERT_SUMMARY_CREATE: Creating new summary for user_id=${user_id}, cert_id=${cert_id}`,
+    );
+
+    // 5. Analyze exam reports to generate summary data with validation
+    if (!examReports || examReports.length === 0) {
+      throw new Error('No exam reports found for analysis');
+    }
+
+    const scores = examReports
+      .map((report) => report.overall_score)
+      .filter((score) => typeof score === 'number' && !isNaN(score));
+
+    if (scores.length === 0) {
+      throw new Error('No valid scores found in exam reports');
+    }
+
     const averageScore =
       scores.reduce((sum, score) => sum + score, 0) / scores.length;
     const bestScore = Math.max(...scores);
     const worstScore = Math.min(...scores);
 
     const totalQuestionsAnswered = examReports.reduce(
-      (sum, report) => sum + report.total_questions,
+      (sum, report) => sum + (report.total_questions || 0),
       0,
     );
     const totalCorrectAnswers = examReports.reduce(
-      (sum, report) => sum + report.correct_answers,
+      (sum, report) => sum + (report.correct_answers || 0),
       0,
     );
     const overallAccuracyRate =
@@ -156,40 +164,60 @@ export const generateCertSummary = async (
         ? totalCorrectAnswers / totalQuestionsAnswered
         : 0;
 
-    // 6. Analyze topic mastery across all exam reports
-    const topicMap = new Map<
-      string,
-      {
-        examsCovered: number;
-        totalQuestions: number;
-        totalCorrect: number;
-        accuracies: number[];
-      }
-    >();
+    // 6. Analyze topic mastery across all exam reports with error handling
+    let topicMastery: TopicMastery[] = [];
+    try {
+      const topicMap = new Map<
+        string,
+        {
+          examsCovered: number;
+          totalQuestions: number;
+          totalCorrect: number;
+          accuracies: number[];
+        }
+      >();
 
-    examReports.forEach((report) => {
-      report.topic_performance.forEach((topic) => {
-        const existing = topicMap.get(topic.topic) || {
-          examsCovered: 0,
-          totalQuestions: 0,
-          totalCorrect: 0,
-          accuracies: [],
-        };
+      examReports.forEach((report) => {
+        if (
+          !report.topic_performance ||
+          !Array.isArray(report.topic_performance)
+        ) {
+          logger.warn(
+            `CERT_SUMMARY_INVALID_TOPIC_PERFORMANCE: user_id=${user_id}, cert_id=${cert_id}, exam_id=${report.exam_id}`,
+          );
+          return;
+        }
 
-        existing.examsCovered += 1;
-        existing.totalQuestions += topic.total_attempts;
-        existing.totalCorrect += topic.correct_answers;
-        existing.accuracies.push(topic.accuracy_rate);
+        report.topic_performance.forEach((topic) => {
+          if (!topic.topic || typeof topic.accuracy_rate !== 'number') {
+            logger.warn(
+              `CERT_SUMMARY_INVALID_TOPIC_DATA: user_id=${user_id}, cert_id=${cert_id}, topic=${topic.topic}`,
+            );
+            return;
+          }
 
-        topicMap.set(topic.topic, existing);
+          const existing = topicMap.get(topic.topic) || {
+            examsCovered: 0,
+            totalQuestions: 0,
+            totalCorrect: 0,
+            accuracies: [],
+          };
+
+          existing.examsCovered += 1;
+          existing.totalQuestions += topic.total_attempts || 0;
+          existing.totalCorrect += topic.correct_answers || 0;
+          existing.accuracies.push(topic.accuracy_rate);
+
+          topicMap.set(topic.topic, existing);
+        });
       });
-    });
 
-    const topicMastery: TopicMastery[] = Array.from(topicMap.entries()).map(
-      ([topic, data]) => {
+      topicMastery = Array.from(topicMap.entries()).map(([topic, data]) => {
         const averageAccuracy =
-          data.accuracies.reduce((sum, acc) => sum + acc, 0) /
-          data.accuracies.length;
+          data.accuracies.length > 0
+            ? data.accuracies.reduce((sum, acc) => sum + acc, 0) /
+              data.accuracies.length
+            : 0;
 
         let masteryLevel: TopicMastery['mastery_level'] = 'novice';
         if (averageAccuracy >= 0.9) masteryLevel = 'expert';
@@ -205,64 +233,140 @@ export const generateCertSummary = async (
           total_questions: data.totalQuestions,
           total_correct: data.totalCorrect,
         };
-      },
-    );
+      });
 
-    // 7. Determine performance trend
-    const firstHalfAvg =
-      scores
-        .slice(0, Math.ceil(scores.length / 2))
-        .reduce((sum, score) => sum + score, 0) / Math.ceil(scores.length / 2);
-    const secondHalfAvg =
-      scores
-        .slice(Math.floor(scores.length / 2))
-        .reduce((sum, score) => sum + score, 0) / Math.ceil(scores.length / 2);
+      logger.info(
+        `CERT_SUMMARY_TOPIC_MASTERY_CALCULATED: user_id=${user_id}, cert_id=${cert_id}`,
+        { topicsAnalyzed: topicMastery.length },
+      );
+    } catch (error) {
+      logger.error(
+        `CERT_SUMMARY_TOPIC_MASTERY_ERROR: user_id=${user_id}, cert_id=${cert_id}`,
+        { error },
+      );
 
+      // Fallback to empty topic mastery if calculation fails
+      topicMastery = [];
+    }
+
+    // 7. Determine performance trend with error handling
     let performanceTrend: CertificationSummary['performance_trend'] = 'stable';
-    const trendDifference = secondHalfAvg - firstHalfAvg;
-    if (trendDifference > 5) performanceTrend = 'improving';
-    else if (trendDifference < -5) performanceTrend = 'declining';
+    try {
+      if (scores.length >= 2) {
+        const firstHalfAvg =
+          scores
+            .slice(0, Math.ceil(scores.length / 2))
+            .reduce((sum, score) => sum + score, 0) /
+          Math.ceil(scores.length / 2);
+        const secondHalfAvg =
+          scores
+            .slice(Math.floor(scores.length / 2))
+            .reduce((sum, score) => sum + score, 0) /
+          Math.ceil(scores.length / 2);
 
-    // 8. Identify strengths and areas for improvement
-    const strongTopics = topicMastery
-      .filter(
-        (topic) =>
-          topic.mastery_level === 'expert' ||
-          topic.mastery_level === 'advanced',
-      )
-      .map((topic) => topic.topic);
+        const trendDifference = secondHalfAvg - firstHalfAvg;
+        if (trendDifference > 5) performanceTrend = 'improving';
+        else if (trendDifference < -5) performanceTrend = 'declining';
+      }
+    } catch (error) {
+      logger.warn(
+        `CERT_SUMMARY_TREND_CALCULATION_ERROR: user_id=${user_id}, cert_id=${cert_id}`,
+        { error },
+      );
+      // performanceTrend remains 'stable' as fallback
+    }
 
-    const weakTopics = topicMastery
-      .filter(
-        (topic) =>
-          topic.mastery_level === 'novice' ||
-          topic.mastery_level === 'developing',
-      )
-      .map((topic) => topic.topic);
+    // 8. Identify strengths and areas for improvement with error handling
+    let strongTopics: string[] = [];
+    let weakTopics: string[] = [];
+    try {
+      strongTopics = topicMastery
+        .filter(
+          (topic) =>
+            topic.mastery_level === 'expert' ||
+            topic.mastery_level === 'advanced',
+        )
+        .map((topic) => topic.topic);
 
-    // 9. Generate AI summary
-    const { getCertSummaryGeneratorFlow } = await import(
-      '../genkit/certSummaryGenerator.js'
-    );
-    const certSummaryGenerator = await getCertSummaryGeneratorFlow();
+      weakTopics = topicMastery
+        .filter(
+          (topic) =>
+            topic.mastery_level === 'novice' ||
+            topic.mastery_level === 'developing',
+        )
+        .map((topic) => topic.topic);
+    } catch (error) {
+      logger.warn(
+        `CERT_SUMMARY_STRENGTHS_WEAKNESSES_ERROR: user_id=${user_id}, cert_id=${cert_id}`,
+        { error },
+      );
+      // Arrays remain empty as fallback
+    }
 
-    const summaryInput = {
-      user_id,
-      cert_id,
-      certification_name: certification.name,
-      total_exams_taken: examReports.length,
-      average_score: Math.round(averageScore),
-      best_score: bestScore,
-      worst_score: worstScore,
-      performance_trend: performanceTrend,
-      topic_mastery: topicMastery,
-      strong_topics: strongTopics.slice(0, 5), // Top 5 strengths
-      weak_topics: weakTopics.slice(0, 5), // Top 5 areas for improvement
-      overall_accuracy_rate: overallAccuracyRate,
-    };
+    // 9. Generate AI summary with error handling
+    let generatedSummary = '';
+    try {
+      const { getCertSummaryGeneratorFlow } = await import(
+        '../genkit/certSummaryGenerator.js'
+      );
+      const certSummaryGenerator = await getCertSummaryGeneratorFlow();
 
-    const summaryResult = await certSummaryGenerator(summaryInput);
-    const generatedSummary = summaryResult.summary;
+      const summaryInput = {
+        user_id,
+        cert_id,
+        certification_name: certification.name,
+        total_exams_taken: examReports.length,
+        average_score: Math.round(averageScore),
+        best_score: bestScore,
+        worst_score: worstScore,
+        performance_trend: performanceTrend,
+        topic_mastery: topicMastery,
+        strong_topics: strongTopics.slice(0, 5), // Top 5 strengths
+        weak_topics: weakTopics.slice(0, 5), // Top 5 areas for improvement
+        overall_accuracy_rate: overallAccuracyRate,
+      };
+
+      logger.info(
+        `CERT_SUMMARY_AI_GENERATION_START: user_id=${user_id}, cert_id=${cert_id}`,
+        { summaryInput },
+      );
+
+      const summaryResult = await certSummaryGenerator(summaryInput);
+
+      if (!summaryResult || typeof summaryResult.summary !== 'string') {
+        throw new Error(
+          'AI generator returned invalid or empty summary result',
+        );
+      }
+
+      generatedSummary = summaryResult.summary;
+
+      logger.info(
+        `CERT_SUMMARY_AI_GENERATION_SUCCESS: user_id=${user_id}, cert_id=${cert_id}`,
+        { summaryLength: generatedSummary.length },
+      );
+    } catch (error) {
+      logger.error(
+        `CERT_SUMMARY_AI_GENERATION_ERROR: user_id=${user_id}, cert_id=${cert_id}`,
+        { error },
+      );
+
+      // Fallback to a basic summary if AI generation fails
+      generatedSummary = `Based on ${examReports.length} practice exams for ${
+        certification.name
+      }, you achieved an average score of ${Math.round(
+        averageScore,
+      )}% with a best score of ${bestScore}%. Your performance trend is ${performanceTrend}. Strong areas include: ${strongTopics
+        .slice(0, 3)
+        .join(', ')}. Areas for improvement: ${weakTopics
+        .slice(0, 3)
+        .join(', ')}.`;
+
+      logger.info(
+        `CERT_SUMMARY_FALLBACK_USED: user_id=${user_id}, cert_id=${cert_id}`,
+        { fallbackSummaryLength: generatedSummary.length },
+      );
+    }
 
     // 10. Create structured cert summary
     const structuredSummary: CertificationSummary = {
@@ -284,13 +388,25 @@ export const generateCertSummary = async (
       ai_summary: generatedSummary,
     };
 
-    // 11. Store structured summary in Firestore
-    await CertSummaryFirestoreService.storeCertSummary(
-      user_id,
-      cert_id,
-      certification.name,
-      structuredSummary,
-    );
+    // 11. Store structured summary in Firestore with error handling
+    try {
+      await CertSummaryFirestoreService.storeCertSummary(
+        user_id,
+        cert_id,
+        certification.name,
+        structuredSummary,
+      );
+
+      logger.info(
+        `CERT_SUMMARY_FIRESTORE_STORED: user_id=${user_id}, cert_id=${cert_id}`,
+      );
+    } catch (error) {
+      logger.error(
+        `CERT_SUMMARY_FIRESTORE_STORE_ERROR: user_id=${user_id}, cert_id=${cert_id}`,
+        { error },
+      );
+      throw new Error(`Failed to store cert summary in Firestore: ${error}`);
+    }
 
     logger.info(
       `CERT_SUMMARY_SUCCESS: Generated and saved cert summary for user_id=${user_id}, cert_id=${cert_id}`,
@@ -326,22 +442,31 @@ export const generateCertSummary = async (
     };
   } catch (error) {
     logger.error(
-      `CERT_SUMMARY_SERVICE_ERROR: Error in cert summary generation for user_id=${user_id}, cert_id=${cert_id}:`,
-      error as any,
+      `CERT_SUMMARY_SERVICE_ERROR: Error in cert summary generation for user_id=${user_id}, cert_id=${cert_id}`,
+      {
+        error,
+        user_id,
+        cert_id,
+        errorMessage: (error as Error).message,
+        errorStack: (error as Error).stack,
+      },
     );
-    throw error;
+
+    // Provide more context in the thrown error
+    const errorMessage = (error as Error).message || 'Unknown error occurred';
+    throw new Error(`Cert summary generation failed: ${errorMessage}`);
   }
 };
 
 export class CertSummaryFirestoreService {
   /**
-   * Build the path for cert summary document
+   * Build the collection path for cert summary storage
    * @param userId - User ID
    * @param certId - Certification ID
-   * @returns Document path for cert summary
+   * @returns Collection path for cert summary storage
    */
   private static buildCertSummaryPath(userId: string, certId: string): string {
-    return `users/${userId}/certs/${certId}`;
+    return `users/${userId}/certs/${certId}/summaries`;
   }
 
   /**
@@ -426,11 +551,19 @@ export class CertSummaryFirestoreService {
             generated_at: summary.generated_at,
           },
         );
+      } else {
+        logger.info(
+          `FIRESTORE_CERT_SUMMARY_NOT_FOUND: user_id=${userId}, cert_id=${certId}`,
+          {
+            user_id: userId,
+            cert_id: certId,
+          },
+        );
       }
 
       return summary;
     } catch (error) {
-      logger.error(
+      logger.warn(
         `FIRESTORE_CERT_SUMMARY_RETRIEVE_ERROR: user_id=${userId}, cert_id=${certId}`,
         {
           error,
@@ -438,9 +571,10 @@ export class CertSummaryFirestoreService {
           cert_id: certId,
         },
       );
-      throw new Error(
-        `Failed to retrieve cert summary from Firestore: ${error}`,
-      );
+
+      // Return null instead of throwing error to allow generation to continue
+      // This handles cases where the document doesn't exist or there are permission issues
+      return null;
     }
   }
 

@@ -3,7 +3,7 @@
  *
  * Generates comprehensive certification summaries based on multiple exam reports from Firestore.
  * The cert summary can be generated when there are more than 1 exam_reports for a user's certification.
- * The cert_summary is stored in Firestore at the path `users/[user_id]/certs/[cert_id]/cert_summary`
+ * The cert_summary is stored in Firestore at the path `users/[user_id]/certs/[cert_id]/summaries/cert_summary`
  *
  * Request Body:
  * - user_id (string, required): The user ID to generate cert summary for
@@ -17,7 +17,7 @@
  * 1. Validate that the user has more than 1 exam report for the certification
  * 2. Retrieve all exam reports from Firestore for the user's certification
  * 3. Generate both structured data and AI-powered text summary
- * 4. Store the cert_summary in Firestore at users/[user_id]/certs/[cert_id]/cert_summary
+ * 4. Store the cert_summary in Firestore at users/[user_id]/certs/[cert_id]/summaries/cert_summary
  * 5. Return the summary for immediate use
  */
 

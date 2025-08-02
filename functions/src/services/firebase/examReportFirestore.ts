@@ -193,9 +193,10 @@ export class ExamReportFirestoreService {
     try {
       const collectionPath = this.buildExamReportsPath(userId, certId);
 
-      // Build query filters
+      // Since documents are nested under users/{userId}/certs/{certId}/exam_reports,
+      // we don't need to filter by user_id - it's already scoped to the user
       const whereFilters: Array<{ field: string; operator: any; value: any }> =
-        [{ field: 'user_id', operator: '==', value: userId }];
+        [];
 
       // Add certification name filter if provided
       if (certificationName) {
@@ -206,13 +207,19 @@ export class ExamReportFirestoreService {
         });
       }
 
+      const queryOptions: any = {
+        orderBy: [{ field: 'generated_at', direction: 'desc' }],
+        limit: 1,
+      };
+
+      // Only add where clause if there are filters
+      if (whereFilters.length > 0) {
+        queryOptions.where = whereFilters;
+      }
+
       const reports = await firestoreService.list<ExamReportDocument>(
         collectionPath,
-        {
-          where: whereFilters,
-          orderBy: [{ field: 'generated_at', direction: 'desc' }],
-          limit: 1,
-        },
+        queryOptions,
       );
 
       const latestReport = reports.length > 0 ? reports[0] : null;
@@ -283,26 +290,91 @@ export class ExamReportFirestoreService {
   ): Promise<ExamReportDocument[]> {
     try {
       const collectionPath = this.buildExamReportsPath(userId, certId);
+
+      logger.info(
+        `FIRESTORE_USER_EXAM_REPORTS_REQUEST: user_id=${userId}, cert_id=${certId}`,
+        { collectionPath, limit },
+      );
+
+      // Since documents are nested under users/{userId}/certs/{certId}/exam_reports,
+      // we don't need to filter by user_id - it's already scoped to the user
       const reports = await firestoreService.list<ExamReportDocument>(
         collectionPath,
         {
-          where: [{ field: 'user_id', operator: '==', value: userId }],
           orderBy: [{ field: 'generated_at', direction: 'desc' }],
           limit,
         },
       );
 
-      logger.info(`FIRESTORE_USER_EXAM_REPORTS_RETRIEVED: user_id=${userId}`, {
-        user_id: userId,
-        reports_count: reports.length,
-      });
+      logger.info(
+        `FIRESTORE_USER_EXAM_REPORTS_RETRIEVED: user_id=${userId}, cert_id=${certId}`,
+        {
+          user_id: userId,
+          cert_id: certId,
+          reports_count: reports.length,
+        },
+      );
 
       return reports;
     } catch (error) {
-      logger.error(`FIRESTORE_USER_EXAM_REPORTS_ERROR: user_id=${userId}`, {
-        error,
-        user_id: userId,
-      });
+      // Try a simpler query without ordering if the complex one fails
+      if (
+        (error as any).code === 9 ||
+        (error as any).message?.includes('index')
+      ) {
+        logger.warn(
+          `FIRESTORE_USER_EXAM_REPORTS_INDEX_ERROR: user_id=${userId}, cert_id=${certId}, trying simple query`,
+          { error },
+        );
+
+        try {
+          const collectionPath = this.buildExamReportsPath(userId, certId);
+          const reports = await firestoreService.list<ExamReportDocument>(
+            collectionPath,
+            {
+              limit,
+            },
+          );
+
+          logger.info(
+            `FIRESTORE_USER_EXAM_REPORTS_SIMPLE_QUERY_SUCCESS: user_id=${userId}, cert_id=${certId}`,
+            {
+              user_id: userId,
+              cert_id: certId,
+              reports_count: reports.length,
+            },
+          );
+
+          // Sort manually since we couldn't do it in the query
+          return reports.sort(
+            (a, b) =>
+              new Date(b.generated_at).getTime() -
+              new Date(a.generated_at).getTime(),
+          );
+        } catch (fallbackError) {
+          logger.error(
+            `FIRESTORE_USER_EXAM_REPORTS_FALLBACK_ERROR: user_id=${userId}, cert_id=${certId}`,
+            {
+              originalError: error,
+              fallbackError,
+              user_id: userId,
+              cert_id: certId,
+            },
+          );
+          throw new Error(
+            `Failed to get user exam reports from Firestore: ${fallbackError}`,
+          );
+        }
+      }
+
+      logger.error(
+        `FIRESTORE_USER_EXAM_REPORTS_ERROR: user_id=${userId}, cert_id=${certId}`,
+        {
+          error,
+          user_id: userId,
+          cert_id: certId,
+        },
+      );
       throw new Error(
         `Failed to get user exam reports from Firestore: ${error}`,
       );

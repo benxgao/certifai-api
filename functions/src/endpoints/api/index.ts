@@ -28,6 +28,10 @@ import {
   getExamReport,
   regenerateExamReport,
 } from './users/exams/getExamReport';
+import {
+  getCertSummary,
+  regenerateCertSummary,
+} from './users/certifications/getCertSummary';
 
 // Admin endpoints
 // import autoFailStuckExams from './admin/exams/autoFailStuckExams';
@@ -178,6 +182,22 @@ router.delete(
   verifyFirebaseToken,
   verifyUserAccess,
   deleteExam,
+);
+
+// Get certification summary for a user
+router.get(
+  '/users/:user_id/certifications/:cert_id/cert-summary',
+  verifyFirebaseToken,
+  verifyUserAccess,
+  getCertSummary,
+);
+
+// Regenerate certification summary for a user
+router.post(
+  '/users/:user_id/certifications/:cert_id/cert-summary',
+  verifyFirebaseToken,
+  verifyUserAccess,
+  regenerateCertSummary,
 );
 
 // Get exam report for a user exam

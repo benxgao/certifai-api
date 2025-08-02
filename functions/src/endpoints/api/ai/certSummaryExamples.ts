@@ -8,7 +8,6 @@
 import { Request, Response } from 'express';
 import {
   generateCertSummary,
-  CertificationSummary,
   certSummaryFirestore,
 } from '../../../services/certSummaryService';
 import { CustomRequest } from '../../../types';
