@@ -19,7 +19,7 @@ const mockStructuredExamReport = {
       correct_answers: 9,
       total_attempts: 10,
       accuracy_rate: 0.9,
-      difficulty_level: 'intermediate' as const,
+      difficulty_level: 'advanced' as const,
       performance_category: 'strong' as const,
     },
     {
@@ -35,7 +35,7 @@ const mockStructuredExamReport = {
       correct_answers: 4,
       total_attempts: 7,
       accuracy_rate: 0.571,
-      difficulty_level: 'intermediate' as const,
+      difficulty_level: 'advanced' as const,
       performance_category: 'average' as const,
     },
     {
@@ -301,7 +301,7 @@ const testDuplicateTopicGeneration = async () => {
           correct_answers: 2,
           total_attempts: 6,
           accuracy_rate: 0.33, // Weak - should be duplicated
-          difficulty_level: 'intermediate',
+          difficulty_level: 'advanced',
           performance_category: 'weak',
         },
         {

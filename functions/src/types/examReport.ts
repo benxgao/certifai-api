@@ -12,7 +12,7 @@
  *   "correct_answers": 3,
  *   "total_attempts": 5,
  *   "accuracy_rate": 0.6,
- *   "difficulty_level": "intermediate",
+ *   "difficulty_level": "advanced",
  *   "performance_category": "average"
  * }
  */
@@ -21,7 +21,7 @@ export interface TopicPerformance {
   correct_answers: number;
   total_attempts: number;
   accuracy_rate: number; // 0.0 to 1.0
-  difficulty_level: 'easy' | 'intermediate' | 'advanced' | 'expert';
+  difficulty_level: 'easy' | 'advanced' | 'expert';
   performance_category: 'weak' | 'average' | 'strong';
 }
 
@@ -38,7 +38,7 @@ export interface TopicPerformance {
  *       "correct_answers": 4,
  *       "total_attempts": 4,
  *       "accuracy_rate": 1.0,
- *       "difficulty_level": "intermediate",
+ *       "difficulty_level": "advanced",
  *       "performance_category": "strong"
  *     },
  *     {
@@ -82,8 +82,7 @@ export const getDifficultyLabel = (
   difficultyLevel: number,
 ): TopicPerformance['difficulty_level'] => {
   if (difficultyLevel >= 4) return 'expert';
-  if (difficultyLevel >= 3) return 'advanced';
-  if (difficultyLevel >= 2) return 'intermediate';
+  if (difficultyLevel >= 2) return 'advanced';
   return 'easy';
 };
 
@@ -110,7 +109,7 @@ export const getDifficultyLabel = (
  *       "correct_answers": 4,
  *       "total_attempts": 4,
  *       "accuracy_rate": 1.0,
- *       "difficulty_level": "intermediate",
+ *       "difficulty_level": "advanced",
  *       "performance_category": "strong"
  *     },
  *     {

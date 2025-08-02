@@ -18,7 +18,7 @@ const mockExamReport = {
       correct_answers: 5,
       total_attempts: 5,
       accuracy_rate: 1.0,
-      difficulty_level: 'intermediate' as const,
+      difficulty_level: 'advanced' as const,
       performance_category: 'strong' as const,
     },
     {
