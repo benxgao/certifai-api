@@ -1,10 +1,10 @@
-name: Deploy to Firebase Functions on merge
+name: Deploy to Firebase Functions Production on merge
 on:
   push:
     branches:
       - master
 jobs:
-  build_and_deploy:
+  build_and_deploy_prod:
     runs-on: ubuntu-latest
 
     steps:
@@ -26,19 +26,34 @@ jobs:
       - name: Install npm Dependencies
         run: npm ci
         working-directory: functions
-        # env:
-        #   NODE_ENV: production
-
-      # - name: Build Functions
-      #   run: npm run build
-      #   working-directory: functions
-      # env:
-      #   NODE_ENV: production
 
       - name: Create file - gcp_credentials.json
         run: |
           echo '${{ secrets.GCP_CREDENTIALS_JSON }}' | jq '.' > gcp_credentials.json
         working-directory: functions
+
+      - name: Set Firebase Project to PROD
+        run: |
+          export GOOGLE_APPLICATION_CREDENTIALS="./gcp_credentials.json"
+          npx firebase use ${{ vars.GCP_PROJECT_ID }}
+        working-directory: functions
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ./gcp_credentials.json
+
+      - name: Enable required GCP APIs
+        run: |
+          export GOOGLE_APPLICATION_CREDENTIALS="./gcp_credentials.json"
+          gcloud auth activate-service-account --key-file=./gcp_credentials.json
+          gcloud config set project ${{ vars.GCP_PROJECT_ID }}
+          gcloud services enable cloudfunctions.googleapis.com
+          gcloud services enable cloudbuild.googleapis.com
+          gcloud services enable artifactregistry.googleapis.com
+          gcloud services enable eventarc.googleapis.com
+          gcloud services enable run.googleapis.com
+          gcloud services enable logging.googleapis.com
+        working-directory: functions
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ./gcp_credentials.json
 
       - name: Create file - .env
         run: |
@@ -58,7 +73,8 @@ jobs:
 
       - name: Deploy Firebase Functions
         run: |
-          npm run deploy
+          export GOOGLE_APPLICATION_CREDENTIALS="./gcp_credentials.json"
+          npm run deploy -- --force
         working-directory: functions
-        # env:
-        #   NODE_ENV: production
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ./gcp_credentials.json

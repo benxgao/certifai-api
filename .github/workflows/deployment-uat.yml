@@ -1,0 +1,80 @@
+name: Deploy to Firebase Functions UAT on merge
+on:
+  push:
+    branches:
+      - uat
+jobs:
+  build_and_deploy_uat:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Cache npm Dependencies
+        uses: actions/cache@v4
+        id: cache-npm
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Install npm Dependencies
+        run: npm ci
+        working-directory: functions
+
+      - name: Create file - gcp_credentials.json
+        run: |
+          echo '${{ secrets.GCP_CREDENTIALS_JSON_UAT }}' | jq '.' > gcp_credentials.json
+        working-directory: functions
+
+      - name: Set Firebase Project to UAT
+        run: |
+          export GOOGLE_APPLICATION_CREDENTIALS="./gcp_credentials.json"
+          npx firebase use ${{ vars.GCP_PROJECT_ID_UAT }}
+        working-directory: functions
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ./gcp_credentials.json
+
+      - name: Enable required GCP APIs
+        run: |
+          export GOOGLE_APPLICATION_CREDENTIALS="./gcp_credentials.json"
+          gcloud auth activate-service-account --key-file=./gcp_credentials.json
+          gcloud config set project ${{ vars.GCP_PROJECT_ID_UAT }}
+          gcloud services enable cloudfunctions.googleapis.com
+          gcloud services enable cloudbuild.googleapis.com
+          gcloud services enable artifactregistry.googleapis.com
+          gcloud services enable eventarc.googleapis.com
+          gcloud services enable run.googleapis.com
+          gcloud services enable logging.googleapis.com
+        working-directory: functions
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ./gcp_credentials.json
+
+      - name: Create file - .env
+        run: |
+          echo "GCP_PROJECT_NUMBER=${{ vars.GCP_PROJECT_NUMBER_UAT }}" >> .env
+          echo "GCP_PROJECT_ID=${{ vars.GCP_PROJECT_ID_UAT }}" >> .env
+          echo "GCP_REGION=${{ vars.GCP_REGION_UAT }}" >> .env
+          echo "GCP_TASKS_HOST=${{ vars.GCP_TASKS_HOST_UAT }}" >> .env
+          echo "GCP_TASKS_SERVICE_ACCOUNT=${{ vars.GCP_TASKS_SERVICE_ACCOUNT_UAT }}" >> .env
+
+          echo "DATABASE_URL=${{ secrets.DATABASE_URL_UAT }}" >> .env
+          echo "DIRECT_URL=${{ secrets.DIRECT_URL_UAT }}" >> .env
+          echo "PUBLIC_JWT_SECRET=${{ secrets.PUBLIC_JWT_SECRET_UAT }}" >> .env
+
+          echo "UPSTASH_REDIS_REST_URL=${{ secrets.UPSTASH_REDIS_REST_URL_UAT }}" >> .env
+          echo "UPSTASH_REDIS_REST_TOKEN=${{ secrets.UPSTASH_REDIS_REST_TOKEN_UAT }}" >> .env
+        working-directory: functions
+
+      - name: Deploy Firebase Functions
+        run: |
+          export GOOGLE_APPLICATION_CREDENTIALS="./gcp_credentials.json"
+          npm run deploy -- --force
+        working-directory: functions
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ./gcp_credentials.json
