@@ -53,6 +53,7 @@ export const getPublicCertifications = async (
             select: {
               cert_id: true,
               name: true,
+              slug: true,
               exam_guide_url: true,
               min_quiz_counts: true,
               max_quiz_counts: true,
@@ -134,6 +135,7 @@ export const getPublicCertificationById = async (
           select: {
             cert_id: true,
             name: true,
+            slug: true,
             exam_guide_url: true,
             min_quiz_counts: true,
             max_quiz_counts: true,
@@ -172,6 +174,7 @@ export const getPublicCertificationById = async (
             select: {
               cert_id: true,
               name: true,
+              slug: true,
               exam_guide_url: true,
               min_quiz_counts: true,
               max_quiz_counts: true,
@@ -187,6 +190,7 @@ export const getPublicCertificationById = async (
         const transformedCertification = {
           cert_id: certification.cert_id,
           name: certification.name,
+          slug: certification.slug,
           description:
             certification.exam_guide_url ||
             `Learn about ${certification.name} certification and advance your career.`,
@@ -207,6 +211,7 @@ export const getPublicCertificationById = async (
           related_certifications: relatedCertifications.map((cert) => ({
             cert_id: cert.cert_id,
             name: cert.name,
+            slug: cert.slug,
             description:
               cert.exam_guide_url || `Learn about ${cert.name} certification.`,
             min_quiz_counts: cert.min_quiz_counts,
@@ -356,6 +361,159 @@ export const getPublicCertificationsByFirm = async (
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to fetch certifications',
+    });
+  }
+};
+
+/**
+ * Get a specific certification by slug (public endpoint)
+ */
+export const getPublicCertificationBySlug = async (
+  req: AuthenticatedRequest,
+  res: Response,
+): Promise<void> => {
+  try {
+    const slug = req.params.slug;
+
+    if (!slug || typeof slug !== 'string') {
+      res.status(400).json({
+        error: 'Bad Request',
+        message: 'Invalid certification slug',
+      });
+      return;
+    }
+
+    logger.info(
+      `Getting public certification by slug: ${slug}, user: ${JSON.stringify(
+        req.user,
+      )}`,
+    );
+
+    // Generate cache key for this specific certification
+    const cacheKey = generateItemCacheKey('certification_by_slug', slug);
+
+    // Try to get from cache first, or fetch and cache
+    const result = await CacheHierarchyService.getOrSet(
+      cacheKey,
+      async () => {
+        logger.info(
+          `Cache miss - fetching certification ${slug} from database`,
+        );
+
+        const certification = await prismaInstance.certification.findUnique({
+          where: {
+            slug: slug,
+          },
+          select: {
+            cert_id: true,
+            name: true,
+            slug: true,
+            exam_guide_url: true,
+            min_quiz_counts: true,
+            max_quiz_counts: true,
+            pass_score: true,
+            firm: {
+              select: {
+                firm_id: true,
+                name: true,
+                code: true,
+                description: true,
+                website_url: true,
+                logo_url: true,
+              },
+            },
+            _count: {
+              select: {
+                userCertifications: true,
+              },
+            },
+          },
+        });
+
+        if (!certification) {
+          return null;
+        }
+
+        // Get related certifications from the same firm
+        const relatedCertifications =
+          await prismaInstance.certification.findMany({
+            where: {
+              firm_id: certification.firm.firm_id,
+              cert_id: {
+                not: certification.cert_id,
+              },
+            },
+            select: {
+              cert_id: true,
+              name: true,
+              slug: true,
+              exam_guide_url: true,
+              min_quiz_counts: true,
+              max_quiz_counts: true,
+              pass_score: true,
+            },
+            take: 5,
+            orderBy: {
+              name: 'asc',
+            },
+          });
+
+        // Transform the data to match frontend expectations
+        const transformedCertification = {
+          cert_id: certification.cert_id,
+          name: certification.name,
+          slug: certification.slug,
+          description:
+            certification.exam_guide_url ||
+            `Learn about ${certification.name} certification and advance your career.`,
+          min_quiz_counts: certification.min_quiz_counts,
+          max_quiz_counts: certification.max_quiz_counts,
+          pass_score: certification.pass_score,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          firm: {
+            id: certification.firm.firm_id,
+            code: certification.firm.code,
+            name: certification.firm.name,
+            description: certification.firm.description || '',
+            website_url: certification.firm.website_url,
+            logo_url: certification.firm.logo_url,
+          },
+          enrollment_count: certification._count.userCertifications || 0,
+          related_certifications: relatedCertifications.map((cert) => ({
+            cert_id: cert.cert_id,
+            name: cert.name,
+            slug: cert.slug,
+            description:
+              cert.exam_guide_url || `Learn about ${cert.name} certification.`,
+            min_quiz_counts: cert.min_quiz_counts,
+            max_quiz_counts: cert.max_quiz_counts,
+            pass_score: cert.pass_score,
+          })),
+        };
+
+        return {
+          success: true,
+          data: transformedCertification,
+        };
+      },
+      CACHE_CONFIG.CERTIFICATIONS_TTL,
+    );
+
+    if (!result) {
+      res.status(404).json({
+        error: 'Not Found',
+        message: 'Certification not found',
+      });
+      return;
+    }
+
+    res.status(200).json(result);
+  } catch (error) {
+    logger.error(`Error getting public certification by slug: ${error}`);
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to fetch certification',
     });
   }
 };

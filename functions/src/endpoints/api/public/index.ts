@@ -5,6 +5,7 @@ import { getPublicFirms, getPublicFirmById } from './firms';
 import {
   getPublicCertifications,
   getPublicCertificationById,
+  getPublicCertificationBySlug,
   getPublicCertificationsByFirm,
 } from './certifications';
 import {
@@ -47,6 +48,13 @@ router.get(
   '/certifications/:certId',
   verifyJWTToken,
   getPublicCertificationById,
+);
+
+// Get a specific certification by slug (public)
+router.get(
+  '/certifications/slug/:slug',
+  verifyJWTToken,
+  getPublicCertificationBySlug,
 );
 
 /** ******************* CACHE MANAGEMENT ************************* */

@@ -62,6 +62,7 @@ model Certification {
   // cert_category_id Int // Foreign Key
 
   name            String
+  slug            String  @unique
   exam_guide_url  String?
   min_quiz_counts Int
   max_quiz_counts Int
@@ -74,6 +75,7 @@ model Certification {
 
   @@index([firm_id])
   @@index([firm_id, name])
+  @@index([slug])
 }
 
 model User {

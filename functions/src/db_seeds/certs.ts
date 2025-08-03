@@ -8,8 +8,13 @@ import prismaInstance from '../services/prisma';
 // - Seed certifications only: npx ts-node src/db_seeds/certs.ts seed-certs
 // - Update question counts: npx ts-node src/db_seeds/certs.ts update-question-counts
 // - Update URLs: npx ts-node src/db_seeds/certs.ts update-urls
+// - Update slugs: npx ts-node src/db_seeds/certs.ts update-slugs
 //
-// Recent Updates (June 2025):
+// Recent Updates (August 2025):
+// - Enhanced Ansible certification coverage with 5 comprehensive Red Hat certifications
+// - Added Red Hat Certified Engineer in Ansible Automation (EX447)
+// - Added Red Hat Certified Architect in Infrastructure
+// - Added Advanced Automation Best Practices and Event-Driven Automation specializations
 // - Removed broken VMware VCP-CMA certification (404 error)
 // - Updated VMware URLs to use Broadcom domain (post-acquisition)
 // - Removed outdated IBM certifications returning 404 errors
@@ -248,6 +253,7 @@ async function seedFirms() {
 // Comprehensive certification data with current exam guide URLs - moved to module level for reuse
 const certificationUrlUpdates: Array<{
   name: string;
+  slug?: string;
   exam_guide_url: string;
   min_quiz_counts?: number;
   max_quiz_counts?: number;
@@ -256,11 +262,13 @@ const certificationUrlUpdates: Array<{
   // Existing AWS Certifications
   {
     name: 'AWS Certified Solutions Architect',
+    slug: 'aws-solutions-architect', // Custom slug example
     exam_guide_url:
       'https://aws.amazon.com/certification/certified-solutions-architect-associate/',
   },
   {
     name: 'AWS Certified SysOps Administrator',
+    // No slug provided - will be auto-generated as 'aws-certified-sysops-administrator'
     exam_guide_url:
       'https://aws.amazon.com/certification/certified-sysops-admin-associate/',
   },
@@ -735,13 +743,37 @@ const certificationUrlUpdates: Array<{
     firm_code: 'HASHICORP',
   },
 
-  // Ansible Certifications
+  // Ansible Certifications (Enhanced)
   {
-    name: 'Red Hat Certified Specialist in Ansible Automation',
+    name: 'Red Hat Certified Specialist in Developing Automation with Ansible Automation Platform',
     exam_guide_url:
-      'https://www.redhat.com/en/services/certification/rhcs-ansible-automation',
+      'https://www.redhat.com/en/services/training/red-hat-certified-specialist-developing-automation-ansible-automation-platform-exam?section=objectives',
+    min_quiz_counts: 20,
+    max_quiz_counts: 90,
+    firm_code: 'REDHAT',
+  },
+  {
+    name: 'Red Hat Certified Architect in Infrastructure',
+    exam_guide_url:
+      'https://www.redhat.com/en/services/certification/rhca?pfe-u086w679o=exams',
+    min_quiz_counts: 25,
+    max_quiz_counts: 100,
+    firm_code: 'REDHAT',
+  },
+  {
+    name: 'Red Hat Certified Specialist in Advanced Automation: Ansible Best Practices',
+    exam_guide_url:
+      'https://www.redhat.com/en/services/training/ex447-red-hat-certified-specialist-advanced-automation-ansible-best-practices-exam?section=objectives',
+    min_quiz_counts: 18,
+    max_quiz_counts: 85,
+    firm_code: 'REDHAT',
+  },
+  {
+    name: 'Red Hat Certified Specialist in Event-Driven Automation',
+    exam_guide_url:
+      'https://www.redhat.com/en/services/training/red-hat-certified-specialist-event-driven-application-development-exam?section=objectives',
     min_quiz_counts: 15,
-    max_quiz_counts: 80,
+    max_quiz_counts: 75,
     firm_code: 'REDHAT',
   },
 
@@ -1446,6 +1478,7 @@ async function updateCertificationUrls() {
         await prismaInstance.certification.create({
           data: {
             name: update.name,
+            slug: generateSlug(update.name),
             exam_guide_url: update.exam_guide_url,
             min_quiz_counts: update.min_quiz_counts!,
             max_quiz_counts: update.max_quiz_counts!,
@@ -1496,6 +1529,16 @@ async function updateCertificationUrls() {
     console.log(`    ${cert.exam_guide_url || 'No URL set'}`);
     console.log('');
   });
+}
+
+// Function to generate slug from certification name
+function generateSlug(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '') // Remove special characters except spaces and hyphens
+    .replace(/\s+/g, '-') // Replace spaces with hyphens
+    .replace(/-+/g, '-') // Replace multiple hyphens with single hyphen
+    .trim(); // Remove leading/trailing whitespace
 }
 
 // Helper function to determine firm code based on certification name
@@ -1689,12 +1732,14 @@ async function seedCertifications() {
   const certifications = certificationUrlUpdates.map(
     (cert: {
       name: string;
+      slug?: string;
       exam_guide_url: string;
       min_quiz_counts?: number;
       max_quiz_counts?: number;
       firm_code?: string;
     }) => ({
       name: cert.name,
+      slug: cert.slug || generateSlug(cert.name), // Use provided slug or generate one
       exam_guide_url: cert.exam_guide_url,
       min_quiz_counts: cert.min_quiz_counts || 10, // Default values if not specified
       max_quiz_counts: cert.max_quiz_counts || 50,
@@ -1744,6 +1789,7 @@ async function seedCertifications() {
       await prismaInstance.certification.create({
         data: {
           name: cert.name,
+          slug: cert.slug,
           exam_guide_url: cert.exam_guide_url,
           min_quiz_counts: cert.min_quiz_counts,
           max_quiz_counts: cert.max_quiz_counts,
@@ -1773,6 +1819,67 @@ async function seedCertifications() {
   console.log('✅ Certifications seeding completed successfully.');
 }
 
+// Function to update existing certifications with slugs
+async function updateCertificationSlugs() {
+  console.log('Starting slug update for existing certifications...');
+
+  try {
+    // Get all certifications that don't have slugs (empty or null-like values)
+    const certificationsWithoutSlugs =
+      await prismaInstance.certification.findMany({
+        where: {
+          OR: [
+            { slug: '' },
+            { slug: { startsWith: 'temp-' } }, // In case we have temporary slugs
+          ],
+        },
+      });
+
+    console.log(
+      `Found ${certificationsWithoutSlugs.length} certifications without slugs`,
+    );
+
+    let updatedCount = 0;
+    let errorCount = 0;
+
+    for (const cert of certificationsWithoutSlugs) {
+      try {
+        const slug = generateSlug(cert.name);
+
+        // Check if this slug already exists
+        const existingSlug = await prismaInstance.certification.findUnique({
+          where: { slug },
+        });
+
+        let finalSlug = slug;
+        if (existingSlug && existingSlug.cert_id !== cert.cert_id) {
+          // If slug exists, append cert_id to make it unique
+          finalSlug = `${slug}-${cert.cert_id}`;
+        }
+
+        await prismaInstance.certification.update({
+          where: { cert_id: cert.cert_id },
+          data: { slug: finalSlug },
+        });
+
+        console.log(`✅ Updated "${cert.name}" with slug: ${finalSlug}`);
+        updatedCount++;
+      } catch (error) {
+        console.error(`❌ Error updating slug for "${cert.name}":`, error);
+        errorCount++;
+      }
+    }
+
+    console.log('\n📊 Slug Update Summary:');
+    console.log(`✅ Successfully updated: ${updatedCount} certifications`);
+    if (errorCount > 0) {
+      console.log(`❌ Errors encountered: ${errorCount} certifications`);
+    }
+  } catch (error) {
+    console.error('❌ Error in updateCertificationSlugs:', error);
+  }
+}
+
 async function main() {
   const args = process.argv.slice(2);
   const operation = args[0];
@@ -1783,6 +1890,9 @@ async function main() {
       break;
     case 'update-urls':
       await updateCertificationUrls();
+      break;
+    case 'update-slugs':
+      await updateCertificationSlugs();
       break;
     case 'seed-firms':
       await seedFirms();
