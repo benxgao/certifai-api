@@ -2,11 +2,11 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
-// import rateLimitModule from 'express-rate-limit';
+import logger from '../services/firebase/logger';
 
 import healthcheck from './healthCheck';
 import api from './api';
-import logger from '../services/firebase/logger';
+import stripe from './stripe';
 
 const app = express();
 
@@ -18,21 +18,14 @@ app.use(helmet());
 // Compression middleware
 app.use(compression());
 
-// Rate limiting middleware
-// const limiter = rateLimitModule({
-//   windowMs: 15 * 60 * 1000, // 15 minutes
-//   max: 100, // limit each IP to 100 requests per windowMs
-// });
-// app.use(limiter);
-
 // CORS configuration - restrict to allowed origins only
 const allowedOrigins = [
-  'http://localhost:3000',
-  'https://localhost:3000',
-  'https://www.certestic.com',
-  'https://certestic.com',
-  'http://www.certestic.com', // In case HTTP is used (though HTTPS is recommended)
-  'http://certestic.com',
+  // 'http://localhost:3000',
+  // 'https://localhost:3000',
+  // 'https://www.certestic.com',
+  // 'https://certestic.com',
+  // 'http://www.certestic.com', // In case HTTP is used (though HTTPS is recommended)
+  // 'http://certestic.com',
 ];
 
 app.use(
@@ -69,5 +62,7 @@ app.use(express.json());
 app.use('/healthcheck', healthcheck);
 
 app.use('/api', api);
+
+app.use('/stripe', stripe);
 
 export default app;
