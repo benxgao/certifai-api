@@ -6,7 +6,7 @@
 export GOOGLE_APPLICATION_CREDENTIALS
 gcloud auth application-default login
 gcloud auth application-default set-quota-project [PROJECT_ID]
-gsutil mb -p coworkout-250306 -l us-central1 gs://coworkout-250306
+gsutil mb -p [PROJECT_ID] -l us-central1 gs://[BUCKET_NAME]
 terraform init
 terraform plan
 terraform apply
