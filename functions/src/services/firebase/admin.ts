@@ -3,10 +3,12 @@ import { getAuth } from 'firebase-admin/auth';
 import { getDatabase } from 'firebase-admin/database';
 
 if (!admin.apps.length) {
-  const config: admin.AppOptions = {};
+  const config: admin.AppOptions = {
+    projectId: process.env.GCP_PROJECT_ID || 'certifai-uat',
+  };
 
   // if (process.env.FIREBASE_DATABASE_EMULATOR_HOST) {
-  //   config.databaseURL = `http://${process.env.FIREBASE_DATABASE_EMULATOR_HOST}/?ns=certifai-prod-default-rtdb`;
+  //   config.databaseURL = `http://${process.env.FIREBASE_DATABASE_EMULATOR_HOST}/?ns=${process.env.GCP_PROJECT_ID}-default-rtdb`;
   // } else {
   config.databaseURL = `https://${process.env.GCP_PROJECT_ID}-default-rtdb.firebaseio.com/`;
   // }

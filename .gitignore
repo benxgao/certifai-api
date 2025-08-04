@@ -1,5 +1,6 @@
 .history
 .env
+.env.*
 functions/.env.yaml
 **/*/*.log
 dist
