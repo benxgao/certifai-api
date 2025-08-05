@@ -19,7 +19,7 @@ app.use(helmet());
 app.use(compression());
 
 // CORS configuration - restrict to allowed origins only
-const allowedOrigins = [
+const allowedOrigins: string[] = [
   // 'http://localhost:3000',
   // 'https://localhost:3000',
   // 'https://www.certestic.com',

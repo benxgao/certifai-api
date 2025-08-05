@@ -5,6 +5,7 @@ import { StripeCustomerData, SubscriptionData } from './service';
 export class StripeFirestoreService {
   private static readonly CUSTOMERS_COLLECTION = 'stripe_customers';
   private static readonly SUBSCRIPTIONS_COLLECTION = 'stripe_subscriptions';
+  private static readonly INVOICES_COLLECTION = 'stripe_invoices';
 
   /**
    * Store customer data in Firestore
@@ -99,6 +100,8 @@ export class StripeFirestoreService {
     status: string,
     currentPeriodStart?: number,
     currentPeriodEnd?: number,
+    cancelAtPeriodEnd?: boolean,
+    canceledAt?: number,
   ): Promise<void> {
     try {
       const updateData: Partial<SubscriptionData> = {
@@ -109,6 +112,9 @@ export class StripeFirestoreService {
       if (currentPeriodStart)
         updateData.current_period_start = currentPeriodStart;
       if (currentPeriodEnd) updateData.current_period_end = currentPeriodEnd;
+      if (cancelAtPeriodEnd !== undefined)
+        updateData.cancel_at_period_end = cancelAtPeriodEnd;
+      if (canceledAt) updateData.canceled_at = canceledAt;
 
       await firestoreService.update(
         this.SUBSCRIPTIONS_COLLECTION,
@@ -155,6 +161,47 @@ export class StripeFirestoreService {
         customer_id: customerId,
       });
       return null;
+    }
+  }
+
+  /**
+   * Get subscription by Firebase UID
+   */
+  static async getSubscriptionByFirebaseUid(
+    firebaseUid: string,
+  ): Promise<SubscriptionData | null> {
+    try {
+      const customer = await this.getCustomerByFirebaseUid(firebaseUid);
+      if (!customer) return null;
+
+      return await this.getActiveSubscription(customer.customer_id);
+    } catch (error) {
+      logger.error('FIRESTORE_STRIPE_SUBSCRIPTION_BY_UID_ERROR', {
+        error,
+        firebase_uid: firebaseUid,
+      });
+      return null;
+    }
+  }
+
+  /**
+   * Store invoice data
+   */
+  static async storeInvoice(invoiceData: any): Promise<void> {
+    try {
+      await firestoreService.create(
+        this.INVOICES_COLLECTION,
+        invoiceData,
+        invoiceData.invoice_id,
+      );
+
+      logger.info(`FIRESTORE_STRIPE_INVOICE_STORED: ${invoiceData.invoice_id}`);
+    } catch (error) {
+      logger.error('FIRESTORE_STRIPE_INVOICE_STORE_ERROR', {
+        error,
+        invoice_id: invoiceData.invoice_id,
+      });
+      throw new Error(`Failed to store invoice in Firestore: ${error}`);
     }
   }
 }

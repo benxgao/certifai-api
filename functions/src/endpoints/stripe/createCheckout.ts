@@ -1,12 +1,14 @@
 import { Response } from 'express';
 import { StripeService } from './service';
 import { StripeFirestoreService } from './db';
+import { firebaseAuth } from '../../services/firebase/admin';
 import logger from '../../services/firebase/logger';
 
 interface CreateCheckoutSessionRequest {
   price_id: string;
   success_url: string;
   cancel_url: string;
+  trial_days?: number;
 }
 
 export const createCheckoutSession = async (req: any, res: Response) => {
@@ -21,7 +23,7 @@ export const createCheckoutSession = async (req: any, res: Response) => {
       return;
     }
 
-    const { price_id, success_url, cancel_url } =
+    const { price_id, success_url, cancel_url, trial_days } =
       req.body as CreateCheckoutSessionRequest;
 
     if (!price_id || !success_url || !cancel_url) {
@@ -32,9 +34,22 @@ export const createCheckoutSession = async (req: any, res: Response) => {
       return;
     }
 
+    // Check if user already has an active subscription
+    const existingSubscription =
+      await StripeFirestoreService.getSubscriptionByFirebaseUid(
+        firebaseUserIdFromToken,
+      );
+
+    if (existingSubscription && existingSubscription.status === 'active') {
+      res.status(400).json({
+        success: false,
+        error: 'User already has an active subscription',
+      });
+      return;
+    }
+
     // Get user details from Firebase
-    const { auth } = getAdminSDK();
-    const userRecord = await auth.getUser(firebaseUserIdFromToken);
+    const userRecord = await firebaseAuth.getUser(firebaseUserIdFromToken);
 
     if (!userRecord.email) {
       res.status(400).json({
@@ -69,6 +84,7 @@ export const createCheckoutSession = async (req: any, res: Response) => {
       success_url,
       cancel_url,
       firebaseUserIdFromToken,
+      trial_days,
     );
 
     res.status(200).json({
