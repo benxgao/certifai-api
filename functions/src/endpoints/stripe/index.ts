@@ -47,8 +47,7 @@ router.post(
 // Public endpoints
 router.get('/pricing-plans', getPricingPlans);
 
-// Webhooks - use raw body parser for Stripe signature verification
-router.use(
+router.post(
   '/webhook-snapshot',
   express.raw({ type: 'application/json' }),
   stripeSnapshotWebhook,

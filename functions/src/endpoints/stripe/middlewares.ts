@@ -2,31 +2,6 @@ import { Request, Response, NextFunction } from 'express';
 import logger from '../../services/firebase/logger';
 
 /**
- * Middleware to capture raw body for Stripe webhook signature verification
- */
-export const captureRawBody = (
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) => {
-  if (req.originalUrl?.includes('/webhook')) {
-    let data = '';
-    req.setEncoding('utf8');
-
-    req.on('data', (chunk) => {
-      data += chunk;
-    });
-
-    req.on('end', () => {
-      (req as any).rawBody = data;
-      next();
-    });
-  } else {
-    next();
-  }
-};
-
-/**
  * Rate limiting middleware for Stripe endpoints
  */
 export const stripeRateLimit = (
