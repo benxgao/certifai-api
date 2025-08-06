@@ -51,6 +51,7 @@ jobs:
           gcloud services enable eventarc.googleapis.com
           gcloud services enable run.googleapis.com
           gcloud services enable logging.googleapis.com
+          gcloud services enable firestore.googleapis.com
         working-directory: functions
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ./gcp_credentials.json
@@ -72,6 +73,20 @@ jobs:
 
           echo "STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY_UAT }}" >> .env
         working-directory: functions
+
+      - name: Set Firebase Project for Firestore Deployment
+        run: |
+          export GOOGLE_APPLICATION_CREDENTIALS="./functions/gcp_credentials.json"
+          npx firebase use ${{ vars.GCP_PROJECT_ID_UAT }}
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ./functions/gcp_credentials.json
+
+      - name: Deploy Firestore Rules and Indexes
+        run: |
+          export GOOGLE_APPLICATION_CREDENTIALS="./functions/gcp_credentials.json"
+          npx firebase deploy --only firestore:rules,firestore:indexes --non-interactive --debug
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ./functions/gcp_credentials.json
 
       - name: Deploy Firebase Functions
         run: |

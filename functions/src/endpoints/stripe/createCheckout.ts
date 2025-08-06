@@ -26,6 +26,9 @@ export const createCheckoutSession = async (req: any, res: Response) => {
     const { price_id, success_url, cancel_url, trial_days } =
       req.body as CreateCheckoutSessionRequest;
 
+    console.log(`create checkout session:
+      | req.body: ${JSON.stringify(req.body)}`);
+
     if (!price_id || !success_url || !cancel_url) {
       res.status(400).json({
         success: false,

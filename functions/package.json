@@ -20,6 +20,8 @@
     "start": "npm run shell",
     "dev": "npm run serve",
     "deploy": "GOOGLE_APPLICATION_CREDENTIALS=./gcp_credentials.json firebase deploy --only functions --non-interactive --debug",
+    "deploy:firestore": "cd .. && GOOGLE_APPLICATION_CREDENTIALS=./functions/gcp_credentials.json firebase deploy --only firestore:rules,firestore:indexes --non-interactive --debug",
+    "deploy:all": "npm run deploy:firestore && npm run deploy",
     "logs": "firebase functions:log",
     "test": "echo \"No test specified\" && exit 0"
   },
