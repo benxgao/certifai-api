@@ -3,7 +3,7 @@ import express, { Router as createRouter } from 'express';
 import { verifyFirebaseToken } from '../../middlewares/authCheck';
 import { createCheckoutSession } from './createCheckout';
 import { createPortalSession } from './createPortal';
-import { stripeSnapshotWebhook } from './snapshotWebhook';
+import { stripeSnapshotWebhook } from './snapshotWebhooks';
 import {
   cancelSubscription,
   getPricingPlans,
@@ -13,8 +13,17 @@ import {
   resumeSubscription,
   updateSubscriptionPlan,
 } from './subscriptions';
+import { getAccountData, getAccountDataByApiUserId } from './accounts';
 
 const router = createRouter();
+
+// Unified account data endpoints (New)
+router.get('/account', verifyFirebaseToken, getAccountData);
+router.get(
+  '/account/:api_user_id',
+  verifyFirebaseToken,
+  getAccountDataByApiUserId,
+);
 
 // Checkout and portal sessions
 router.post(

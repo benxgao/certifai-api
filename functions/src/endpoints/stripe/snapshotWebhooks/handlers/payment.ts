@@ -3,21 +3,27 @@ import logger from '../../../../services/firebase/logger';
 import { StripeFirestoreService } from '../../db';
 
 export async function handlePaymentSucceeded(invoice: Stripe.Invoice) {
-  // Store invoice data
   const invoiceData = {
     invoice_id: invoice.id,
     customer_id: invoice.customer as string,
-    subscription_id: '',
-    amount_paid: invoice.amount_paid,
-    amount_due: invoice.amount_due,
-    currency: invoice.currency,
     status: invoice.status || '',
+    amount: invoice.amount_paid || 0,
     period_start: invoice.period_start,
     period_end: invoice.period_end,
     created_at: new Date(invoice.created * 1000).toISOString(),
   };
 
-  await StripeFirestoreService.storeInvoice(invoiceData);
+  // Store in unified accounts collection (new approach)
+  try {
+    await StripeFirestoreService.storeInvoice(invoiceData);
+  } catch (error) {
+    logger.error('STRIPE_WEBHOOK_INVOICE_STORE_ERROR', {
+      error,
+      invoice_id: invoice.id,
+      customer_id: invoice.customer,
+      action: 'store_payment_succeeded',
+    });
+  }
 
   logger.info('STRIPE_PAYMENT_SUCCEEDED', {
     invoice_id: invoice.id,
@@ -27,6 +33,26 @@ export async function handlePaymentSucceeded(invoice: Stripe.Invoice) {
 }
 
 export async function handlePaymentFailed(invoice: Stripe.Invoice) {
+  const invoiceData = {
+    invoice_id: invoice.id,
+    customer_id: invoice.customer as string,
+    status: invoice.status || '',
+    amount: invoice.amount_due || 0,
+    created_at: new Date(invoice.created * 1000).toISOString(),
+  };
+
+  // Store in unified accounts collection (new approach)
+  try {
+    await StripeFirestoreService.storeInvoice(invoiceData);
+  } catch (error) {
+    logger.error('STRIPE_WEBHOOK_INVOICE_STORE_ERROR', {
+      error,
+      invoice_id: invoice.id,
+      customer_id: invoice.customer,
+      action: 'store_payment_failed',
+    });
+  }
+
   logger.warn('STRIPE_PAYMENT_FAILED', {
     invoice_id: invoice.id,
     customer_id: invoice.customer,
@@ -37,6 +63,26 @@ export async function handlePaymentFailed(invoice: Stripe.Invoice) {
 }
 
 export async function handleUpcomingInvoice(invoice: Stripe.Invoice) {
+  const invoiceData = {
+    invoice_id: invoice.id,
+    customer_id: invoice.customer as string,
+    status: invoice.status || '',
+    amount: invoice.amount_due || 0,
+    created_at: new Date(invoice.created * 1000).toISOString(),
+  };
+
+  // Store in unified accounts collection (new approach)
+  try {
+    await StripeFirestoreService.storeInvoice(invoiceData);
+  } catch (error) {
+    logger.error('STRIPE_WEBHOOK_INVOICE_STORE_ERROR', {
+      error,
+      invoice_id: invoice.id,
+      customer_id: invoice.customer,
+      action: 'store_upcoming_invoice',
+    });
+  }
+
   logger.info('STRIPE_UPCOMING_INVOICE', {
     invoice_id: invoice.id,
     customer_id: invoice.customer,

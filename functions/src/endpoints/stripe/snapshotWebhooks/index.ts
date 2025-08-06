@@ -11,6 +11,11 @@ import {
   handlePaymentFailed,
   handleUpcomingInvoice,
 } from './handlers';
+import {
+  handleCustomerCreated,
+  handleCustomerUpdated,
+  handleCustomerDeleted,
+} from './handlers/customer';
 
 interface StripeWebhookRequest extends Request {
   rawBody?: Buffer;
@@ -55,8 +60,13 @@ export const stripeSnapshotWebhook = async (
   try {
     switch (event.type) {
       case 'customer.created':
+        await handleCustomerCreated(event.data.object as Stripe.Customer);
         break;
       case 'customer.updated':
+        await handleCustomerUpdated(event.data.object as Stripe.Customer);
+        break;
+      case 'customer.deleted':
+        await handleCustomerDeleted(event.data.object as Stripe.Customer);
         break;
 
       case 'payment_intent.created':

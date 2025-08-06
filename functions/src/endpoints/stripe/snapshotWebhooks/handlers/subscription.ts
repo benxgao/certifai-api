@@ -29,18 +29,43 @@ export async function handleSubscriptionUpdated(
     updated_at: new Date().toISOString(),
   };
 
-  await StripeFirestoreService.storeSubscription(subscriptionData);
+  // Store in unified accounts collection (new approach)
+  try {
+    await StripeFirestoreService.storeSubscription(subscriptionData);
+  } catch (error) {
+    logger.error('STRIPE_WEBHOOK_ACCOUNT_UPDATE_ERROR', {
+      error,
+      subscription_id: subscription.id,
+      customer_id: customerId,
+      action: 'store_subscription',
+    });
+    // Continue with Firebase claims update even if account storage fails
+  }
 
   // Update Firebase custom claims
   if (firebaseUid) {
-    const userRecord = await firebaseAuth.getUser(firebaseUid);
+    try {
+      const userRecord = await firebaseAuth.getUser(firebaseUid);
 
-    await firebaseAuth.setCustomUserClaims(firebaseUid, {
-      ...userRecord.customClaims,
-      subscription_status: subscription.status,
-      subscription_id: subscription.id,
-      has_subscription: ['active', 'trialing'].includes(subscription.status),
-    });
+      await firebaseAuth.setCustomUserClaims(firebaseUid, {
+        ...userRecord.customClaims,
+        subscription_status: subscription.status,
+        subscription_id: subscription.id,
+        has_subscription: ['active', 'trialing'].includes(subscription.status),
+      });
+
+      logger.info('STRIPE_WEBHOOK_FIREBASE_CLAIMS_UPDATED', {
+        firebase_uid: firebaseUid,
+        subscription_id: subscription.id,
+        subscription_status: subscription.status,
+      });
+    } catch (error) {
+      logger.error('STRIPE_WEBHOOK_FIREBASE_CLAIMS_ERROR', {
+        error,
+        firebase_uid: firebaseUid,
+        subscription_id: subscription.id,
+      });
+    }
   }
 
   logger.info('STRIPE_SUBSCRIPTION_UPDATED', {
@@ -56,24 +81,49 @@ export async function handleSubscriptionDeleted(
 ) {
   const firebaseUid = subscription.metadata?.firebase_uid;
 
-  await StripeFirestoreService.updateSubscriptionStatus(
-    subscription.id,
-    'canceled',
-    (subscription as any).current_period_start || 0,
-    (subscription as any).current_period_end || 0,
-    subscription.cancel_at_period_end,
-    subscription.canceled_at || undefined,
-  );
+  // Update unified accounts collection (new approach)
+  try {
+    await StripeFirestoreService.updateSubscriptionStatus(
+      subscription.id,
+      'canceled',
+      (subscription as any).current_period_start || 0,
+      (subscription as any).current_period_end || 0,
+      subscription.cancel_at_period_end,
+      subscription.canceled_at || undefined,
+    );
+  } catch (error) {
+    logger.error('STRIPE_WEBHOOK_ACCOUNT_UPDATE_ERROR', {
+      error,
+      subscription_id: subscription.id,
+      customer_id: subscription.customer,
+      action: 'update_subscription_status',
+    });
+    // Continue with Firebase claims update even if account storage fails
+  }
 
   // Update Firebase custom claims
   if (firebaseUid) {
-    const userRecord = await firebaseAuth.getUser(firebaseUid);
+    try {
+      const userRecord = await firebaseAuth.getUser(firebaseUid);
 
-    await firebaseAuth.setCustomUserClaims(firebaseUid, {
-      ...userRecord.customClaims,
-      subscription_status: 'canceled',
-      has_subscription: false,
-    });
+      await firebaseAuth.setCustomUserClaims(firebaseUid, {
+        ...userRecord.customClaims,
+        subscription_status: 'canceled',
+        has_subscription: false,
+      });
+
+      logger.info('STRIPE_WEBHOOK_FIREBASE_CLAIMS_UPDATED', {
+        firebase_uid: firebaseUid,
+        subscription_id: subscription.id,
+        subscription_status: 'canceled',
+      });
+    } catch (error) {
+      logger.error('STRIPE_WEBHOOK_FIREBASE_CLAIMS_ERROR', {
+        error,
+        firebase_uid: firebaseUid,
+        subscription_id: subscription.id,
+      });
+    }
   }
 
   logger.info('STRIPE_SUBSCRIPTION_DELETED', {
