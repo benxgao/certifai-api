@@ -57,7 +57,20 @@ export class StripeFirestoreService {
       logger.error('FIRESTORE_STRIPE_CUSTOMER_GET_ERROR', {
         error,
         firebase_uid: firebaseUid,
+        error_details: error instanceof Error ? error.message : 'Unknown error',
+        error_code: (error as any)?.code || 'UNKNOWN',
       });
+      // Don't return null for permission errors, throw them so we can handle them properly
+      if (
+        (error as any)?.code === 7 ||
+        (error as any)?.message?.includes('permission')
+      ) {
+        throw new Error(
+          `Firestore permission error: ${
+            error instanceof Error ? error.message : 'Unknown permission error'
+          }`,
+        );
+      }
       return null;
     }
   }

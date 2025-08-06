@@ -1,10 +1,11 @@
 import {
-  getFirestore,
   Firestore,
   DocumentReference,
   CollectionReference,
   Query,
 } from 'firebase-admin/firestore';
+import { firebaseFirestore } from './admin';
+
 import logger from './logger';
 
 /**
@@ -15,7 +16,7 @@ class FirestoreService {
   private db: Firestore;
 
   constructor() {
-    this.db = getFirestore();
+    this.db = firebaseFirestore;
   }
 
   /**
@@ -342,8 +343,8 @@ class FirestoreService {
 // Export singleton instance
 export const firestoreService = new FirestoreService();
 
-// Export Firestore instance for direct access if needed
-export const firestore = getFirestore();
+// Export Firestore instance for direct access if needed (using the same singleton)
+export const firestore = firebaseFirestore;
 
 // Common collection paths (add your collections here)
 export const COLLECTIONS = {

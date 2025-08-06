@@ -35,10 +35,25 @@ export const createCheckoutSession = async (req: any, res: Response) => {
     }
 
     // Check if user already has an active subscription
-    const existingSubscription =
-      await StripeFirestoreService.getSubscriptionByFirebaseUid(
-        firebaseUserIdFromToken,
-      );
+    let existingSubscription = null;
+    try {
+      existingSubscription =
+        await StripeFirestoreService.getSubscriptionByFirebaseUid(
+          firebaseUserIdFromToken,
+        );
+    } catch (error) {
+      // If it's a permission error, log it but continue the flow
+      if (error instanceof Error && error.message.includes('permission')) {
+        logger.warn('FIRESTORE_PERMISSION_WARNING', {
+          firebase_uid: firebaseUserIdFromToken,
+          error: error.message,
+          action: 'continuing_without_subscription_check',
+        });
+        // Continue without checking existing subscription
+      } else {
+        throw error; // Re-throw other errors
+      }
+    }
 
     if (existingSubscription && existingSubscription.status === 'active') {
       res.status(400).json({
@@ -67,15 +82,25 @@ export const createCheckoutSession = async (req: any, res: Response) => {
       userRecord.displayName || undefined,
     );
 
-    // Store customer in Firestore
-    await StripeFirestoreService.storeCustomer({
-      customer_id: customer.id,
-      email: userRecord.email,
-      firebase_uid: firebaseUserIdFromToken,
-      api_user_id: userRecord.customClaims?.api_user_id || '',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    });
+    // Store customer in Firestore (non-blocking if it fails)
+    try {
+      await StripeFirestoreService.storeCustomer({
+        customer_id: customer.id,
+        email: userRecord.email,
+        firebase_uid: firebaseUserIdFromToken,
+        api_user_id: userRecord.customClaims?.api_user_id || '',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+    } catch (error) {
+      // Log the error but don't fail the checkout process
+      logger.warn('FIRESTORE_CUSTOMER_STORE_WARNING', {
+        firebase_uid: firebaseUserIdFromToken,
+        customer_id: customer.id,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        action: 'continuing_checkout_without_firestore_storage',
+      });
+    }
 
     // Create checkout session
     const session = await StripeService.createCheckoutSession(
