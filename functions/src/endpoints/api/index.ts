@@ -6,6 +6,7 @@ import { mediumPagePagination } from '../../middlewares/pagination';
 import protectedResources from './protected_resources';
 import authRegister from './auth/register';
 import authLogin from './auth/login';
+import firestoreEnsureAccount from './firestore/ensure-account';
 import { generateToken } from './auth/generateToken';
 import { generateServiceToken } from './auth/generateServiceToken';
 import getUserExams from './users/exams/getUserExams';
@@ -58,6 +59,13 @@ router.post('/auth/register', verifyFirebaseToken, authRegister);
 
 // User login
 router.post('/auth/login', verifyFirebaseToken, authLogin);
+
+// Ensure Firestore account exists
+router.post(
+  '/firestore/ensure-account',
+  verifyFirebaseToken,
+  firestoreEnsureAccount,
+);
 
 // Generate JWT token for public API access
 router.post('/auth/generate-token', verifyFirebaseToken, generateToken);

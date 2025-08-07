@@ -108,6 +108,47 @@ export class StripeFirestoreService {
   }
 
   /**
+   * Create a new account record with default values
+   */
+  static async createAccount(accountData: {
+    api_user_id: string;
+    firebase_user_id: string;
+    email: string;
+    created_at: string;
+    updated_at: string;
+  }): Promise<void> {
+    try {
+      const newAccountData: AccountData = {
+        api_user_id: accountData.api_user_id,
+        firebase_user_id: accountData.firebase_user_id,
+        email: accountData.email,
+        created_at: accountData.created_at,
+        updated_at: accountData.updated_at,
+      };
+
+      await firestoreService.create(
+        this.ACCOUNTS_COLLECTION,
+        newAccountData,
+        accountData.api_user_id,
+      );
+
+      logger.info('FIRESTORE_ACCOUNT_CREATED', {
+        api_user_id: accountData.api_user_id,
+        firebase_user_id: accountData.firebase_user_id,
+        email: accountData.email,
+      });
+    } catch (error) {
+      logger.error('FIRESTORE_ACCOUNT_CREATE_ERROR', {
+        error,
+        api_user_id: accountData.api_user_id,
+        firebase_user_id: accountData.firebase_user_id,
+        error_details: error instanceof Error ? error.message : 'Unknown error',
+      });
+      throw new Error(`Failed to create account: ${error}`);
+    }
+  }
+
+  /**
    * Get account by Firebase UID
    */
   static async getAccountByFirebaseUid(
