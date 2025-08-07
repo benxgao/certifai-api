@@ -2,6 +2,7 @@ import { Response } from 'express';
 import logger from '../../../services/firebase/logger';
 import { CustomRequest, FirebaseJwtToken } from '../../../types';
 import { StripeFirestoreService } from '../../stripe/db';
+import { firebaseAuth } from '../../../services/firebase/admin';
 
 const handler = async (req: any | CustomRequest, res: Response) => {
   try {
@@ -27,13 +28,37 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       return;
     }
 
-    // Get request body
-    const { api_user_id, email } = req.body;
+    // Get request body (optional, we can extract from token if not provided)
+    let { api_user_id, email } = req.body || {};
+
+    // If not provided in body, try to extract from Firebase token
+    if (!api_user_id || !email) {
+      try {
+        // Get user data from Firebase Auth
+        const userRecord = await firebaseAuth.getUser(firebaseUserId);
+
+        // Extract api_user_id from custom claims if not provided
+        if (!api_user_id && userRecord.customClaims?.api_user_id) {
+          api_user_id = userRecord.customClaims.api_user_id;
+        }
+
+        // Extract email from Firebase user record if not provided
+        if (!email && userRecord.email) {
+          email = userRecord.email;
+        }
+      } catch (firebaseError) {
+        logger.error('Failed to fetch Firebase user data for ensure-account', {
+          error: firebaseError,
+          firebase_user_id: firebaseUserId,
+        });
+      }
+    }
 
     if (!api_user_id) {
       res.status(400).json({
         success: false,
-        error: 'API user ID is required',
+        error:
+          'API user ID is required and could not be determined from Firebase token',
       });
       return;
     }
@@ -41,7 +66,8 @@ const handler = async (req: any | CustomRequest, res: Response) => {
     if (!email) {
       res.status(400).json({
         success: false,
-        error: 'Email is required',
+        error:
+          'Email is required and could not be determined from Firebase token',
       });
       return;
     }
