@@ -356,4 +356,63 @@ export class StripeService {
       throw new Error(`Failed to get customer: ${error}`);
     }
   }
+
+  /**
+   * Get the latest active subscription for a customer
+   * Returns the most recent subscription (by created date) that is active or trialing
+   */
+  static async getLatestActiveSubscription(
+    customerId: string,
+  ): Promise<Stripe.Subscription | null> {
+    try {
+      const subscriptions = await stripe.subscriptions.list({
+        customer: customerId,
+        status: 'all', // Get all subscriptions to find the latest
+        limit: 100, // Increase limit to ensure we get all subscriptions
+        expand: ['data.latest_invoice'],
+      });
+
+      if (subscriptions.data.length === 0) {
+        return null;
+      }
+
+      // Filter for active or trialing subscriptions and sort by created date (newest first)
+      const activeSubscriptions = subscriptions.data
+        .filter((sub) => ['active', 'trialing'].includes(sub.status))
+        .sort((a, b) => b.created - a.created);
+
+      if (activeSubscriptions.length > 0) {
+        logger.info('STRIPE_LATEST_ACTIVE_SUBSCRIPTION_FOUND', {
+          customer_id: customerId,
+          subscription_id: activeSubscriptions[0].id,
+          status: activeSubscriptions[0].status,
+          created: activeSubscriptions[0].created,
+          total_subscriptions: subscriptions.data.length,
+          active_subscriptions: activeSubscriptions.length,
+        });
+        return activeSubscriptions[0];
+      }
+
+      // If no active subscriptions, return the most recent one (by created date)
+      const latestSubscription = subscriptions.data.sort(
+        (a, b) => b.created - a.created,
+      )[0];
+
+      logger.info('STRIPE_LATEST_SUBSCRIPTION_FOUND_NO_ACTIVE', {
+        customer_id: customerId,
+        subscription_id: latestSubscription.id,
+        status: latestSubscription.status,
+        created: latestSubscription.created,
+        total_subscriptions: subscriptions.data.length,
+      });
+
+      return latestSubscription;
+    } catch (error) {
+      logger.error('STRIPE_GET_LATEST_SUBSCRIPTION_ERROR', {
+        error,
+        customer_id: customerId,
+      });
+      throw new Error(`Failed to get latest subscription: ${error}`);
+    }
+  }
 }

@@ -2,6 +2,7 @@ import { Response } from 'express';
 import logger from '../../../services/firebase/logger';
 import { CustomRequest, FirebaseJwtToken } from '../../../types';
 import { StripeFirestoreService } from '../../stripe/db';
+import { StripeService } from '../../stripe/service';
 import { firebaseAuth } from '../../../services/firebase/admin';
 
 const handler = async (req: any | CustomRequest, res: Response) => {
@@ -73,18 +74,115 @@ const handler = async (req: any | CustomRequest, res: Response) => {
     }
 
     let accountCreated = false;
+    let stripeCustomerId: string | undefined;
+    let stripeSubscriptionData: {
+      subscription_id?: string;
+      subscription_status?: string;
+      current_period_end?: number;
+      cancel_at_period_end?: boolean;
+    } = {};
 
     try {
       // Check if Firestore account already exists
-      let firestoreAccount =
+      const firestoreAccount =
         await StripeFirestoreService.getAccountByFirebaseUid(firebaseUserId);
 
       if (!firestoreAccount) {
-        // Create default Firestore account record
+        // Create or get Stripe customer first
+        try {
+          // Get user display name from Firebase if available
+          const userRecord = await firebaseAuth.getUser(firebaseUserId);
+          const displayName = userRecord.displayName || undefined;
+
+          // Create or get Stripe customer
+          const stripeCustomer = await StripeService.createOrGetCustomer(
+            email,
+            firebaseUserId,
+            api_user_id,
+            displayName,
+          );
+
+          stripeCustomerId = stripeCustomer.id;
+
+          // Try to get the latest subscription for this customer
+          try {
+            const latestSubscription =
+              await StripeService.getLatestActiveSubscription(stripeCustomerId);
+
+            if (latestSubscription) {
+              stripeSubscriptionData = {
+                subscription_id: latestSubscription.id,
+                subscription_status: latestSubscription.status,
+                current_period_end: (latestSubscription as any)
+                  .current_period_end,
+                cancel_at_period_end: latestSubscription.cancel_at_period_end,
+              };
+
+              logger.info(
+                'STRIPE_SUBSCRIPTION_DATA_RETRIEVED_VIA_ENSURE_ENDPOINT',
+                {
+                  api_user_id: api_user_id,
+                  firebase_user_id: firebaseUserId,
+                  stripe_customer_id: stripeCustomerId,
+                  stripe_subscription_id: latestSubscription.id,
+                  subscription_status: latestSubscription.status,
+                },
+              );
+            }
+          } catch (subscriptionError) {
+            // Log the error but don't fail the account creation process
+            logger.warn(
+              'STRIPE_SUBSCRIPTION_FETCH_WARNING_VIA_ENSURE_ENDPOINT',
+              {
+                api_user_id: api_user_id,
+                firebase_user_id: firebaseUserId,
+                stripe_customer_id: stripeCustomerId,
+                error:
+                  subscriptionError instanceof Error
+                    ? subscriptionError.message
+                    : 'Unknown error',
+                action: 'continuing_account_creation_without_subscription_data',
+              },
+            );
+          }
+
+          logger.info(
+            'STRIPE_CUSTOMER_CREATED_OR_RETRIEVED_VIA_ENSURE_ENDPOINT',
+            {
+              api_user_id: api_user_id,
+              firebase_user_id: firebaseUserId,
+              email: email,
+              stripe_customer_id: stripeCustomerId,
+              subscription_data_included:
+                !!stripeSubscriptionData.subscription_id,
+            },
+          );
+        } catch (stripeError) {
+          // Log the error but don't fail the account creation process
+          logger.warn('STRIPE_CUSTOMER_CREATION_WARNING_VIA_ENSURE_ENDPOINT', {
+            api_user_id: api_user_id,
+            firebase_user_id: firebaseUserId,
+            email: email,
+            error:
+              stripeError instanceof Error
+                ? stripeError.message
+                : 'Unknown error',
+            action: 'continuing_account_creation_without_stripe_data',
+          });
+        }
+
+        // Create default Firestore account record with all available Stripe data
         const defaultAccountData = {
           api_user_id: api_user_id,
           firebase_user_id: firebaseUserId,
           email: email,
+          stripe_customer_id: stripeCustomerId,
+          stripe_subscription_id: stripeSubscriptionData.subscription_id,
+          stripe_subscription_status:
+            stripeSubscriptionData.subscription_status,
+          stripe_current_period_end: stripeSubscriptionData.current_period_end,
+          stripe_cancel_at_period_end:
+            stripeSubscriptionData.cancel_at_period_end,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         };
@@ -96,6 +194,18 @@ const handler = async (req: any | CustomRequest, res: Response) => {
           api_user_id: api_user_id,
           firebase_user_id: firebaseUserId,
           email: email,
+          stripe_customer_id: stripeCustomerId,
+          stripe_subscription_id: stripeSubscriptionData.subscription_id,
+          stripe_data_populated: !!stripeCustomerId,
+          subscription_data_populated: !!stripeSubscriptionData.subscription_id,
+          account_fields_populated: {
+            customer: !!stripeCustomerId,
+            subscription: !!stripeSubscriptionData.subscription_id,
+            subscription_status: !!stripeSubscriptionData.subscription_status,
+            current_period_end: !!stripeSubscriptionData.current_period_end,
+            cancel_at_period_end:
+              stripeSubscriptionData.cancel_at_period_end !== undefined,
+          },
         });
       } else {
         // Update the existing account's updated_at timestamp
@@ -134,6 +244,19 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       account_created: accountCreated,
       api_user_id: api_user_id,
       firebase_user_id: firebaseUserId,
+      stripe_data_populated: accountCreated ? !!stripeCustomerId : undefined,
+      account_data_completeness: accountCreated
+        ? {
+            stripe_customer_id: !!stripeCustomerId,
+            stripe_subscription_id: !!stripeSubscriptionData?.subscription_id,
+            stripe_subscription_status:
+              !!stripeSubscriptionData?.subscription_status,
+            stripe_current_period_end:
+              !!stripeSubscriptionData?.current_period_end,
+            stripe_cancel_at_period_end:
+              stripeSubscriptionData?.cancel_at_period_end !== undefined,
+          }
+        : undefined,
     });
   } catch (error) {
     logger.error('Error in firestore ensure-account endpoint:', error as any);

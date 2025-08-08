@@ -1,10 +1,15 @@
 import { firestoreService } from '../../services/firebase/firestore';
 import logger from '../../services/firebase/logger';
-import { StripeCustomerData, SubscriptionData } from './service';
+import {
+  StripeCustomerData,
+  SubscriptionData,
+  StripeService,
+  stripe,
+} from './service';
 
 /**
- * Unified account data structure for single Firestore collection
- * All Stripe data is prefixed with 'stripe_' and stored in flat structure
+ * Minimal account data structure for Firestore storage
+ * ONLY stores essential identifiers and basic info - detailed data is fetched from Stripe API
  */
 export interface AccountData {
   // Primary key - API user ID
@@ -14,44 +19,89 @@ export interface AccountData {
   firebase_user_id: string;
   email: string;
 
-  // Stripe customer data (prefixed)
+  // Stripe customer (minimal - just ID)
   stripe_customer_id?: string;
-  stripe_customer_created_at?: string;
-  stripe_customer_updated_at?: string;
-  stripe_customer_deleted?: boolean;
-  stripe_customer_deleted_at?: string;
 
-  // Stripe subscription data (prefixed)
+  // Stripe subscription (minimal - just ID and status for quick checks)
   stripe_subscription_id?: string;
-  stripe_subscription_status?: string; // Use string to accept all Stripe.Subscription.Status values
-  stripe_current_period_start?: number;
-  stripe_current_period_end?: number;
-  stripe_plan_id?: string;
-  stripe_plan_name?: string;
-  stripe_amount?: number;
-  stripe_currency?: string;
-  stripe_trial_end?: number;
-  stripe_cancel_at_period_end?: boolean;
-  stripe_canceled_at?: number;
-  stripe_subscription_created_at?: string;
-  stripe_subscription_updated_at?: string;
+  stripe_subscription_status?: string;
 
-  // Stripe invoice data (prefixed) - store latest invoice info
-  stripe_latest_invoice_id?: string;
-  stripe_latest_invoice_status?: string;
-  stripe_latest_invoice_amount?: number;
-  stripe_latest_invoice_created_at?: string;
+  // Essential dates only
+  stripe_current_period_end?: number; // Keep for quick expiry checks
+  stripe_cancel_at_period_end?: boolean; // Keep for cancellation status
 
   // Metadata
   created_at: string;
   updated_at: string;
 }
 
+/**
+ * Complete account data enriched with full Stripe API details
+ * This interface includes all detailed subscription information fetched from Stripe
+ */
+export interface FullAccountData extends AccountData {
+  // Full subscription details from Stripe API
+  stripe_current_period_start?: number;
+  stripe_plan_id?: string;
+  stripe_plan_name?: string;
+  stripe_amount?: number;
+  stripe_currency?: string;
+  stripe_trial_end?: number;
+  stripe_canceled_at?: number;
+  stripe_subscription_created_at?: string;
+  stripe_subscription_updated_at?: string;
+
+  // Latest invoice info from Stripe API
+  stripe_latest_invoice_id?: string;
+  stripe_latest_invoice_status?: string;
+  stripe_latest_invoice_amount?: number;
+  stripe_latest_invoice_created_at?: string;
+
+  // Customer details from Stripe API
+  stripe_customer_created_at?: string;
+  stripe_customer_updated_at?: string;
+  stripe_customer_deleted?: boolean;
+  stripe_customer_deleted_at?: string;
+
+  // Metadata about data source
+  _stripe_data_fetched_at?: string;
+  _data_source: 'stripe_live';
+}
+
 export class StripeFirestoreService {
   private static readonly ACCOUNTS_COLLECTION = 'accounts';
 
   /**
-   * Store or update account data with customer information
+   * Clean undefined values from object to prevent Firestore errors
+   * Firestore doesn't allow undefined values, so we convert them to null or remove them
+   */
+  private static cleanFirestoreData<T extends Record<string, any>>(
+    data: T,
+  ): Partial<T> {
+    const cleaned: any = { ...data };
+
+    // Convert undefined values to null for optional fields that should be nullable
+    Object.keys(cleaned).forEach((key) => {
+      if (cleaned[key] === undefined) {
+        // For optional Stripe fields, set to null instead of undefined
+        if (
+          key.startsWith('stripe_') ||
+          key.includes('_end') ||
+          key.includes('_at')
+        ) {
+          cleaned[key] = null;
+        } else {
+          // For other fields, remove the property entirely
+          delete cleaned[key];
+        }
+      }
+    });
+
+    return cleaned;
+  }
+
+  /**
+   * Store or update account data with customer information (MINIMAL DATA ONLY)
    */
   static async storeCustomer(customerData: StripeCustomerData): Promise<void> {
     try {
@@ -60,8 +110,6 @@ export class StripeFirestoreService {
         firebase_user_id: customerData.firebase_uid,
         email: customerData.email,
         stripe_customer_id: customerData.customer_id,
-        stripe_customer_created_at: customerData.created_at,
-        stripe_customer_updated_at: customerData.updated_at,
         updated_at: new Date().toISOString(),
       };
 
@@ -72,29 +120,36 @@ export class StripeFirestoreService {
       );
 
       if (existingAccount) {
-        // Update existing account
+        // Update existing account - clean undefined values
+        const cleanedAccountData = this.cleanFirestoreData(accountData);
         await firestoreService.update(
           this.ACCOUNTS_COLLECTION,
           customerData.api_user_id,
-          accountData,
+          cleanedAccountData,
+          { skipAutoTimestamps: true },
         );
       } else {
         // Create new account
         accountData.created_at = new Date().toISOString();
+        const cleanedAccountData = this.cleanFirestoreData(
+          accountData as AccountData,
+        );
         await firestoreService.create(
           this.ACCOUNTS_COLLECTION,
-          accountData as AccountData,
+          cleanedAccountData,
           customerData.api_user_id,
+          { skipAutoTimestamps: true },
         );
       }
 
       logger.info(
-        `FIRESTORE_ACCOUNT_CUSTOMER_STORED: ${customerData.api_user_id}`,
+        `FIRESTORE_ACCOUNT_CUSTOMER_STORED_MINIMAL: ${customerData.api_user_id}`,
         {
           api_user_id: customerData.api_user_id,
           stripe_customer_id: customerData.customer_id,
           firebase_user_id: customerData.firebase_uid,
           email: customerData.email,
+          storage_type: 'minimal_data_only',
         },
       );
     } catch (error) {
@@ -114,6 +169,11 @@ export class StripeFirestoreService {
     api_user_id: string;
     firebase_user_id: string;
     email: string;
+    stripe_customer_id?: string;
+    stripe_subscription_id?: string;
+    stripe_subscription_status?: string;
+    stripe_current_period_end?: number;
+    stripe_cancel_at_period_end?: boolean;
     created_at: string;
     updated_at: string;
   }): Promise<void> {
@@ -122,20 +182,42 @@ export class StripeFirestoreService {
         api_user_id: accountData.api_user_id,
         firebase_user_id: accountData.firebase_user_id,
         email: accountData.email,
+        stripe_customer_id: accountData.stripe_customer_id,
+        stripe_subscription_id: accountData.stripe_subscription_id,
+        stripe_subscription_status: accountData.stripe_subscription_status,
+        stripe_current_period_end: accountData.stripe_current_period_end,
+        stripe_cancel_at_period_end: accountData.stripe_cancel_at_period_end,
         created_at: accountData.created_at,
         updated_at: accountData.updated_at,
       };
 
+      // Clean undefined values to prevent Firestore errors
+      const cleanedAccountData = this.cleanFirestoreData(newAccountData);
+
       await firestoreService.create(
         this.ACCOUNTS_COLLECTION,
-        newAccountData,
+        cleanedAccountData,
         accountData.api_user_id,
+        { skipAutoTimestamps: true },
       );
 
       logger.info('FIRESTORE_ACCOUNT_CREATED', {
         api_user_id: accountData.api_user_id,
         firebase_user_id: accountData.firebase_user_id,
         email: accountData.email,
+        stripe_customer_id: accountData.stripe_customer_id,
+        stripe_subscription_id: accountData.stripe_subscription_id,
+        stripe_subscription_status: accountData.stripe_subscription_status,
+        stripe_data_included: !!accountData.stripe_customer_id,
+        subscription_data_included: !!accountData.stripe_subscription_id,
+        account_data_completeness: {
+          customer: !!accountData.stripe_customer_id,
+          subscription: !!accountData.stripe_subscription_id,
+          subscription_status: !!accountData.stripe_subscription_status,
+          current_period_end: !!accountData.stripe_current_period_end,
+          cancel_at_period_end:
+            accountData.stripe_cancel_at_period_end !== undefined,
+        },
       });
     } catch (error) {
       logger.error('FIRESTORE_ACCOUNT_CREATE_ERROR', {
@@ -252,10 +334,14 @@ export class StripeFirestoreService {
         updated_at: new Date().toISOString(),
       };
 
+      // Clean undefined values to prevent Firestore errors
+      const cleanedAccountData = this.cleanFirestoreData(accountData);
+
       await firestoreService.update<AccountData>(
         this.ACCOUNTS_COLLECTION,
         apiUserId,
-        accountData,
+        cleanedAccountData,
+        { skipAutoTimestamps: true },
       );
 
       logger.info('FIRESTORE_ACCOUNT_UPDATED', {
@@ -290,8 +376,8 @@ export class StripeFirestoreService {
         email: account.email,
         firebase_uid: account.firebase_user_id,
         api_user_id: account.api_user_id,
-        created_at: account.stripe_customer_created_at || account.created_at,
-        updated_at: account.stripe_customer_updated_at || account.updated_at,
+        created_at: account.created_at, // Not stored in minimal data
+        updated_at: account.updated_at,
       };
     } catch (error) {
       logger.error('FIRESTORE_STRIPE_CUSTOMER_GET_ERROR', {
@@ -316,7 +402,7 @@ export class StripeFirestoreService {
   }
 
   /**
-   * Store or update subscription data in account
+   * Store or update subscription data in account (MINIMAL DATA ONLY - only if it's the latest subscription)
    */
   static async storeSubscription(
     subscriptionData: SubscriptionData,
@@ -348,36 +434,55 @@ export class StripeFirestoreService {
       }
 
       const account = accounts[0];
+
+      // For minimal storage, we need to fetch the latest subscription from Stripe
+      // to determine if this subscription should be stored
+      const latestSubscription =
+        await StripeService.getLatestActiveSubscription(
+          subscriptionData.customer_id,
+        );
+
+      // Only store if this subscription is the latest active one
+      const shouldStoreSubscription =
+        latestSubscription &&
+        latestSubscription.id === subscriptionData.subscription_id;
+
+      if (!shouldStoreSubscription) {
+        logger.info('FIRESTORE_SUBSCRIPTION_SKIPPED_NOT_LATEST', {
+          api_user_id: account.api_user_id,
+          current_subscription_id: account.stripe_subscription_id,
+          new_subscription_id: subscriptionData.subscription_id,
+          latest_subscription_id: latestSubscription?.id,
+          action: 'skipped_not_latest_subscription',
+        });
+        return;
+      }
+
+      // Store only minimal subscription data
       const subscriptionUpdateData: Partial<AccountData> = {
         stripe_subscription_id: subscriptionData.subscription_id,
-        stripe_subscription_status: subscriptionData.status,
-        stripe_current_period_start: subscriptionData.current_period_start,
         stripe_current_period_end: subscriptionData.current_period_end,
-        stripe_plan_id: subscriptionData.plan_id,
-        stripe_plan_name: subscriptionData.plan_name,
-        stripe_amount: subscriptionData.amount,
-        stripe_currency: subscriptionData.currency,
-        stripe_trial_end: subscriptionData.trial_end,
-        stripe_cancel_at_period_end: subscriptionData.cancel_at_period_end,
-        stripe_canceled_at: subscriptionData.canceled_at,
-        stripe_subscription_created_at: subscriptionData.created_at,
-        stripe_subscription_updated_at: subscriptionData.updated_at,
         updated_at: new Date().toISOString(),
       };
+
+      // Clean undefined values to prevent Firestore errors
+      const cleanedUpdateData = this.cleanFirestoreData(subscriptionUpdateData);
 
       await firestoreService.update(
         this.ACCOUNTS_COLLECTION,
         account.api_user_id,
-        subscriptionUpdateData,
+        cleanedUpdateData,
+        { skipAutoTimestamps: true },
       );
 
       logger.info(
-        `FIRESTORE_ACCOUNT_SUBSCRIPTION_STORED: ${account.api_user_id}`,
+        `FIRESTORE_ACCOUNT_SUBSCRIPTION_STORED_MINIMAL: ${account.api_user_id}`,
         {
           api_user_id: account.api_user_id,
           stripe_subscription_id: subscriptionData.subscription_id,
           stripe_customer_id: subscriptionData.customer_id,
-          stripe_subscription_status: subscriptionData.status,
+          action: 'stored_latest_subscription_minimal_data',
+          storage_type: 'minimal_data_only',
         },
       );
     } catch (error) {
@@ -428,31 +533,36 @@ export class StripeFirestoreService {
 
       const account = accounts[0];
       const updateData: Partial<AccountData> = {
-        stripe_subscription_status: status,
-        stripe_subscription_updated_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
 
-      if (currentPeriodStart !== undefined)
-        updateData.stripe_current_period_start = currentPeriodStart;
       if (currentPeriodEnd !== undefined)
         updateData.stripe_current_period_end = currentPeriodEnd;
+
       if (cancelAtPeriodEnd !== undefined)
         updateData.stripe_cancel_at_period_end = cancelAtPeriodEnd;
-      if (canceledAt !== undefined) updateData.stripe_canceled_at = canceledAt;
+
+      // Clean undefined values to prevent Firestore errors
+      const cleanedUpdateData = this.cleanFirestoreData(updateData);
 
       await firestoreService.update(
         this.ACCOUNTS_COLLECTION,
         account.api_user_id,
-        updateData,
+        cleanedUpdateData,
+        { skipAutoTimestamps: true },
       );
 
       logger.info(
-        `FIRESTORE_ACCOUNT_SUBSCRIPTION_UPDATED: ${account.api_user_id}`,
+        `FIRESTORE_ACCOUNT_SUBSCRIPTION_UPDATED_MINIMAL: ${account.api_user_id}`,
         {
           api_user_id: account.api_user_id,
           stripe_subscription_id: subscriptionId,
-          stripe_subscription_status: status,
+          subscription_status: status,
+          current_period_end: currentPeriodEnd,
+          cancel_at_period_end: cancelAtPeriodEnd,
+          canceled_at: canceledAt,
+          action: 'updated_minimal_subscription_data',
+          storage_type: 'minimal_data_only',
         },
       );
     } catch (error) {
@@ -466,22 +576,23 @@ export class StripeFirestoreService {
 
   /**
    * Get active subscription for customer (Legacy - for backward compatibility)
-   * @deprecated Use getAccountByFirebaseUid or getAccountByApiUserId instead
+   * @deprecated Use getEnrichedAccountData instead
    */
   static async getActiveSubscription(
     customerId: string,
   ): Promise<SubscriptionData | null> {
     try {
+      logger.warn('LEGACY_METHOD_CALLED', {
+        method: 'getActiveSubscription',
+        customerId,
+        message: 'Use getEnrichedAccountData instead for live Stripe data',
+      });
+
       const accounts = await firestoreService.list<AccountData>(
         this.ACCOUNTS_COLLECTION,
         {
           where: [
             { field: 'stripe_customer_id', operator: '==', value: customerId },
-            {
-              field: 'stripe_subscription_status',
-              operator: 'in',
-              value: ['active', 'trialing'],
-            },
           ],
           limit: 1,
         },
@@ -492,25 +603,22 @@ export class StripeFirestoreService {
       const account = accounts[0];
       if (!account.stripe_subscription_id) return null;
 
-      // Convert AccountData to SubscriptionData for backward compatibility
+      // Return minimal data from Firestore only - missing fields will be empty
       return {
         subscription_id: account.stripe_subscription_id,
         customer_id: account.stripe_customer_id!,
-        status:
-          account.stripe_subscription_status as SubscriptionData['status'],
-        current_period_start: account.stripe_current_period_start || 0,
+        status: 'active', // Simplified for legacy compatibility
+        current_period_start: 0, // Not stored in minimal data
         current_period_end: account.stripe_current_period_end || 0,
-        plan_id: account.stripe_plan_id || '',
-        plan_name: account.stripe_plan_name || '',
-        amount: account.stripe_amount || 0,
-        currency: account.stripe_currency || 'usd',
-        trial_end: account.stripe_trial_end,
-        cancel_at_period_end: account.stripe_cancel_at_period_end || false,
-        canceled_at: account.stripe_canceled_at,
-        created_at:
-          account.stripe_subscription_created_at || account.created_at,
-        updated_at:
-          account.stripe_subscription_updated_at || account.updated_at,
+        plan_id: '', // Not stored in minimal data
+        plan_name: '', // Not stored in minimal data
+        amount: 0, // Not stored in minimal data
+        currency: 'usd', // Not stored in minimal data
+        trial_end: undefined, // Not stored in minimal data
+        cancel_at_period_end: false, // Not stored in minimal data
+        canceled_at: undefined, // Not stored in minimal data
+        created_at: account.created_at,
+        updated_at: account.updated_at,
       };
     } catch (error) {
       logger.error('FIRESTORE_STRIPE_SUBSCRIPTION_GET_ERROR', {
@@ -523,34 +631,37 @@ export class StripeFirestoreService {
 
   /**
    * Get subscription by Firebase UID (Legacy - for backward compatibility)
-   * @deprecated Use getAccountByFirebaseUid instead
+   * @deprecated Use getEnrichedAccountData instead
    */
   static async getSubscriptionByFirebaseUid(
     firebaseUid: string,
   ): Promise<SubscriptionData | null> {
     try {
+      logger.warn('LEGACY_METHOD_CALLED', {
+        method: 'getSubscriptionByFirebaseUid',
+        firebaseUid,
+        message: 'Use getEnrichedAccountData instead for live Stripe data',
+      });
+
       const account = await this.getAccountByFirebaseUid(firebaseUid);
       if (!account || !account.stripe_subscription_id) return null;
 
-      // Convert AccountData to SubscriptionData for backward compatibility
+      // Return minimal data from Firestore only - missing fields will be empty
       return {
         subscription_id: account.stripe_subscription_id,
         customer_id: account.stripe_customer_id!,
-        status:
-          account.stripe_subscription_status as SubscriptionData['status'],
-        current_period_start: account.stripe_current_period_start || 0,
+        status: 'active', // Simplified for legacy compatibility
+        current_period_start: 0, // Not stored in minimal data
         current_period_end: account.stripe_current_period_end || 0,
-        plan_id: account.stripe_plan_id || '',
-        plan_name: account.stripe_plan_name || '',
-        amount: account.stripe_amount || 0,
-        currency: account.stripe_currency || 'usd',
-        trial_end: account.stripe_trial_end,
-        cancel_at_period_end: account.stripe_cancel_at_period_end || false,
-        canceled_at: account.stripe_canceled_at,
-        created_at:
-          account.stripe_subscription_created_at || account.created_at,
-        updated_at:
-          account.stripe_subscription_updated_at || account.updated_at,
+        plan_id: '', // Not stored in minimal data
+        plan_name: '', // Not stored in minimal data
+        amount: 0, // Not stored in minimal data
+        currency: 'usd', // Not stored in minimal data
+        trial_end: undefined, // Not stored in minimal data
+        cancel_at_period_end: false, // Not stored in minimal data
+        canceled_at: undefined, // Not stored in minimal data
+        created_at: account.created_at,
+        updated_at: account.updated_at,
       };
     } catch (error) {
       logger.error('FIRESTORE_STRIPE_SUBSCRIPTION_BY_UID_ERROR', {
@@ -591,12 +702,9 @@ export class StripeFirestoreService {
       }
 
       const account = accounts[0];
+      // For minimal storage, we don't store detailed invoice data
+      // Only update the account timestamp to indicate activity
       const invoiceUpdateData: Partial<AccountData> = {
-        stripe_latest_invoice_id: invoiceData.invoice_id,
-        stripe_latest_invoice_status: invoiceData.status,
-        stripe_latest_invoice_amount: invoiceData.amount,
-        stripe_latest_invoice_created_at:
-          invoiceData.created_at || new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
 
@@ -604,13 +712,19 @@ export class StripeFirestoreService {
         this.ACCOUNTS_COLLECTION,
         account.api_user_id,
         invoiceUpdateData,
+        { skipAutoTimestamps: true },
       );
 
-      logger.info(`FIRESTORE_ACCOUNT_INVOICE_STORED: ${account.api_user_id}`, {
-        api_user_id: account.api_user_id,
-        stripe_invoice_id: invoiceData.invoice_id,
-        stripe_customer_id: invoiceData.customer_id,
-      });
+      logger.info(
+        `FIRESTORE_ACCOUNT_INVOICE_ACTIVITY_LOGGED: ${account.api_user_id}`,
+        {
+          api_user_id: account.api_user_id,
+          stripe_invoice_id: invoiceData.invoice_id,
+          action: 'invoice_activity_logged_minimal_storage',
+          storage_type: 'minimal_data_only',
+          stripe_customer_id: invoiceData.customer_id,
+        },
+      );
     } catch (error) {
       logger.error('FIRESTORE_ACCOUNT_INVOICE_STORE_ERROR', {
         error,
@@ -674,6 +788,179 @@ export class StripeFirestoreService {
         api_user_id: apiUserId,
       });
       return null;
+    }
+  }
+
+  /**
+   * Sync latest subscription from Stripe to Firestore for a customer
+   * This ensures we have the most up-to-date subscription information
+   */
+  static async syncLatestSubscriptionFromStripe(
+    customerId: string,
+  ): Promise<void> {
+    try {
+      // Get the latest active subscription from Stripe
+      const latestSubscription =
+        await StripeService.getLatestActiveSubscription(customerId);
+
+      if (!latestSubscription) {
+        logger.info('SYNC_LATEST_SUBSCRIPTION_NO_SUBSCRIPTION', {
+          stripe_customer_id: customerId,
+          action: 'no_subscription_to_sync',
+        });
+        return;
+      }
+
+      // Convert Stripe subscription to our format
+      const price = latestSubscription.items.data[0]?.price;
+      const subscriptionData = {
+        subscription_id: latestSubscription.id,
+        customer_id: customerId,
+        status: latestSubscription.status,
+        current_period_start:
+          (latestSubscription as any).current_period_start || 0,
+        current_period_end: (latestSubscription as any).current_period_end || 0,
+        plan_id: price?.id || '',
+        plan_name: price?.nickname || price?.lookup_key || 'Unknown Plan',
+        amount: price?.unit_amount || 0,
+        currency: price?.currency || 'usd',
+        trial_end: latestSubscription.trial_end || undefined,
+        cancel_at_period_end: latestSubscription.cancel_at_period_end,
+        canceled_at: latestSubscription.canceled_at || undefined,
+        created_at: new Date(latestSubscription.created * 1000).toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      // Store the latest subscription
+      await this.storeSubscription(subscriptionData);
+
+      logger.info('SYNC_LATEST_SUBSCRIPTION_SUCCESS', {
+        stripe_customer_id: customerId,
+        stripe_subscription_id: latestSubscription.id,
+        subscription_status: latestSubscription.status,
+        action: 'synced_latest_subscription',
+      });
+    } catch (error) {
+      logger.error('SYNC_LATEST_SUBSCRIPTION_ERROR', {
+        error,
+        stripe_customer_id: customerId,
+      });
+      // Don't throw error - this is a sync operation that shouldn't break other flows
+    }
+  }
+
+  /**
+   * Get enriched account data with fresh Stripe API details
+   * This combines Firestore data with live Stripe subscription and invoice data
+   */
+  static async getEnrichedAccountData(
+    apiUserId: string,
+  ): Promise<FullAccountData | null> {
+    try {
+      // Get base account data from Firestore
+      const account = await this.getAccountByApiUserId(apiUserId);
+
+      if (!account) {
+        return null;
+      }
+
+      // If no Stripe customer, return basic account data
+      if (!account.stripe_customer_id) {
+        return {
+          ...account,
+          _data_source: 'stripe_live' as const,
+          _stripe_data_fetched_at: new Date().toISOString(),
+        };
+      }
+
+      let enrichedAccount: FullAccountData = {
+        ...account,
+        _data_source: 'stripe_live' as const,
+        _stripe_data_fetched_at: new Date().toISOString(),
+      };
+
+      // Fetch fresh subscription data from Stripe if customer has subscription
+      if (account.stripe_subscription_id) {
+        try {
+          const subscription = await StripeService.getSubscription(
+            account.stripe_subscription_id,
+          );
+          const price = subscription.items.data[0]?.price;
+
+          // Enrich with fresh Stripe data
+          enrichedAccount = {
+            ...enrichedAccount,
+            stripe_subscription_status: subscription.status,
+            stripe_current_period_start: (subscription as any)
+              .current_period_start,
+            stripe_current_period_end: (subscription as any).current_period_end,
+            stripe_plan_id: price?.id,
+            stripe_plan_name: price?.nickname || price?.lookup_key || undefined,
+            stripe_amount: price?.unit_amount || undefined,
+            stripe_currency: price?.currency,
+            stripe_trial_end: subscription.trial_end || undefined,
+            stripe_cancel_at_period_end: subscription.cancel_at_period_end,
+            stripe_canceled_at: subscription.canceled_at || undefined,
+          };
+
+          // Get latest invoice if available
+          if (subscription.latest_invoice) {
+            const invoiceId =
+              typeof subscription.latest_invoice === 'string'
+                ? subscription.latest_invoice
+                : subscription.latest_invoice.id;
+
+            if (invoiceId) {
+              try {
+                const invoice = await stripe.invoices.retrieve(invoiceId);
+                enrichedAccount.stripe_latest_invoice_id = invoice.id;
+                enrichedAccount.stripe_latest_invoice_status =
+                  invoice.status || undefined;
+                enrichedAccount.stripe_latest_invoice_amount =
+                  invoice.amount_due;
+                enrichedAccount.stripe_latest_invoice_created_at = new Date(
+                  invoice.created * 1000,
+                ).toISOString();
+              } catch (invoiceError) {
+                logger.warn('ENRICH_ACCOUNT_INVOICE_FETCH_ERROR', {
+                  api_user_id: apiUserId,
+                  invoice_id: invoiceId,
+                  error: invoiceError,
+                });
+              }
+            }
+          }
+
+          logger.info('ACCOUNT_DATA_ENRICHED_SUCCESS', {
+            api_user_id: apiUserId,
+            stripe_subscription_id: subscription.id,
+            subscription_status: subscription.status,
+          });
+        } catch (subscriptionError) {
+          logger.warn('ENRICH_ACCOUNT_SUBSCRIPTION_FETCH_ERROR', {
+            api_user_id: apiUserId,
+            stripe_subscription_id: account.stripe_subscription_id,
+            error: subscriptionError,
+            action: 'using_cached_data',
+          });
+        }
+      }
+
+      return enrichedAccount;
+    } catch (error) {
+      logger.error('GET_ENRICHED_ACCOUNT_DATA_ERROR', {
+        error,
+        api_user_id: apiUserId,
+      });
+      // Fallback to basic account data
+      const basicAccount = await this.getAccountByApiUserId(apiUserId);
+      return basicAccount
+        ? {
+            ...basicAccount,
+            _data_source: 'stripe_live' as const,
+            _stripe_data_fetched_at: new Date().toISOString(),
+          }
+        : null;
     }
   }
 }

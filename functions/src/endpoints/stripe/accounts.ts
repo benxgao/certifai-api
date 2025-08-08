@@ -18,11 +18,10 @@ export const getAccountData = async (req: any, res: Response) => {
       return;
     }
 
-    // Get complete account data using new unified method
-    const account =
-      await StripeFirestoreService.getCompleteAccountDataByFirebaseUid(
-        firebaseUserIdFromToken,
-      );
+    // First get the account by Firebase UID to get the API user ID
+    const account = await StripeFirestoreService.getAccountByFirebaseUid(
+      firebaseUserIdFromToken,
+    );
 
     if (!account) {
       res.status(404).json({
@@ -32,56 +31,91 @@ export const getAccountData = async (req: any, res: Response) => {
       return;
     }
 
+    // Get enriched account data with live Stripe data using API user ID
+    const enrichedAccount = await StripeFirestoreService.getEnrichedAccountData(
+      account.api_user_id,
+    );
+
+    if (!enrichedAccount) {
+      res.status(404).json({
+        success: false,
+        error: 'Account not found',
+      });
+      return;
+    }
+
+    logger.info('ACCOUNT_DATA_ENRICHED_FROM_STRIPE', {
+      api_user_id: enrichedAccount.api_user_id,
+      firebase_user_id: enrichedAccount.firebase_user_id,
+      has_stripe_customer: !!enrichedAccount.stripe_customer_id,
+      has_subscription: !!enrichedAccount.stripe_subscription_id,
+      subscription_status: enrichedAccount.stripe_subscription_status,
+      enriched: enrichedAccount._data_source === 'stripe_live',
+      fetched_at: enrichedAccount._stripe_data_fetched_at,
+    });
+
     // Transform data for frontend consumption with flat structure
     const accountData = {
       // Core account info
-      api_user_id: account.api_user_id,
-      firebase_user_id: account.firebase_user_id,
-      email: account.email,
+      api_user_id: enrichedAccount.api_user_id,
+      firebase_user_id: enrichedAccount.firebase_user_id,
+      email: enrichedAccount.email,
 
       // Stripe customer status
-      has_stripe_customer: !!account.stripe_customer_id,
-      stripe_customer_id: account.stripe_customer_id,
+      has_stripe_customer: !!enrichedAccount.stripe_customer_id,
+      stripe_customer_id: enrichedAccount.stripe_customer_id,
 
       // Subscription status and details
-      has_subscription: !!account.stripe_subscription_id,
-      subscription_status: account.stripe_subscription_status,
-      subscription_id: account.stripe_subscription_id,
+      has_subscription: !!enrichedAccount.stripe_subscription_id,
+      subscription_status: enrichedAccount.stripe_subscription_status,
+      subscription_id: enrichedAccount.stripe_subscription_id,
 
       // Subscription details (all prefixed with stripe_)
-      stripe_plan_id: account.stripe_plan_id,
-      stripe_plan_name: account.stripe_plan_name,
-      stripe_amount: account.stripe_amount,
-      stripe_currency: account.stripe_currency,
-      stripe_current_period_start: account.stripe_current_period_start,
-      stripe_current_period_end: account.stripe_current_period_end,
-      stripe_trial_end: account.stripe_trial_end,
-      stripe_cancel_at_period_end: account.stripe_cancel_at_period_end,
-      stripe_canceled_at: account.stripe_canceled_at,
+      stripe_plan_id: enrichedAccount.stripe_plan_id,
+      stripe_plan_name: enrichedAccount.stripe_plan_name,
+      stripe_amount: enrichedAccount.stripe_amount,
+      stripe_currency: enrichedAccount.stripe_currency,
+      stripe_current_period_start: enrichedAccount.stripe_current_period_start,
+      stripe_current_period_end: enrichedAccount.stripe_current_period_end,
+      stripe_trial_end: enrichedAccount.stripe_trial_end,
+      stripe_cancel_at_period_end: enrichedAccount.stripe_cancel_at_period_end,
+      stripe_canceled_at: enrichedAccount.stripe_canceled_at,
 
       // Latest invoice info
-      stripe_latest_invoice_id: account.stripe_latest_invoice_id,
-      stripe_latest_invoice_status: account.stripe_latest_invoice_status,
-      stripe_latest_invoice_amount: account.stripe_latest_invoice_amount,
+      stripe_latest_invoice_id: enrichedAccount.stripe_latest_invoice_id,
+      stripe_latest_invoice_status: enrichedAccount.stripe_latest_invoice_status,
+      stripe_latest_invoice_amount: enrichedAccount.stripe_latest_invoice_amount,
 
       // Computed fields for easier frontend consumption
       is_active_subscription:
-        account.stripe_subscription_status === 'active' ||
-        account.stripe_subscription_status === 'trialing',
-      is_trial: account.stripe_subscription_status === 'trialing',
-      is_canceled: !!account.stripe_cancel_at_period_end,
+        enrichedAccount.stripe_subscription_status === 'active' ||
+        enrichedAccount.stripe_subscription_status === 'trialing',
+      is_trial: enrichedAccount.stripe_subscription_status === 'trialing',
+      is_canceled: !!enrichedAccount.stripe_cancel_at_period_end,
 
       // Timestamps
-      created_at: account.created_at,
-      updated_at: account.updated_at,
+      created_at: enrichedAccount.created_at,
+      updated_at: enrichedAccount.updated_at,
     };
 
-    logger.info(`ACCOUNT_DATA_RETRIEVED: ${account.api_user_id}`, {
-      api_user_id: account.api_user_id,
+    logger.info(`ACCOUNT_DATA_RETRIEVED: ${enrichedAccount.api_user_id}`, {
+      api_user_id: enrichedAccount.api_user_id,
       has_stripe_customer: accountData.has_stripe_customer,
       has_subscription: accountData.has_subscription,
       subscription_status: accountData.subscription_status,
+      data_source: enrichedAccount._data_source,
     });
+
+    // Add header to indicate data source for debugging
+    if (enrichedAccount._data_source === 'stripe_live') {
+      res.setHeader('X-Data-Source', 'stripe-live');
+      res.setHeader(
+        'X-Data-Fetched-At',
+        enrichedAccount._stripe_data_fetched_at || 'unknown',
+      );
+    } else {
+      res.setHeader('X-Data-Source', 'firestore-cache');
+    }
 
     res.status(200).json({
       success: true,
@@ -124,12 +158,12 @@ export const getAccountDataByApiUserId = async (req: any, res: Response) => {
       return;
     }
 
-    // Get account data directly by API user ID
-    const account = await StripeFirestoreService.getCompleteAccountData(
+    // Get enriched account data with live Stripe data
+    const enrichedAccount = await StripeFirestoreService.getEnrichedAccountData(
       api_user_id,
     );
 
-    if (!account) {
+    if (!enrichedAccount) {
       res.status(404).json({
         success: false,
         error: 'Account not found',
@@ -138,43 +172,43 @@ export const getAccountDataByApiUserId = async (req: any, res: Response) => {
     }
 
     // Verify that the requesting user owns this account
-    if (account.firebase_user_id !== firebaseUserIdFromToken) {
+    if (enrichedAccount.firebase_user_id !== firebaseUserIdFromToken) {
       res.status(403).json({
         success: false,
-        error: 'Forbidden: You can only access your own account data',
+        error: 'Forbidden: Account access denied',
       });
       return;
     }
 
     // Return the same transformed data structure as the other endpoint
     const accountData = {
-      api_user_id: account.api_user_id,
-      firebase_user_id: account.firebase_user_id,
-      email: account.email,
-      has_stripe_customer: !!account.stripe_customer_id,
-      stripe_customer_id: account.stripe_customer_id,
-      has_subscription: !!account.stripe_subscription_id,
-      subscription_status: account.stripe_subscription_status,
-      subscription_id: account.stripe_subscription_id,
-      stripe_plan_id: account.stripe_plan_id,
-      stripe_plan_name: account.stripe_plan_name,
-      stripe_amount: account.stripe_amount,
-      stripe_currency: account.stripe_currency,
-      stripe_current_period_start: account.stripe_current_period_start,
-      stripe_current_period_end: account.stripe_current_period_end,
-      stripe_trial_end: account.stripe_trial_end,
-      stripe_cancel_at_period_end: account.stripe_cancel_at_period_end,
-      stripe_canceled_at: account.stripe_canceled_at,
-      stripe_latest_invoice_id: account.stripe_latest_invoice_id,
-      stripe_latest_invoice_status: account.stripe_latest_invoice_status,
-      stripe_latest_invoice_amount: account.stripe_latest_invoice_amount,
+      api_user_id: enrichedAccount.api_user_id,
+      firebase_user_id: enrichedAccount.firebase_user_id,
+      email: enrichedAccount.email,
+      has_stripe_customer: !!enrichedAccount.stripe_customer_id,
+      stripe_customer_id: enrichedAccount.stripe_customer_id,
+      has_subscription: !!enrichedAccount.stripe_subscription_id,
+      subscription_status: enrichedAccount.stripe_subscription_status,
+      subscription_id: enrichedAccount.stripe_subscription_id,
+      stripe_plan_id: enrichedAccount.stripe_plan_id,
+      stripe_plan_name: enrichedAccount.stripe_plan_name,
+      stripe_amount: enrichedAccount.stripe_amount,
+      stripe_currency: enrichedAccount.stripe_currency,
+      stripe_current_period_start: enrichedAccount.stripe_current_period_start,
+      stripe_current_period_end: enrichedAccount.stripe_current_period_end,
+      stripe_trial_end: enrichedAccount.stripe_trial_end,
+      stripe_cancel_at_period_end: enrichedAccount.stripe_cancel_at_period_end,
+      stripe_canceled_at: enrichedAccount.stripe_canceled_at,
+      stripe_latest_invoice_id: enrichedAccount.stripe_latest_invoice_id,
+      stripe_latest_invoice_status: enrichedAccount.stripe_latest_invoice_status,
+      stripe_latest_invoice_amount: enrichedAccount.stripe_latest_invoice_amount,
       is_active_subscription:
-        account.stripe_subscription_status === 'active' ||
-        account.stripe_subscription_status === 'trialing',
-      is_trial: account.stripe_subscription_status === 'trialing',
-      is_canceled: !!account.stripe_cancel_at_period_end,
-      created_at: account.created_at,
-      updated_at: account.updated_at,
+        enrichedAccount.stripe_subscription_status === 'active' ||
+        enrichedAccount.stripe_subscription_status === 'trialing',
+      is_trial: enrichedAccount.stripe_subscription_status === 'trialing',
+      is_canceled: !!enrichedAccount.stripe_cancel_at_period_end,
+      created_at: enrichedAccount.created_at,
+      updated_at: enrichedAccount.updated_at,
     };
 
     res.status(200).json({

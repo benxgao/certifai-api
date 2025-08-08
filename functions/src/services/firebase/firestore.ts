@@ -24,20 +24,24 @@ class FirestoreService {
    * @param collectionPath - Path to the collection
    * @param data - Document data
    * @param docId - Optional document ID, if not provided Firestore will auto-generate
+   * @param options - Additional options for document creation
    * @returns Promise<DocumentReference>
    */
   async create<T extends Record<string, any>>(
     collectionPath: string,
     data: T,
     docId?: string,
+    options?: { skipAutoTimestamps?: boolean },
   ): Promise<DocumentReference> {
     try {
       const timestamp = new Date();
-      const documentData = {
-        ...data,
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      };
+      const documentData = options?.skipAutoTimestamps
+        ? data
+        : {
+            ...data,
+            createdAt: timestamp,
+            updatedAt: timestamp,
+          };
 
       let docRef: DocumentReference;
 
@@ -90,19 +94,23 @@ class FirestoreService {
    * @param collectionPath - Path to the collection
    * @param docId - Document ID
    * @param data - Partial data to update
+   * @param options - Additional options for document update
    * @returns Promise<void>
    */
   async update<T extends Record<string, any>>(
     collectionPath: string,
     docId: string,
     data: Partial<T>,
+    options?: { skipAutoTimestamps?: boolean },
   ): Promise<void> {
     try {
       const docRef = this.db.collection(collectionPath).doc(docId);
-      const updateData = {
-        ...data,
-        updatedAt: new Date(),
-      };
+      const updateData = options?.skipAutoTimestamps
+        ? data
+        : {
+            ...data,
+            updatedAt: new Date(),
+          };
 
       await docRef.update(updateData);
       logger.info(`Document ${docId} updated in ${collectionPath}`);
@@ -243,6 +251,7 @@ class FirestoreService {
   /**
    * Batch operations for multiple documents
    * @param operations - Array of batch operations
+   * @param options - Additional options for batch operations
    * @returns Promise<void>
    */
   async batch(
@@ -252,6 +261,7 @@ class FirestoreService {
       docId?: string;
       data?: any;
     }>,
+    options?: { skipAutoTimestamps?: boolean },
   ): Promise<void> {
     try {
       const batch = this.db.batch();
@@ -264,11 +274,14 @@ class FirestoreService {
           case 'create':
             if (docId) {
               const docRef = collection.doc(docId);
-              batch.set(docRef, {
-                ...data,
-                createdAt: timestamp,
-                updatedAt: timestamp,
-              });
+              const documentData = options?.skipAutoTimestamps
+                ? data
+                : {
+                    ...data,
+                    createdAt: timestamp,
+                    updatedAt: timestamp,
+                  };
+              batch.set(docRef, documentData);
             } else {
               throw new Error(
                 'Document ID is required for batch create operations',
@@ -280,7 +293,10 @@ class FirestoreService {
             if (!docId)
               throw new Error('Document ID is required for update operations');
             const updateDocRef = collection.doc(docId);
-            batch.update(updateDocRef, { ...data, updatedAt: timestamp });
+            const updateData = options?.skipAutoTimestamps
+              ? data
+              : { ...data, updatedAt: timestamp };
+            batch.update(updateDocRef, updateData);
             break;
           }
 
