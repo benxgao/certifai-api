@@ -69,7 +69,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
 
     // Create or update Firestore account record
     try {
-      let firestoreAccount =
+      const firestoreAccount =
         await StripeFirestoreService.getAccountByFirebaseUid(firebaseUserId);
 
       if (!firestoreAccount) {

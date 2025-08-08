@@ -91,6 +91,7 @@ export const cancelSubscription = async (req: any, res: Response) => {
       (canceledSubscription as any).current_period_end || 0,
       canceledSubscription.cancel_at_period_end,
       canceledSubscription.canceled_at || undefined,
+      new Date().toISOString(), // Use current time for manual cancellation
     );
 
     res.status(200).json({
@@ -151,6 +152,8 @@ export const resumeSubscription = async (req: any, res: Response) => {
       (resumedSubscription as any).current_period_start || 0,
       (resumedSubscription as any).current_period_end || 0,
       resumedSubscription.cancel_at_period_end,
+      undefined, // No canceled_at for resume
+      new Date().toISOString(), // Use current time for manual resume
     );
 
     res.status(200).json({
@@ -351,6 +354,8 @@ export const reactivateSubscription = async (req: any, res: Response) => {
       (reactivatedSubscription as any).current_period_start || 0,
       (reactivatedSubscription as any).current_period_end || 0,
       reactivatedSubscription.cancel_at_period_end,
+      undefined, // No canceled_at for reactivation
+      new Date().toISOString(), // Use current time for manual reactivation
     );
 
     res.status(200).json({

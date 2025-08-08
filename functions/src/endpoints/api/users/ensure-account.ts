@@ -75,6 +75,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
 
     let accountCreated = false;
     let stripeCustomerId: string | undefined;
+    let latestSubscriptionObject: any = null; // Store subscription object for timestamps
     let stripeSubscriptionData: {
       subscription_id?: string;
       subscription_status?: string;
@@ -110,6 +111,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
               await StripeService.getLatestActiveSubscription(stripeCustomerId);
 
             if (latestSubscription) {
+              latestSubscriptionObject = latestSubscription; // Store for timestamp use
               stripeSubscriptionData = {
                 subscription_id: latestSubscription.id,
                 subscription_status: latestSubscription.status,
@@ -172,6 +174,18 @@ const handler = async (req: any | CustomRequest, res: Response) => {
         }
 
         // Create default Firestore account record with all available Stripe data
+        // Use Stripe subscription timestamps if available, otherwise current time
+        let accountCreatedAt = new Date().toISOString();
+        let accountUpdatedAt = new Date().toISOString();
+
+        // If we have a subscription, try to use its timestamps
+        if (latestSubscriptionObject) {
+          accountCreatedAt = new Date(
+            latestSubscriptionObject.created * 1000,
+          ).toISOString();
+          accountUpdatedAt = new Date().toISOString(); // Use current time for account creation
+        }
+
         const defaultAccountData = {
           api_user_id: api_user_id,
           firebase_user_id: firebaseUserId,
@@ -183,8 +197,8 @@ const handler = async (req: any | CustomRequest, res: Response) => {
           stripe_current_period_end: stripeSubscriptionData.current_period_end,
           stripe_cancel_at_period_end:
             stripeSubscriptionData.cancel_at_period_end,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
+          created_at: accountCreatedAt,
+          updated_at: accountUpdatedAt,
         };
 
         await StripeFirestoreService.createAccount(defaultAccountData);

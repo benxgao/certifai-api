@@ -90,6 +90,7 @@ export async function handleSubscriptionDeleted(
       (subscription as any).current_period_end || 0,
       subscription.cancel_at_period_end,
       subscription.canceled_at || undefined,
+      new Date().toISOString(), // Use current time for cancellation
     );
   } catch (error) {
     logger.error('STRIPE_WEBHOOK_ACCOUNT_UPDATE_ERROR', {

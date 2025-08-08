@@ -54,7 +54,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
 
     // Check and create Firestore account record if it doesn't exist
     try {
-      let firestoreAccount =
+      const firestoreAccount =
         await StripeFirestoreService.getAccountByFirebaseUid(firebaseUserId);
 
       if (!firestoreAccount) {

@@ -27,6 +27,7 @@ export interface AccountData {
   stripe_subscription_status?: string;
 
   // Essential dates only
+  stripe_current_period_start?: number; // Keep for billing period info
   stripe_current_period_end?: number; // Keep for quick expiry checks
   stripe_cancel_at_period_end?: boolean; // Keep for cancellation status
 
@@ -110,7 +111,8 @@ export class StripeFirestoreService {
         firebase_user_id: customerData.firebase_uid,
         email: customerData.email,
         stripe_customer_id: customerData.customer_id,
-        updated_at: new Date().toISOString(),
+        // Use Stripe customer timestamp if available, otherwise current time
+        updated_at: customerData.updated_at || new Date().toISOString(),
       };
 
       // Check if account already exists
@@ -129,8 +131,9 @@ export class StripeFirestoreService {
           { skipAutoTimestamps: true },
         );
       } else {
-        // Create new account
-        accountData.created_at = new Date().toISOString();
+        // Create new account - use Stripe customer created timestamp if available
+        accountData.created_at =
+          customerData.created_at || new Date().toISOString();
         const cleanedAccountData = this.cleanFirestoreData(
           accountData as AccountData,
         );
@@ -172,6 +175,7 @@ export class StripeFirestoreService {
     stripe_customer_id?: string;
     stripe_subscription_id?: string;
     stripe_subscription_status?: string;
+    stripe_current_period_start?: number;
     stripe_current_period_end?: number;
     stripe_cancel_at_period_end?: boolean;
     created_at: string;
@@ -185,6 +189,7 @@ export class StripeFirestoreService {
         stripe_customer_id: accountData.stripe_customer_id,
         stripe_subscription_id: accountData.stripe_subscription_id,
         stripe_subscription_status: accountData.stripe_subscription_status,
+        stripe_current_period_start: accountData.stripe_current_period_start,
         stripe_current_period_end: accountData.stripe_current_period_end,
         stripe_cancel_at_period_end: accountData.stripe_cancel_at_period_end,
         created_at: accountData.created_at,
@@ -461,9 +466,16 @@ export class StripeFirestoreService {
       // Store only minimal subscription data
       const subscriptionUpdateData: Partial<AccountData> = {
         stripe_subscription_id: subscriptionData.subscription_id,
+        stripe_current_period_start: subscriptionData.current_period_start,
         stripe_current_period_end: subscriptionData.current_period_end,
-        updated_at: new Date().toISOString(),
+        // Use subscription timestamp for updated_at if available, otherwise current time
+        updated_at: subscriptionData.updated_at || new Date().toISOString(),
       };
+
+      // If this is the first subscription for the account, also update created_at with subscription created_at
+      if (!account.stripe_subscription_id && subscriptionData.created_at) {
+        subscriptionUpdateData.created_at = subscriptionData.created_at;
+      }
 
       // Clean undefined values to prevent Firestore errors
       const cleanedUpdateData = this.cleanFirestoreData(subscriptionUpdateData);
@@ -505,6 +517,7 @@ export class StripeFirestoreService {
     currentPeriodEnd?: number,
     cancelAtPeriodEnd?: boolean,
     canceledAt?: number,
+    subscriptionUpdatedAt?: string,
   ): Promise<void> {
     try {
       // Find account by subscription ID
@@ -533,8 +546,12 @@ export class StripeFirestoreService {
 
       const account = accounts[0];
       const updateData: Partial<AccountData> = {
-        updated_at: new Date().toISOString(),
+        // Use subscription timestamp if provided, otherwise current time
+        updated_at: subscriptionUpdatedAt || new Date().toISOString(),
       };
+
+      if (currentPeriodStart !== undefined)
+        updateData.stripe_current_period_start = currentPeriodStart;
 
       if (currentPeriodEnd !== undefined)
         updateData.stripe_current_period_end = currentPeriodEnd;
@@ -558,6 +575,7 @@ export class StripeFirestoreService {
           api_user_id: account.api_user_id,
           stripe_subscription_id: subscriptionId,
           subscription_status: status,
+          current_period_start: currentPeriodStart,
           current_period_end: currentPeriodEnd,
           cancel_at_period_end: cancelAtPeriodEnd,
           canceled_at: canceledAt,

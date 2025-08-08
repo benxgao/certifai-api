@@ -60,9 +60,10 @@ export async function handleCustomerUpdated(customer: Stripe.Customer) {
       return;
     }
 
-    // Update account with latest customer data
+    // Update account with latest customer data using Stripe customer timestamps
     const updatedData: Partial<any> = {
       email: customer.email || existingAccount.email,
+      // Use current time for customer updates, since this represents when the account was last synced
       updated_at: new Date().toISOString(),
     };
 
