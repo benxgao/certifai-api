@@ -76,6 +76,7 @@ jobs:
 
           echo "STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY_UAT }}" >> .env
           echo "STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET_UAT }}" >> .env
+          echo "RESEND_API_KEY=${{ secrets.RESEND_API_KEY_UAT }}" >> .env
         working-directory: functions
 
       - name: Set Firebase Project for Firestore Deployment

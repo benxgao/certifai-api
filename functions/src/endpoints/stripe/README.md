@@ -159,9 +159,9 @@ const response = await fetch('/api/stripe/subscription/cancel', {
 The integration automatically updates Firebase custom claims with:
 
 - `stripe_customer_id` - Stripe customer ID
-- `subscription_status` - Current subscription status
-- `subscription_id` - Active subscription ID
-- `has_subscription` - Boolean flag for active subscription
+- `stripe_subscription_id` - Active subscription ID (null when canceled)
+
+Note: `has_subscription` and `subscription_status` are no longer stored in Firebase custom claims. Instead, subscription status should be determined from Firestore account data or live Stripe data.
 
 ### Testing
 

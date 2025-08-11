@@ -49,9 +49,7 @@ export async function handleSubscriptionUpdated(
 
       await firebaseAuth.setCustomUserClaims(firebaseUid, {
         ...userRecord.customClaims,
-        subscription_status: subscription.status,
-        subscription_id: subscription.id,
-        has_subscription: ['active', 'trialing'].includes(subscription.status),
+        stripe_subscription_id: subscription.id,
       });
 
       logger.info('STRIPE_WEBHOOK_FIREBASE_CLAIMS_UPDATED', {
@@ -109,8 +107,7 @@ export async function handleSubscriptionDeleted(
 
       await firebaseAuth.setCustomUserClaims(firebaseUid, {
         ...userRecord.customClaims,
-        subscription_status: 'canceled',
-        has_subscription: false,
+        stripe_subscription_id: null,
       });
 
       logger.info('STRIPE_WEBHOOK_FIREBASE_CLAIMS_UPDATED', {

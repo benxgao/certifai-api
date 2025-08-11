@@ -58,7 +58,6 @@ export async function handleCheckoutSessionCompleted(
     await firebaseAuth.setCustomUserClaims(firebaseUid, {
       ...userRecord.customClaims,
       stripe_customer_id: session.customer,
-      has_subscription: true,
     });
 
     logger.info('STRIPE_CHECKOUT_COMPLETED', {
