@@ -2,6 +2,7 @@ import Stripe from 'stripe';
 import { firebaseAuth } from '../../../../services/firebase/admin';
 import logger from '../../../../services/firebase/logger';
 import { StripeFirestoreService } from '../../db';
+import ResendService from '../../../../services/resend/index.js';
 
 export async function handleSubscriptionUpdated(
   subscription: Stripe.Subscription,
@@ -29,6 +30,9 @@ export async function handleSubscriptionUpdated(
     updated_at: new Date().toISOString(),
   };
 
+  logger.info(`DEBUG_PERIOD: handleSubscriptionCreate/handleSubscriptionUpdated
+    | subscription: ${JSON.stringify(subscription, null, 2)}`);
+
   // Store in unified accounts collection (new approach)
   try {
     await StripeFirestoreService.storeSubscription(subscriptionData);
@@ -51,6 +55,35 @@ export async function handleSubscriptionUpdated(
         ...userRecord.customClaims,
         stripe_subscription_id: subscription.id,
       });
+
+      // Send subscription updated email notification
+      if (userRecord.email && subscription.status === 'active') {
+        try {
+          await ResendService.sendSubscriptionUpdated({
+            email: userRecord.email,
+            userName: userRecord.displayName || undefined,
+            subscriptionId: subscription.id,
+            planName: subscriptionData.plan_name,
+            amount: subscriptionData.amount,
+            currency: subscriptionData.currency,
+            nextBillingDate: new Date(
+              (subscription as any).current_period_end * 1000,
+            ),
+          });
+
+          logger.info('SUBSCRIPTION_UPDATED_EMAIL_SENT', {
+            firebase_uid: firebaseUid,
+            email: userRecord.email,
+            subscription_id: subscription.id,
+          });
+        } catch (emailError) {
+          logger.error('SUBSCRIPTION_UPDATED_EMAIL_ERROR', {
+            error: emailError,
+            firebase_uid: firebaseUid,
+            subscription_id: subscription.id,
+          });
+        }
+      }
 
       logger.info('STRIPE_WEBHOOK_FIREBASE_CLAIMS_UPDATED', {
         firebase_uid: firebaseUid,
@@ -90,6 +123,9 @@ export async function handleSubscriptionDeleted(
       subscription.canceled_at || undefined,
       new Date().toISOString(), // Use current time for cancellation
     );
+
+    logger.info(`DEBUG_PERIOD: handleSubscriptionDeleted
+      | subscription: ${JSON.stringify(subscription, null, 2)}`);
   } catch (error) {
     logger.error('STRIPE_WEBHOOK_ACCOUNT_UPDATE_ERROR', {
       error,
@@ -100,7 +136,7 @@ export async function handleSubscriptionDeleted(
     // Continue with Firebase claims update even if account storage fails
   }
 
-  // Update Firebase custom claims
+  // Update Firebase custom claims and send cancellation email
   if (firebaseUid) {
     try {
       const userRecord = await firebaseAuth.getUser(firebaseUid);
@@ -109,6 +145,32 @@ export async function handleSubscriptionDeleted(
         ...userRecord.customClaims,
         stripe_subscription_id: null,
       });
+
+      // Send subscription canceled email notification
+      if (userRecord.email) {
+        try {
+          await ResendService.sendSubscriptionCanceled({
+            email: userRecord.email,
+            userName: userRecord.displayName || undefined,
+            subscriptionId: subscription.id,
+            currentPeriodEnd: new Date(
+              (subscription as any).current_period_end * 1000,
+            ),
+          });
+
+          logger.info('SUBSCRIPTION_CANCELED_EMAIL_SENT', {
+            firebase_uid: firebaseUid,
+            email: userRecord.email,
+            subscription_id: subscription.id,
+          });
+        } catch (emailError) {
+          logger.error('SUBSCRIPTION_CANCELED_EMAIL_ERROR', {
+            error: emailError,
+            firebase_uid: firebaseUid,
+            subscription_id: subscription.id,
+          });
+        }
+      }
 
       logger.info('STRIPE_WEBHOOK_FIREBASE_CLAIMS_UPDATED', {
         firebase_uid: firebaseUid,
@@ -141,5 +203,32 @@ export async function handleTrialWillEnd(subscription: Stripe.Subscription) {
     trial_end: subscription.trial_end,
   });
 
-  // TODO: Send email notification to user
+  // Send email notification to user
+  if (firebaseUid && subscription.trial_end) {
+    try {
+      const userRecord = await firebaseAuth.getUser(firebaseUid);
+
+      if (userRecord.email) {
+        await ResendService.sendTrialEndingNotification({
+          email: userRecord.email,
+          userName: userRecord.displayName || undefined,
+          subscriptionId: subscription.id,
+          trialEndDate: new Date(subscription.trial_end * 1000),
+        });
+
+        logger.info('TRIAL_ENDING_EMAIL_SENT', {
+          firebase_uid: firebaseUid,
+          email: userRecord.email,
+          subscription_id: subscription.id,
+          trial_end: subscription.trial_end,
+        });
+      }
+    } catch (error) {
+      logger.error('TRIAL_ENDING_EMAIL_ERROR', {
+        error,
+        firebase_uid: firebaseUid,
+        subscription_id: subscription.id,
+      });
+    }
+  }
 }

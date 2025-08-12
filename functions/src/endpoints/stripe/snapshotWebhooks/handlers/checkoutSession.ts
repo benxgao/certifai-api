@@ -2,6 +2,7 @@ import Stripe from 'stripe';
 import { firebaseAuth } from '../../../../services/firebase/admin';
 import logger from '../../../../services/firebase/logger';
 import { StripeFirestoreService } from '../../db';
+import ResendService from '../../../../services/resend/index.js';
 
 export async function handleCheckoutSessionCompleted(
   session: Stripe.Checkout.Session,
@@ -54,11 +55,36 @@ export async function handleCheckoutSessionCompleted(
       }
     }
 
-    // Update Firebase custom claims with Stripe customer ID
     await firebaseAuth.setCustomUserClaims(firebaseUid, {
       ...userRecord.customClaims,
       stripe_customer_id: session.customer,
     });
+
+    if (userRecord.email && session.mode === 'subscription') {
+      try {
+        // Get subscription details for plan name
+        const subscriptionId = session.subscription as string;
+        if (subscriptionId) {
+          await ResendService.sendSubscriptionCreated({
+            email: userRecord.email,
+            userName: userRecord.displayName || undefined,
+            planName: session.metadata?.plan_name || 'Certifai Subscription',
+          });
+
+          logger.info('CHECKOUT_WELCOME_EMAIL_SENT', {
+            session_id: session.id,
+            email: userRecord.email,
+            subscription_id: subscriptionId,
+          });
+        }
+      } catch (emailError) {
+        logger.error('CHECKOUT_WELCOME_EMAIL_ERROR', {
+          error: emailError,
+          session_id: session.id,
+          firebase_uid: firebaseUid,
+        });
+      }
+    }
 
     logger.info('STRIPE_CHECKOUT_COMPLETED', {
       session_id: session.id,
