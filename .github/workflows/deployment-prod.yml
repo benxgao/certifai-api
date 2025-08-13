@@ -27,6 +27,9 @@ jobs:
         run: npm ci
         working-directory: functions
 
+      - name: Install Firebase CLI globally
+        run: npm install -g firebase-tools
+
       - name: Create file - gcp_credentials.json
         run: |
           echo '${{ secrets.GCP_CREDENTIALS_JSON }}' | jq '.' > gcp_credentials.json
@@ -35,7 +38,7 @@ jobs:
       - name: Set Firebase Project to PROD
         run: |
           export GOOGLE_APPLICATION_CREDENTIALS="./gcp_credentials.json"
-          npx firebase use ${{ vars.GCP_PROJECT_ID }}
+          firebase use ${{ vars.GCP_PROJECT_ID }}
         working-directory: functions
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ./gcp_credentials.json
@@ -51,6 +54,7 @@ jobs:
           gcloud services enable eventarc.googleapis.com
           gcloud services enable run.googleapis.com
           gcloud services enable logging.googleapis.com
+          gcloud services enable firestore.googleapis.com
         working-directory: functions
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ./gcp_credentials.json
@@ -63,13 +67,33 @@ jobs:
           echo "GCP_TASKS_HOST=${{ vars.GCP_TASKS_HOST }}" >> .env
           echo "GCP_TASKS_SERVICE_ACCOUNT=${{ vars.GCP_TASKS_SERVICE_ACCOUNT }}" >> .env
 
+          echo "FRONTEND_URL=${{ vars.FRONTEND_URL }}" >> .env
+
           echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> .env
           echo "DIRECT_URL=${{ secrets.DIRECT_URL }}" >> .env
           echo "PUBLIC_JWT_SECRET=${{ secrets.PUBLIC_JWT_SECRET }}" >> .env
 
           echo "UPSTASH_REDIS_REST_URL=${{ secrets.UPSTASH_REDIS_REST_URL }}" >> .env
           echo "UPSTASH_REDIS_REST_TOKEN=${{ secrets.UPSTASH_REDIS_REST_TOKEN }}" >> .env
+
+          echo "STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }}" >> .env
+          echo "STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET }}" >> .env
+          echo "RESEND_API_KEY=${{ secrets.RESEND_API_KEY }}" >> .env
         working-directory: functions
+
+      - name: Set Firebase Project for Firestore Deployment
+        run: |
+          export GOOGLE_APPLICATION_CREDENTIALS="./functions/gcp_credentials.json"
+          firebase use ${{ vars.GCP_PROJECT_ID }}
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ./functions/gcp_credentials.json
+
+      - name: Deploy Firestore Rules and Indexes
+        run: |
+          export GOOGLE_APPLICATION_CREDENTIALS="./functions/gcp_credentials.json"
+          firebase deploy --only firestore:rules,firestore:indexes --non-interactive --debug
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ./functions/gcp_credentials.json
 
       - name: Deploy Firebase Functions
         run: |

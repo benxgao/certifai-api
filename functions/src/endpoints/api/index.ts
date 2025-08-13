@@ -6,6 +6,7 @@ import { mediumPagePagination } from '../../middlewares/pagination';
 import protectedResources from './protected_resources';
 import authRegister from './auth/register';
 import authLogin from './auth/login';
+import firestoreEnsureAccount from './users/ensure-account';
 import { generateToken } from './auth/generateToken';
 import { generateServiceToken } from './auth/generateServiceToken';
 import getUserExams from './users/exams/getUserExams';
@@ -66,6 +67,13 @@ router.post('/auth/generate-token', verifyFirebaseToken, generateToken);
 router.post('/auth/generate-service-token', generateServiceToken);
 
 /** ******************* USERS ************************* */
+
+// Ensure Firestore account exists
+router.post(
+  '/users/ensure-account',
+  verifyFirebaseToken,
+  firestoreEnsureAccount,
+);
 
 // Get user profile (including credit tokens)
 router.get(

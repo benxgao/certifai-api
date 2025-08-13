@@ -1,0 +1,25 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Stripe collections - only accessible by authenticated users with proper permissions
+    match /stripe_customers/{customerId} {
+      allow read, write: if request.auth != null &&
+        request.auth.uid == resource.data.firebase_uid;
+    }
+
+    match /stripe_subscriptions/{subscriptionId} {
+      allow read: if request.auth != null;
+      allow write: if false; // Only server-side operations can write
+    }
+
+    match /stripe_invoices/{invoiceId} {
+      allow read: if request.auth != null;
+      allow write: if false; // Only server-side operations can write
+    }
+
+    // Default rule - deny all other access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

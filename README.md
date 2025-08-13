@@ -64,12 +64,72 @@ This starts the local development server with Firebase Functions emulator on `ht
 
 ### Deployment
 
-Deploy to Firebase:
+#### Automatic Deployment via GitHub Actions
+
+The project includes GitHub Actions workflows for automatic deployment:
+
+- **UAT Environment**: Deploys on push to `uat` branch
+- **Production Environment**: Deploys on push to `master` branch
+
+Both workflows deploy:
+
+1. Firestore Rules and Indexes (fixes query index errors)
+2. Firebase Functions
+
+#### Manual Deployment
+
+Deploy Firebase Functions only:
 
 ```bash
 cd functions
 npm run deploy
 ```
+
+Deploy Firestore Rules and Indexes only:
+
+```bash
+cd functions
+npm run deploy:firestore
+```
+
+Deploy everything (Firestore + Functions):
+
+```bash
+cd functions
+npm run deploy:all
+```
+
+#### Firestore Configuration
+
+The project includes:
+
+- `firestore.rules`: Security rules for Stripe collections
+- `firestore.indexes.json`: Composite indexes for efficient queries
+- Automatic deployment via GitHub Actions resolves index errors
+
+#### Environment Setup
+
+Ensure these secrets and variables are configured in GitHub:
+
+**UAT Secrets:**
+
+- `GCP_CREDENTIALS_JSON_UAT`
+- `DATABASE_URL_UAT`
+- `DIRECT_URL_UAT`
+- `PUBLIC_JWT_SECRET_UAT`
+- `UPSTASH_REDIS_REST_URL_UAT`
+- `UPSTASH_REDIS_REST_TOKEN_UAT`
+- `STRIPE_SECRET_KEY_UAT`
+
+**UAT Variables:**
+
+- `GCP_PROJECT_ID_UAT`
+- `GCP_PROJECT_NUMBER_UAT`
+- `GCP_REGION_UAT`
+- `GCP_TASKS_HOST_UAT`
+- `GCP_TASKS_SERVICE_ACCOUNT_UAT`
+
+(Similar for Production without `_UAT` suffix)
 
 ## Core Technologies
 

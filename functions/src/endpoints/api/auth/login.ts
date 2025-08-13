@@ -3,6 +3,7 @@ import { Response } from 'express';
 import logger from '../../../services/firebase/logger';
 import prismaInstance from '../../../services/prisma';
 import { CustomRequest, FirebaseJwtToken } from '../../../types';
+import { StripeFirestoreService } from '../../stripe/db';
 
 const handler = async (req: any | CustomRequest, res: Response) => {
   try {
@@ -49,6 +50,52 @@ const handler = async (req: any | CustomRequest, res: Response) => {
         error: 'User not found for the provided Firebase ID',
       });
       return;
+    }
+
+    // Check and create Firestore account record if it doesn't exist
+    try {
+      const firestoreAccount =
+        await StripeFirestoreService.getAccountByFirebaseUid(firebaseUserId);
+
+      if (!firestoreAccount) {
+        // Create default Firestore account record
+        const defaultAccountData = {
+          api_user_id: user.user_id,
+          firebase_user_id: firebaseUserId,
+          email: firebaseUser.email || '', // Get email from Firebase token
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+
+        await StripeFirestoreService.createAccount(defaultAccountData);
+
+        logger.info('FIRESTORE_ACCOUNT_CREATED_ON_LOGIN', {
+          api_user_id: user.user_id,
+          firebase_user_id: firebaseUserId,
+          email: firebaseUser.email,
+        });
+      } else {
+        // Update the existing account's updated_at timestamp
+        await StripeFirestoreService.updateAccount(user.user_id, {
+          updated_at: new Date().toISOString(),
+        });
+
+        logger.info('FIRESTORE_ACCOUNT_UPDATED_ON_LOGIN', {
+          api_user_id: user.user_id,
+          firebase_user_id: firebaseUserId,
+        });
+      }
+    } catch (firestoreError) {
+      // Log the error but don't fail the login process
+      logger.warn('FIRESTORE_ACCOUNT_CHECK_ERROR_ON_LOGIN', {
+        error: firestoreError,
+        api_user_id: user.user_id,
+        firebase_user_id: firebaseUserId,
+        error_details:
+          firestoreError instanceof Error
+            ? firestoreError.message
+            : 'Unknown error',
+      });
     }
 
     res.status(200).json({
