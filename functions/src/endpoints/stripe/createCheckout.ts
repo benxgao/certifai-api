@@ -38,10 +38,10 @@ export const createCheckoutSession = async (req: any, res: Response) => {
     }
 
     // Check if user already has an active subscription
-    let existingSubscription = null;
+    let existingEnrichedAccount = null;
     try {
-      existingSubscription =
-        await StripeFirestoreService.getSubscriptionByFirebaseUid(
+      existingEnrichedAccount =
+        await StripeFirestoreService.getEnrichedAccountDataByFirebaseUid(
           firebaseUserIdFromToken,
         );
     } catch (error) {
@@ -58,7 +58,11 @@ export const createCheckoutSession = async (req: any, res: Response) => {
       }
     }
 
-    if (existingSubscription && existingSubscription.status === 'active') {
+    if (
+      existingEnrichedAccount &&
+      existingEnrichedAccount.stripe_subscription_id &&
+      existingEnrichedAccount.stripe_subscription_status === 'active'
+    ) {
       res.status(400).json({
         success: false,
         error: 'User already has an active subscription',

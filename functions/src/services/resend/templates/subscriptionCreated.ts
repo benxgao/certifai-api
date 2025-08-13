@@ -68,11 +68,11 @@ export function SubscriptionCreatedTemplate({
             </div>
 
             <div class="footer">
-              <p>Need help? <a href="mailto:support@certifai.com">Contact our support team</a></p>
+              <p>Need help? <a href="mailto:support@certestic.com">Contact our support team</a></p>
               <p>
                 <a href="${welcomeUrl}">Dashboard</a> •
                 <a href="${welcomeUrl}/profile">Manage Account</a> •
-                <a href="https://certifai.com/support">Help Center</a>
+                <a href="https://certestic.com/support">Help Center</a>
               </p>
             </div>
           </div>

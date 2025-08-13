@@ -31,7 +31,7 @@ export class ResendService {
     to,
     subject,
     html,
-    from = 'Certifai <noreply@certifai.com>',
+    from = 'Certestic <noreply@certestic.com>',
     replyTo,
   }: {
     to: string | string[];
@@ -83,12 +83,12 @@ export class ResendService {
     const html = SubscriptionCreatedTemplate({
       userName: userName || 'there',
       planName,
-      welcomeUrl: `${process.env.FRONTEND_URL || 'https://certifai.com'}/main`,
+      welcomeUrl: `${process.env.FRONTEND_URL || 'https://certestic.com'}/main`,
     });
 
     return this.sendEmail({
       to: email,
-      subject: 'Welcome to Certifai - Your subscription is ready! 🎉',
+      subject: 'Welcome to Certestic - Your subscription is ready! 🎉',
       html,
     });
   }
@@ -117,13 +117,13 @@ export class ResendService {
       }),
       subscriptionId,
       upgradeUrl: `${
-        process.env.FRONTEND_URL || 'https://certifai.com'
+        process.env.FRONTEND_URL || 'https://certestic.com'
       }/pricing`,
     });
 
     return this.sendEmail({
       to: email,
-      subject: 'Your Certifai trial is ending soon - Action required',
+      subject: 'Your Certestic trial is ending soon - Action required',
       html,
     });
   }
@@ -152,13 +152,13 @@ export class ResendService {
         day: 'numeric',
       }),
       reactivateUrl: `${
-        process.env.FRONTEND_URL || 'https://certifai.com'
+        process.env.FRONTEND_URL || 'https://certestic.com'
       }/pricing`,
     });
 
     return this.sendEmail({
       to: email,
-      subject: 'Your Certifai subscription has been canceled',
+      subject: 'Your Certestic subscription has been canceled',
       html,
     });
   }
@@ -200,13 +200,13 @@ export class ResendService {
         day: 'numeric',
       }),
       billingUrl: `${
-        process.env.FRONTEND_URL || 'https://certifai.com'
+        process.env.FRONTEND_URL || 'https://certestic.com'
       }/billing`,
     });
 
     return this.sendEmail({
       to: email,
-      subject: `Your Certifai subscription has been updated`,
+      subject: `Your Certestic subscription has been updated`,
       html,
     });
   }
@@ -245,13 +245,13 @@ export class ResendService {
         day: 'numeric',
       }),
       billingUrl: `${
-        process.env.FRONTEND_URL || 'https://certifai.com'
+        process.env.FRONTEND_URL || 'https://certestic.com'
       }/billing`,
     });
 
     return this.sendEmail({
       to: email,
-      subject: 'Payment failed for your Certifai subscription',
+      subject: 'Payment failed for your Certestic subscription',
       html,
     });
   }

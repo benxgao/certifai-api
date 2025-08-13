@@ -44,7 +44,7 @@ export const getAccountData = async (req: any, res: Response) => {
       return;
     }
 
-    logger.info('ACCOUNT_DATA_ENRICHED_FROM_STRIPE', {
+    logger.info('DEBUG_PERIOD: getAccountData', {
       api_user_id: enrichedAccount.api_user_id,
       firebase_user_id: enrichedAccount.firebase_user_id,
       has_stripe_customer: !!enrichedAccount.stripe_customer_id,
@@ -52,6 +52,36 @@ export const getAccountData = async (req: any, res: Response) => {
       subscription_status: enrichedAccount.stripe_subscription_status,
       enriched: enrichedAccount._data_source === 'stripe_live',
       fetched_at: enrichedAccount._stripe_data_fetched_at,
+      current_period_data: {
+        start: {
+          raw_value: enrichedAccount.stripe_current_period_start,
+          type: typeof enrichedAccount.stripe_current_period_start,
+          converted_to_date: enrichedAccount.stripe_current_period_start
+            ? new Date(
+                enrichedAccount.stripe_current_period_start * 1000,
+              ).toISOString()
+            : null,
+          converted_to_readable: enrichedAccount.stripe_current_period_start
+            ? new Date(
+                enrichedAccount.stripe_current_period_start * 1000,
+              ).toLocaleString()
+            : null,
+        },
+        end: {
+          raw_value: enrichedAccount.stripe_current_period_end,
+          type: typeof enrichedAccount.stripe_current_period_end,
+          converted_to_date: enrichedAccount.stripe_current_period_end
+            ? new Date(
+                enrichedAccount.stripe_current_period_end * 1000,
+              ).toISOString()
+            : null,
+          converted_to_readable: enrichedAccount.stripe_current_period_end
+            ? new Date(
+                enrichedAccount.stripe_current_period_end * 1000,
+              ).toLocaleString()
+            : null,
+        },
+      },
     });
 
     // Transform data for frontend consumption with flat structure
@@ -83,8 +113,10 @@ export const getAccountData = async (req: any, res: Response) => {
 
       // Latest invoice info
       stripe_latest_invoice_id: enrichedAccount.stripe_latest_invoice_id,
-      stripe_latest_invoice_status: enrichedAccount.stripe_latest_invoice_status,
-      stripe_latest_invoice_amount: enrichedAccount.stripe_latest_invoice_amount,
+      stripe_latest_invoice_status:
+        enrichedAccount.stripe_latest_invoice_status,
+      stripe_latest_invoice_amount:
+        enrichedAccount.stripe_latest_invoice_amount,
 
       // Computed fields for easier frontend consumption
       is_active_subscription:
@@ -117,6 +149,44 @@ export const getAccountData = async (req: any, res: Response) => {
       res.setHeader('X-Data-Source', 'firestore-cache');
     }
 
+    // Log the final account data structure being sent to frontend
+    logger.info('ACCOUNT_DATA_FINAL_RESPONSE_STRUCTURE', {
+      api_user_id: accountData.api_user_id,
+      current_period_data_in_response: {
+        stripe_current_period_start: {
+          raw_value: accountData.stripe_current_period_start,
+          type: typeof accountData.stripe_current_period_start,
+          converted_to_date: accountData.stripe_current_period_start
+            ? new Date(
+                accountData.stripe_current_period_start * 1000,
+              ).toISOString()
+            : null,
+          converted_to_readable: accountData.stripe_current_period_start
+            ? new Date(
+                accountData.stripe_current_period_start * 1000,
+              ).toLocaleString()
+            : null,
+        },
+        stripe_current_period_end: {
+          raw_value: accountData.stripe_current_period_end,
+          type: typeof accountData.stripe_current_period_end,
+          converted_to_date: accountData.stripe_current_period_end
+            ? new Date(
+                accountData.stripe_current_period_end * 1000,
+              ).toISOString()
+            : null,
+          converted_to_readable: accountData.stripe_current_period_end
+            ? new Date(
+                accountData.stripe_current_period_end * 1000,
+              ).toLocaleString()
+            : null,
+        },
+      },
+      has_subscription: accountData.has_subscription,
+      subscription_status: accountData.subscription_status,
+      data_source: enrichedAccount._data_source,
+    });
+
     res.status(200).json({
       success: true,
       data: accountData,
@@ -124,101 +194,6 @@ export const getAccountData = async (req: any, res: Response) => {
   } catch (error) {
     logger.error('GET_ACCOUNT_DATA_ERROR', {
       error,
-      firebase_user_id: req.firebase_user_info?.user_id,
-    });
-    res.status(500).json({
-      success: false,
-      error: 'Failed to get account data',
-    });
-  }
-};
-
-/**
- * Get account data by API user ID
- * Alternative endpoint using API user ID instead of Firebase UID
- */
-export const getAccountDataByApiUserId = async (req: any, res: Response) => {
-  try {
-    const { api_user_id } = req.params;
-    const firebaseUserIdFromToken = req.firebase_user_info?.user_id;
-
-    if (!firebaseUserIdFromToken) {
-      res.status(401).json({
-        success: false,
-        error: 'Unauthorized: Firebase token missing.',
-      });
-      return;
-    }
-
-    if (!api_user_id) {
-      res.status(400).json({
-        success: false,
-        error: 'API user ID is required',
-      });
-      return;
-    }
-
-    // Get enriched account data with live Stripe data
-    const enrichedAccount = await StripeFirestoreService.getEnrichedAccountData(
-      api_user_id,
-    );
-
-    if (!enrichedAccount) {
-      res.status(404).json({
-        success: false,
-        error: 'Account not found',
-      });
-      return;
-    }
-
-    // Verify that the requesting user owns this account
-    if (enrichedAccount.firebase_user_id !== firebaseUserIdFromToken) {
-      res.status(403).json({
-        success: false,
-        error: 'Forbidden: Account access denied',
-      });
-      return;
-    }
-
-    // Return the same transformed data structure as the other endpoint
-    const accountData = {
-      api_user_id: enrichedAccount.api_user_id,
-      firebase_user_id: enrichedAccount.firebase_user_id,
-      email: enrichedAccount.email,
-      has_stripe_customer: !!enrichedAccount.stripe_customer_id,
-      stripe_customer_id: enrichedAccount.stripe_customer_id,
-      has_subscription: !!enrichedAccount.stripe_subscription_id,
-      subscription_status: enrichedAccount.stripe_subscription_status,
-      subscription_id: enrichedAccount.stripe_subscription_id,
-      stripe_plan_id: enrichedAccount.stripe_plan_id,
-      stripe_plan_name: enrichedAccount.stripe_plan_name,
-      stripe_amount: enrichedAccount.stripe_amount,
-      stripe_currency: enrichedAccount.stripe_currency,
-      stripe_current_period_start: enrichedAccount.stripe_current_period_start,
-      stripe_current_period_end: enrichedAccount.stripe_current_period_end,
-      stripe_trial_end: enrichedAccount.stripe_trial_end,
-      stripe_cancel_at_period_end: enrichedAccount.stripe_cancel_at_period_end,
-      stripe_canceled_at: enrichedAccount.stripe_canceled_at,
-      stripe_latest_invoice_id: enrichedAccount.stripe_latest_invoice_id,
-      stripe_latest_invoice_status: enrichedAccount.stripe_latest_invoice_status,
-      stripe_latest_invoice_amount: enrichedAccount.stripe_latest_invoice_amount,
-      is_active_subscription:
-        enrichedAccount.stripe_subscription_status === 'active' ||
-        enrichedAccount.stripe_subscription_status === 'trialing',
-      is_trial: enrichedAccount.stripe_subscription_status === 'trialing',
-      is_canceled: !!enrichedAccount.stripe_cancel_at_period_end,
-      created_at: enrichedAccount.created_at,
-      updated_at: enrichedAccount.updated_at,
-    };
-
-    res.status(200).json({
-      success: true,
-      data: accountData,
-    });
-  } catch (error) {
-    logger.error('GET_ACCOUNT_DATA_BY_API_USER_ID_ERROR', {
-      error,
-      api_user_id: req.params.api_user_id,
       firebase_user_id: req.firebase_user_info?.user_id,
     });
     res.status(500).json({

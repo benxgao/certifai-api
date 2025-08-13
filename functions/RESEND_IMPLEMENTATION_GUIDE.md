@@ -101,7 +101,7 @@ Template Features:
 RESEND_API_KEY=re_your_api_key_here
 
 # Optional (defaults to https://certifai.com)
-FRONTEND_URL=https://app.certifai.com
+FRONTEND_URL=https://app.certestic.com
 ```
 
 ### Resend Account Setup
@@ -113,7 +113,7 @@ FRONTEND_URL=https://app.certifai.com
 
 ### Domain Configuration
 
-- **From Address**: `Certifai <noreply@certifai.com>`
+- **From Address**: `Certistic <noreply@certestic.com>`
 - **Reply-To**: Not set (emails are informational)
 - **Domain**: Requires DNS verification in Resend dashboard
 

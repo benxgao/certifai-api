@@ -29,12 +29,13 @@ export const createPortalSession = async (req: any, res: Response) => {
       return;
     }
 
-    // Get customer from Firestore
-    const customerData = await StripeFirestoreService.getCustomerByFirebaseUid(
-      firebaseUserIdFromToken,
-    );
+    // Get account data using the unified approach
+    const enrichedAccount =
+      await StripeFirestoreService.getEnrichedAccountDataByFirebaseUid(
+        firebaseUserIdFromToken,
+      );
 
-    if (!customerData) {
+    if (!enrichedAccount || !enrichedAccount.stripe_customer_id) {
       res.status(404).json({
         success: false,
         error: 'Customer not found. Please create a subscription first.',
@@ -44,7 +45,7 @@ export const createPortalSession = async (req: any, res: Response) => {
 
     // Create portal session
     const session = await StripeService.createPortalSession(
-      customerData.customer_id,
+      enrichedAccount.stripe_customer_id,
       return_url,
     );
 

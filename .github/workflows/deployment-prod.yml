@@ -67,6 +67,8 @@ jobs:
           echo "GCP_TASKS_HOST=${{ vars.GCP_TASKS_HOST }}" >> .env
           echo "GCP_TASKS_SERVICE_ACCOUNT=${{ vars.GCP_TASKS_SERVICE_ACCOUNT }}" >> .env
 
+          echo "FRONTEND_URL=${{ vars.FRONTEND_URL }}" >> .env
+
           echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> .env
           echo "DIRECT_URL=${{ secrets.DIRECT_URL }}" >> .env
           echo "PUBLIC_JWT_SECRET=${{ secrets.PUBLIC_JWT_SECRET }}" >> .env

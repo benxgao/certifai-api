@@ -18,12 +18,12 @@ export const getSubscriptionStatus = async (req: any, res: Response) => {
       return;
     }
 
-    const subscription =
-      await StripeFirestoreService.getSubscriptionByFirebaseUid(
+    const enrichedAccount =
+      await StripeFirestoreService.getEnrichedAccountDataByFirebaseUid(
         firebaseUserIdFromToken,
       );
 
-    if (!subscription) {
+    if (!enrichedAccount || !enrichedAccount.stripe_subscription_id) {
       res.status(200).json({
         success: true,
         data: null,
@@ -31,6 +31,10 @@ export const getSubscriptionStatus = async (req: any, res: Response) => {
       });
       return;
     }
+
+    // Convert to legacy format for API compatibility
+    const subscription =
+      StripeFirestoreService.convertToSubscriptionData(enrichedAccount);
 
     res.status(200).json({
       success: true,
@@ -65,12 +69,12 @@ export const cancelSubscription = async (req: any, res: Response) => {
 
     const { cancel_at_period_end = true } = req.body;
 
-    const subscription =
-      await StripeFirestoreService.getSubscriptionByFirebaseUid(
+    const enrichedAccount =
+      await StripeFirestoreService.getEnrichedAccountDataByFirebaseUid(
         firebaseUserIdFromToken,
       );
 
-    if (!subscription) {
+    if (!enrichedAccount || !enrichedAccount.stripe_subscription_id) {
       res.status(404).json({
         success: false,
         error: 'No active subscription found',
@@ -79,13 +83,13 @@ export const cancelSubscription = async (req: any, res: Response) => {
     }
 
     const canceledSubscription = await StripeService.cancelSubscription(
-      subscription.subscription_id,
+      enrichedAccount.stripe_subscription_id,
       cancel_at_period_end,
     );
 
     // Update Firestore
     await StripeFirestoreService.updateSubscriptionStatus(
-      subscription.subscription_id,
+      enrichedAccount.stripe_subscription_id,
       canceledSubscription.status,
       (canceledSubscription as any).current_period_start || 0,
       (canceledSubscription as any).current_period_end || 0,
@@ -97,7 +101,7 @@ export const cancelSubscription = async (req: any, res: Response) => {
     res.status(200).json({
       success: true,
       data: {
-        subscription_id: subscription.subscription_id,
+        subscription_id: enrichedAccount.stripe_subscription_id,
         status: canceledSubscription.status,
         cancel_at_period_end: canceledSubscription.cancel_at_period_end,
         current_period_end:
@@ -128,12 +132,12 @@ export const resumeSubscription = async (req: any, res: Response) => {
       return;
     }
 
-    const subscription =
-      await StripeFirestoreService.getSubscriptionByFirebaseUid(
+    const enrichedAccount =
+      await StripeFirestoreService.getEnrichedAccountDataByFirebaseUid(
         firebaseUserIdFromToken,
       );
 
-    if (!subscription) {
+    if (!enrichedAccount || !enrichedAccount.stripe_subscription_id) {
       res.status(404).json({
         success: false,
         error: 'No subscription found',
@@ -142,12 +146,12 @@ export const resumeSubscription = async (req: any, res: Response) => {
     }
 
     const resumedSubscription = await StripeService.resumeSubscription(
-      subscription.subscription_id,
+      enrichedAccount.stripe_subscription_id,
     );
 
     // Update Firestore
     await StripeFirestoreService.updateSubscriptionStatus(
-      subscription.subscription_id,
+      enrichedAccount.stripe_subscription_id,
       resumedSubscription.status,
       (resumedSubscription as any).current_period_start || 0,
       (resumedSubscription as any).current_period_end || 0,
@@ -159,7 +163,7 @@ export const resumeSubscription = async (req: any, res: Response) => {
     res.status(200).json({
       success: true,
       data: {
-        subscription_id: subscription.subscription_id,
+        subscription_id: enrichedAccount.stripe_subscription_id,
         status: resumedSubscription.status,
         cancel_at_period_end: resumedSubscription.cancel_at_period_end,
       },
@@ -198,12 +202,12 @@ export const updateSubscriptionPlan = async (req: any, res: Response) => {
       return;
     }
 
-    const subscription =
-      await StripeFirestoreService.getSubscriptionByFirebaseUid(
+    const enrichedAccount =
+      await StripeFirestoreService.getEnrichedAccountDataByFirebaseUid(
         firebaseUserIdFromToken,
       );
 
-    if (!subscription) {
+    if (!enrichedAccount || !enrichedAccount.stripe_subscription_id) {
       res.status(404).json({
         success: false,
         error: 'No active subscription found',
@@ -212,14 +216,14 @@ export const updateSubscriptionPlan = async (req: any, res: Response) => {
     }
 
     const updatedSubscription = await StripeService.updateSubscriptionPlan(
-      subscription.subscription_id,
+      enrichedAccount.stripe_subscription_id,
       new_price_id,
     );
 
     res.status(200).json({
       success: true,
       data: {
-        subscription_id: subscription.subscription_id,
+        subscription_id: enrichedAccount.stripe_subscription_id,
         status: updatedSubscription.status,
         new_price_id,
       },
@@ -268,12 +272,13 @@ export const getSubscriptionHistory = async (req: any, res: Response) => {
       return;
     }
 
-    // Get customer data
-    const customerData = await StripeFirestoreService.getCustomerByFirebaseUid(
-      firebaseUserIdFromToken,
-    );
+    // Get account data using the unified approach
+    const enrichedAccount =
+      await StripeFirestoreService.getEnrichedAccountDataByFirebaseUid(
+        firebaseUserIdFromToken,
+      );
 
-    if (!customerData) {
+    if (!enrichedAccount || !enrichedAccount.stripe_customer_id) {
       res.status(404).json({
         success: false,
         error: 'No customer found',
@@ -283,7 +288,7 @@ export const getSubscriptionHistory = async (req: any, res: Response) => {
 
     // Get all subscriptions for this customer from Stripe
     const subscriptions = await stripe.subscriptions.list({
-      customer: customerData.customer_id,
+      customer: enrichedAccount.stripe_customer_id,
       limit: 100,
     });
 
@@ -318,12 +323,12 @@ export const reactivateSubscription = async (req: any, res: Response) => {
       return;
     }
 
-    const subscription =
-      await StripeFirestoreService.getSubscriptionByFirebaseUid(
+    const enrichedAccount =
+      await StripeFirestoreService.getEnrichedAccountDataByFirebaseUid(
         firebaseUserIdFromToken,
       );
 
-    if (!subscription) {
+    if (!enrichedAccount || !enrichedAccount.stripe_subscription_id) {
       res.status(404).json({
         success: false,
         error: 'No subscription found',
@@ -333,8 +338,8 @@ export const reactivateSubscription = async (req: any, res: Response) => {
 
     // Check if subscription can be reactivated (still active but cancelled at period end)
     if (
-      subscription.status !== 'active' ||
-      !subscription.cancel_at_period_end
+      enrichedAccount.stripe_subscription_status !== 'active' ||
+      !enrichedAccount.stripe_cancel_at_period_end
     ) {
       res.status(400).json({
         success: false,
@@ -344,12 +349,12 @@ export const reactivateSubscription = async (req: any, res: Response) => {
     }
 
     const reactivatedSubscription = await StripeService.resumeSubscription(
-      subscription.subscription_id,
+      enrichedAccount.stripe_subscription_id,
     );
 
     // Update Firestore
     await StripeFirestoreService.updateSubscriptionStatus(
-      subscription.subscription_id,
+      enrichedAccount.stripe_subscription_id,
       reactivatedSubscription.status,
       (reactivatedSubscription as any).current_period_start || 0,
       (reactivatedSubscription as any).current_period_end || 0,
@@ -361,7 +366,7 @@ export const reactivateSubscription = async (req: any, res: Response) => {
     res.status(200).json({
       success: true,
       data: {
-        subscription_id: subscription.subscription_id,
+        subscription_id: enrichedAccount.stripe_subscription_id,
         status: reactivatedSubscription.status,
         cancel_at_period_end: reactivatedSubscription.cancel_at_period_end,
       },

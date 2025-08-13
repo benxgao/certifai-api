@@ -13,17 +13,12 @@ import {
   resumeSubscription,
   updateSubscriptionPlan,
 } from './subscriptions';
-import { getAccountData, getAccountDataByApiUserId } from './accounts';
+import { getAccountData } from './accounts';
 
 const router = createRouter();
 
 // Unified account data endpoints (New)
 router.get('/account', verifyFirebaseToken, getAccountData);
-router.get(
-  '/account/:api_user_id',
-  verifyFirebaseToken,
-  getAccountDataByApiUserId,
-);
 
 // Checkout and portal sessions
 router.post(
