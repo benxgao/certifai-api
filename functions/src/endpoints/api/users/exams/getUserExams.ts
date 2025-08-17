@@ -98,12 +98,6 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       whereClause.cert_id = parseInt(cert_id as string, 10);
     }
 
-    console.log('get_user_exams: whereClause', whereClause);
-    console.log('get_user_exams: user resolved', {
-      user_id: user.user_id,
-      firebase_user_id: user.firebase_user_id,
-    });
-
     // Configure sorting options with started_at as default
     const validSortFields = [
       'started_at',
@@ -172,13 +166,8 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       { forceMemoryCache: true }, // Use memory cache for frequently accessed user data
     );
 
-    console.log('get_user_exams: examsFromDb', examsFromDb);
-    console.log('get_user_exams: total', total);
-
     // Create response with proper data structure
     if (examsFromDb.length === 0) {
-      console.log('get_user_exams: No exams found, returning empty response');
-
       // Even with no exams, calculate rate limit (will show all 3 available)
       const rateLimitInfo = calculateRateLimitFromExams([], actualUserId);
       const rateLimitData = formatRateLimitResponse(rateLimitInfo);

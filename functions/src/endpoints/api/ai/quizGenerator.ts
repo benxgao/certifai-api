@@ -22,13 +22,11 @@
 import { inspect } from 'util';
 import { Request, Response } from 'express';
 import logger from '../../../services/firebase/logger';
+import { quizGeneratorPromise } from '../../../services/genkit/quizGenerator.js';
 
 export const quizGeneratorHandler = async (req: Request, res: Response) => {
   try {
     // Ensure the AI instance and flow are initialized before proceeding
-    const { quizGeneratorPromise } = await import(
-      '../../../services/genkit/quizGenerator.js'
-    );
     const quizGenerator = await quizGeneratorPromise;
 
     const cert_name = req.body.cert_name || 'Google Cloud';

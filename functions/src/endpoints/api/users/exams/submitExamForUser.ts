@@ -3,6 +3,7 @@ import logger from '../../../../services/firebase/logger';
 import { CustomRequest } from '../../../../types';
 import prismaInstance, { ExamStatus } from '../../../../services/prisma';
 import { CacheManager } from '../../../../services/cache';
+import { generateExamReport } from '../../ai/examReportGenerator';
 
 const handler = async (
   req: any | CustomRequest,
@@ -189,6 +190,31 @@ const handler = async (
     logger.info(
       `EXAM_SUBMIT_SUCCESS: exam_id=${exam_id}, score=${currentScore}%, correct=${correctlyAnsweredCount}/${scoreDenominator}, tokens_deducted=${tokenCost}, energy_awarded=${energyTokensToAward}`,
     );
+
+    // Automatically generate exam report after successful submission
+    try {
+      logger.info(
+        `AUTO_EXAM_REPORT_INIT: Starting automatic report generation for exam_id=${exam_id}`,
+      );
+
+      // Generate exam report automatically (skip auth check since we're in internal service call)
+      await generateExamReport(exam_id, undefined, true);
+
+      logger.info(
+        `AUTO_EXAM_REPORT_SUCCESS: Automatic report generated for exam_id=${exam_id}`,
+      );
+    } catch (reportError) {
+      // Log the error but don't fail the submission - report generation is supplementary
+      logger.error(
+        `AUTO_EXAM_REPORT_ERROR: Failed to generate automatic report for exam_id=${exam_id}`,
+        {
+          error: reportError as any,
+          exam_id,
+          user_id,
+          will_retry: false, // User can manually generate later if needed
+        },
+      );
+    }
 
     res.status(200).json({
       success: true,

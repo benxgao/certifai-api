@@ -51,6 +51,7 @@ import {
   getDifficultyLabel,
 } from '../../../types/examReport';
 import { examReportFirestore } from '../../../services/firebase/examReportFirestore';
+import { getExamReportGeneratorFlow } from '../../../services/genkit/examReportGenerator.js';
 
 /**
  * Helper function to convert difficulty string to number
@@ -241,9 +242,6 @@ export const generateExamReport = async (
       }));
 
     // 8. Generate the AI report
-    const { getExamReportGeneratorFlow } = await import(
-      '../../../services/genkit/examReportGenerator.js'
-    );
     const examReportGenerator = await getExamReportGeneratorFlow();
 
     const reportInput = {

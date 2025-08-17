@@ -68,13 +68,6 @@ export const certSummaryGeneratorHandler = async (...) => {
 };
 ```
 
-### 4. **Example Usage** (`/src/endpoints/api/ai/certSummaryExamples.ts`)
-
-**Created:** Example file showing how to reuse the service in other endpoints:
-
-- `bulkCertSummaryHandler` - Generate summaries for multiple certifications
-- `getCertSummaryHandler` - Retrieve existing summaries without regeneration
-
 ## Benefits of This Refactoring
 
 ### ✅ **Better Separation of Concerns**
@@ -146,8 +139,7 @@ functions/src/
 │   └── firebase/
 │       └── certSummaryFirestore.ts     # Core service + interfaces
 └── endpoints/api/ai/
-    ├── certSummaryGenerator.ts         # API handler only
-    └── certSummaryExamples.ts          # Usage examples
+    └── certSummaryGenerator.ts         # API handler only
 ```
 
 ## Validation
