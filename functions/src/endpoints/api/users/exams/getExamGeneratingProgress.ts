@@ -7,7 +7,7 @@ import prismaInstance from '../../../../services/prisma';
 /**
  * Get exam generation progress by counting topics with question_id in RTDB
  * This provides a simple, accurate way to track progress percentage
- * Only works for exams that are currently in QUESTIONS_GENERATING state
+ * Works for exams in QUESTIONS_GENERATING state, and returns completed progress for READY exams
  */
 const handler = async (req: any | CustomRequest, res: Response) => {
   try {
@@ -59,8 +59,38 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       return;
     }
 
-    // Only return progress data if exam is actually generating
-    if (exam.exam_status !== 'QUESTIONS_GENERATING') {
+    // Handle different exam statuses appropriately
+    if (exam.exam_status === 'READY') {
+      // Exam is ready - return completed progress
+      logger.info(
+        `EXAM_PROGRESS_READY: Returning completed progress for exam ${exam_id} with status ${exam.exam_status}`,
+        {
+          exam_id,
+          user_id,
+          exam_status: exam.exam_status,
+          timestamp: new Date().toISOString(),
+          structuredData: true,
+        },
+      );
+
+      const progressData = {
+        exam_id,
+        total_topics: 0,
+        topics_with_questions: 0,
+        topics_remaining: 0,
+        progress_percentage: 100,
+        status: 'complete',
+        estimated_time_remaining_seconds: 0,
+        created_at: Math.floor(Date.now() / 1000),
+        last_updated: Math.floor(Date.now() / 1000),
+      };
+
+      res.status(200).json({
+        success: true,
+        data: progressData,
+      });
+      return;
+    } else if (exam.exam_status !== 'QUESTIONS_GENERATING') {
       logger.warn(
         `EXAM_PROGRESS_INVALID_STATUS: Rejected progress request for exam ${exam_id} with status ${exam.exam_status}`,
         {
@@ -69,7 +99,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
           exam_status: exam.exam_status,
           timestamp: new Date().toISOString(),
           structuredData: true,
-        }
+        },
       );
 
       res.status(400).json({

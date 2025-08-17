@@ -241,6 +241,90 @@ export class ExamReportFirestoreService {
 
       return latestReport;
     } catch (error) {
+      // Try a simpler query without ordering if the complex one fails (index error)
+      if (
+        (error as any).code === 9 ||
+        (error as any).message?.includes('index')
+      ) {
+        logger.warn(
+          `FIRESTORE_LAST_EXAM_REPORT_INDEX_ERROR: user_id=${userId}, certification=${certificationName}, trying simple query`,
+          { error },
+        );
+
+        try {
+          const collectionPath = this.buildExamReportsPath(userId, certId);
+
+          // Query without ordering to avoid index requirements
+          const queryOptions: any = {
+            limit: 50, // Get more documents to sort manually
+          };
+
+          // Add certification name filter if provided
+          if (certificationName) {
+            queryOptions.where = [
+              {
+                field: 'certification_name',
+                operator: '==',
+                value: certificationName,
+              },
+            ];
+          }
+
+          const reports = await firestoreService.list<ExamReportDocument>(
+            collectionPath,
+            queryOptions,
+          );
+
+          // Sort manually by generated_at and get the latest one
+          const sortedReports = reports.sort(
+            (a, b) =>
+              new Date(b.generated_at).getTime() -
+              new Date(a.generated_at).getTime(),
+          );
+
+          const latestReport =
+            sortedReports.length > 0 ? sortedReports[0] : null;
+
+          if (latestReport) {
+            logger.info(
+              `FIRESTORE_LAST_EXAM_REPORT_SIMPLE_QUERY_SUCCESS: user_id=${userId}`,
+              {
+                user_id: userId,
+                certification: certificationName,
+                exam_id: latestReport.exam_id,
+                generated_at: latestReport.generated_at,
+                structuredData: true,
+                fallback_query: true,
+              },
+            );
+          } else {
+            logger.info(
+              `FIRESTORE_NO_PREVIOUS_EXAM_REPORT_SIMPLE_QUERY: user_id=${userId}`,
+              {
+                user_id: userId,
+                certification: certificationName,
+                fallback_query: true,
+              },
+            );
+          }
+
+          return latestReport;
+        } catch (fallbackError) {
+          logger.error(
+            `FIRESTORE_LAST_EXAM_REPORT_FALLBACK_ERROR: user_id=${userId}`,
+            {
+              originalError: error,
+              fallbackError,
+              user_id: userId,
+              certification: certificationName,
+            },
+          );
+          throw new Error(
+            `Failed to get last exam report from Firestore: ${fallbackError}`,
+          );
+        }
+      }
+
       logger.error(`FIRESTORE_LAST_EXAM_REPORT_ERROR: user_id=${userId}`, {
         error,
         user_id: userId,

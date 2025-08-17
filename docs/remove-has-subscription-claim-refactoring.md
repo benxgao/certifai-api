@@ -78,8 +78,7 @@ This refactoring removes the `has_subscription` and `subscription_status` fields
 ## API Endpoints Still Available
 
 - `GET /api/stripe/account` - Returns complete account data including subscription status
-- `GET /api/stripe/account/:api_user_id` - Returns account data by API user ID
-- All subscription status information is available through these endpoints
+- All subscription status information is available through this endpoint
 
 ## Custom Claims Now Include
 

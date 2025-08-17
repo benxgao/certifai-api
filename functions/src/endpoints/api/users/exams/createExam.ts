@@ -8,6 +8,7 @@ import { CacheManager } from '../../../../services/cache';
 import { ExamGenerationLogger } from '../../../../services/exam-generation-logger';
 import { getRtdbValue } from '../../../../services/firebase/rtdb';
 import { BatchWriteOptimizer } from '../../../../services/database/batchWriteOptimizer';
+import { validateExamQueueReadiness } from '../../../../utils/examQueueManager';
 
 const DEFAULT_NUMBER_OF_QUESTIONS = 20;
 const MAX_NUMBER_OF_QUESTIONS = 100; // Set a reasonable max
@@ -455,6 +456,45 @@ const handler = async (
           },
         );
         throw verificationError;
+      }
+
+      // CRITICAL FIX: Ensure Cloud Tasks queue exists before creating tasks
+      // This prevents failures when the queue has been accidentally deleted or not yet created
+      try {
+        logger.info(
+          `QUEUE_VALIDATION_START: Ensuring exam generation queues exist before task creation`,
+          {
+            exam_id: newExam.exam_id,
+            structuredData: true,
+          },
+        );
+
+        await validateExamQueueReadiness();
+
+        logger.info(
+          `QUEUE_VALIDATION_SUCCESS: All exam generation queues are ready`,
+          {
+            exam_id: newExam.exam_id,
+            structuredData: true,
+          },
+        );
+      } catch (queueError) {
+        logger.error(
+          `QUEUE_VALIDATION_ERROR: Failed to ensure queues exist before task creation`,
+          {
+            exam_id: newExam.exam_id,
+            error:
+              queueError instanceof Error
+                ? queueError.message
+                : String(queueError),
+            structuredData: true,
+          },
+        );
+        throw new Error(
+          `Queue validation failed: ${
+            queueError instanceof Error ? queueError.message : 'Unknown error'
+          }`,
+        );
       }
 
       const cloudTaskStart = Date.now();

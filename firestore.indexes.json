@@ -17,6 +17,20 @@
           "order": "DESCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "exam_reports",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "certification_name",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "generated_at",
+          "order": "DESCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": []

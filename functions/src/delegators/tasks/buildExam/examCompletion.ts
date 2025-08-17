@@ -15,6 +15,7 @@ import {
   calculateAndLogExamGenerationTime,
   updateExamGenerationProgress,
 } from './rtdb';
+import { validateExamQueueReadiness } from '../../../utils/examQueueManager';
 
 /**
  * Determines whether exam should be completed and handles completion or next batch creation
@@ -410,6 +411,85 @@ export const handleExamCompletionOrNextBatch = async (
     };
 
     const delaySeconds = 1;
+
+    // CRITICAL FIX: Ensure Cloud Tasks queue exists before creating next batch task
+    // This prevents failures when the queue has been accidentally deleted
+    try {
+      logger.info(
+        `QUEUE_VALIDATION_NEXT_BATCH: Ensuring exam generation queues exist before next batch task creation`,
+        {
+          exam_id,
+          current_batch: batch_number,
+          next_batch: batch_number + 1,
+          structuredData: true,
+        },
+      );
+
+      await validateExamQueueReadiness();
+
+      logger.info(
+        `QUEUE_VALIDATION_NEXT_BATCH_SUCCESS: All exam generation queues are ready for next batch`,
+        {
+          exam_id,
+          current_batch: batch_number,
+          next_batch: batch_number + 1,
+          structuredData: true,
+        },
+      );
+    } catch (queueError) {
+      logger.error(
+        `QUEUE_VALIDATION_NEXT_BATCH_ERROR: Failed to ensure queues exist before next batch task creation`,
+        {
+          exam_id,
+          current_batch: batch_number,
+          next_batch: batch_number + 1,
+          error:
+            queueError instanceof Error
+              ? queueError.message
+              : String(queueError),
+          structuredData: true,
+        },
+      );
+
+      // If queue validation fails, mark exam as failed
+      const examForQueueFailure = await prismaInstance.examAttempt.findUnique({
+        where: { exam_id },
+        select: { user_id: true },
+      });
+
+      await prismaInstance.examAttempt.update({
+        where: { exam_id },
+        data: { exam_status: ExamStatus.QUESTION_GENERATION_FAILED },
+      });
+
+      if (examForQueueFailure?.user_id) {
+        await CacheManager.invalidateUserExamCacheForGenerationChange(
+          examForQueueFailure.user_id,
+          'exam_generation_queue_validation_failed',
+        );
+      }
+
+      ExamGenerationLogger.logExamFailure({
+        exam_id,
+        batch_number,
+        total_batches: adjustedTotalBatches,
+        reason: 'queue_validation_failed',
+        error: `Queue validation failed: ${
+          queueError instanceof Error ? queueError.message : 'Unknown error'
+        }`,
+        questions_generated_so_far: actualQuestionsGenerated,
+      });
+
+      logger.info(
+        `EXAM_GENERATION_FAILED: exam_id=${exam_id}, reason=queue_validation_failed`,
+      );
+
+      res.status(500).json({
+        success: false,
+        error: 'Failed to validate queue readiness for next batch.',
+      });
+      return;
+    }
 
     const nextTaskName = await createCloudTask(
       'exam-questions-queue',
