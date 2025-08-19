@@ -4,6 +4,7 @@ import { CustomRequest } from '../../../../types';
 import prismaInstance, { ExamStatus } from '../../../../services/prisma';
 import { CacheManager } from '../../../../services/cache';
 import { generateExamReport } from '../../ai/examReportGenerator';
+import { KnowledgePoolingTaskService } from '../../../../services/cloudTasks/knowledgePoolingTaskService';
 
 const handler = async (
   req: any | CustomRequest,
@@ -35,10 +36,17 @@ const handler = async (
         score: true,
         submitted_at: true,
         total_questions: true,
+        cert_id: true, // Add cert_id for knowledge pooling task
         user: {
           select: {
             user_id: true,
             credit_tokens: true,
+          },
+        },
+        certification: { // Add certification details for knowledge pooling task
+          select: {
+            cert_id: true,
+            name: true,
           },
         },
       },
@@ -212,6 +220,58 @@ const handler = async (
           exam_id,
           user_id,
           will_retry: false, // User can manually generate later if needed
+        },
+      );
+    }
+
+    // Trigger knowledge pooling generation in the background (silently, non-blocking)
+    try {
+      logger.info(
+        `KNOWLEDGE_POOLING_TASK_INIT: Triggering background knowledge pooling for exam_id=${exam_id}`,
+      );
+
+      const knowledgePoolingService = KnowledgePoolingTaskService.getInstance();
+      const taskName = await knowledgePoolingService.createPostSubmissionTask(
+        exam_id,
+        user_id,
+        examAttempt.cert_id,
+        examAttempt.certification?.name || 'Unknown Certification',
+      );
+
+      if (taskName) {
+        logger.info(
+          `KNOWLEDGE_POOLING_TASK_SUCCESS: Background task created for exam_id=${exam_id}`,
+          {
+            task_name: taskName,
+            cert_id: examAttempt.cert_id,
+            certification_name: examAttempt.certification?.name,
+            trigger_source: 'exam_submission',
+            structuredData: true,
+          },
+        );
+      } else {
+        logger.warn(
+          `KNOWLEDGE_POOLING_TASK_FAILED: Failed to create background task for exam_id=${exam_id}`,
+          {
+            cert_id: examAttempt.cert_id,
+            certification_name: examAttempt.certification?.name,
+            reason: 'task_creation_failed',
+            structuredData: true,
+          },
+        );
+      }
+    } catch (knowledgePoolingError) {
+      // Log the error but don't fail the submission - knowledge pooling is supplementary
+      logger.error(
+        `KNOWLEDGE_POOLING_TASK_ERROR: Failed to trigger background knowledge pooling for exam_id=${exam_id}`,
+        {
+          error: knowledgePoolingError as any,
+          exam_id,
+          user_id,
+          cert_id: examAttempt.cert_id,
+          certification_name: examAttempt.certification?.name,
+          will_continue_silently: true, // Background task failure doesn't affect user experience
+          structuredData: true,
         },
       );
     }

@@ -79,12 +79,23 @@ fi
 
 echo
 
-# Check if the queue exists
-echo "📋 Checking Cloud Tasks Queue..."
+# Check if the queues exist
+echo "📋 Checking Cloud Tasks Queues..."
+
+# Check exam questions queue
 if gcloud tasks queues describe exam-questions-queue --location="$GCP_REGION" --quiet >/dev/null 2>&1; then
     echo "✅ Queue exists: exam-questions-queue"
 else
     echo "❌ Queue not found: exam-questions-queue"
+    echo "💡 You can create it with: cd functions && ./scripts/deploy-queues.sh"
+    exit 1
+fi
+
+# Check knowledge pooling queue
+if gcloud tasks queues describe knowledge-pooling-queue --location="$GCP_REGION" --quiet >/dev/null 2>&1; then
+    echo "✅ Queue exists: knowledge-pooling-queue"
+else
+    echo "❌ Queue not found: knowledge-pooling-queue"
     echo "💡 You can create it with: cd functions && ./scripts/deploy-queues.sh"
     exit 1
 fi

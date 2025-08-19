@@ -7,6 +7,7 @@ import {
 // Standard queue names used throughout the application
 export const EXAM_QUEUE_NAMES = {
   EXAM_QUESTIONS: 'exam-questions-queue',
+  KNOWLEDGE_POOLING: 'knowledge-pooling-queue',
   // Add other queue names here as needed
 } as const;
 
@@ -36,21 +37,78 @@ export async function ensureExamQueuesExist(): Promise<void> {
 }
 
 /**
+ * Ensures the knowledge pooling queue exists
+ * This is called before creating knowledge pooling tasks
+ */
+export async function ensureKnowledgePoolingQueuesExist(): Promise<void> {
+  try {
+    logger.info('Ensuring knowledge pooling queues exist...');
+
+    // Ensure the knowledge pooling queue exists
+    await ensureQueueExists(EXAM_QUEUE_NAMES.KNOWLEDGE_POOLING);
+
+    logger.info('All knowledge pooling queues verified/created successfully');
+  } catch (error) {
+    logger.error('Failed to ensure knowledge pooling queues exist:', {
+      error: error instanceof Error ? error.message : String(error),
+      structuredData: true,
+    });
+    throw new Error(
+      `Knowledge pooling queue setup failed: ${
+        error instanceof Error ? error.message : 'Unknown error'
+      }`,
+    );
+  }
+}
+
+/**
+ * Ensures all application queues exist
+ */
+export async function ensureAllQueuesExist(): Promise<void> {
+  try {
+    logger.info('Ensuring all application queues exist...');
+
+    // Ensure exam-related queues
+    await ensureExamQueuesExist();
+
+    // Ensure knowledge pooling queues
+    await ensureKnowledgePoolingQueuesExist();
+
+    logger.info('All application queues verified/created successfully');
+  } catch (error) {
+    logger.error('Failed to ensure all queues exist:', {
+      error: error instanceof Error ? error.message : String(error),
+      structuredData: true,
+    });
+    throw new Error(
+      `Application queue setup failed: ${
+        error instanceof Error ? error.message : 'Unknown error'
+      }`,
+    );
+  }
+}
+
+/**
  * Checks the health status of all exam-related queues
  * Returns a summary of queue health for monitoring purposes
  */
 export async function checkExamQueueHealth(): Promise<{
   examQuestionsQueue: boolean;
+  knowledgePoolingQueue: boolean;
   allQueuesHealthy: boolean;
 }> {
   try {
     const examQuestionsExists = await checkQueueExists(
       EXAM_QUEUE_NAMES.EXAM_QUESTIONS,
     );
+    const knowledgePoolingExists = await checkQueueExists(
+      EXAM_QUEUE_NAMES.KNOWLEDGE_POOLING,
+    );
 
     const result = {
       examQuestionsQueue: examQuestionsExists,
-      allQueuesHealthy: examQuestionsExists,
+      knowledgePoolingQueue: knowledgePoolingExists,
+      allQueuesHealthy: examQuestionsExists && knowledgePoolingExists,
     };
 
     if (!result.allQueuesHealthy) {
@@ -65,6 +123,7 @@ export async function checkExamQueueHealth(): Promise<{
     });
     return {
       examQuestionsQueue: false,
+      knowledgePoolingQueue: false,
       allQueuesHealthy: false,
     };
   }
@@ -77,20 +136,64 @@ export async function checkExamQueueHealth(): Promise<{
 export async function validateExamQueueReadiness(): Promise<void> {
   const health = await checkExamQueueHealth();
 
-  if (!health.allQueuesHealthy) {
+  if (!health.examQuestionsQueue) {
     logger.warn(
-      'Some queues are not healthy, attempting to create missing queues...',
+      'Exam queue is not healthy, attempting to create missing queue...',
     );
     await ensureExamQueuesExist();
 
     // Re-check after attempting to create
     const recheckHealth = await checkExamQueueHealth();
-    if (!recheckHealth.allQueuesHealthy) {
-      throw new Error(
-        'Failed to ensure all exam queues are ready for exam generation',
-      );
+    if (!recheckHealth.examQuestionsQueue) {
+      throw new Error('Failed to ensure exam generation queue is ready');
     }
   }
 
-  logger.info('All exam queues are ready for exam generation');
+  logger.info('Exam generation queue is ready');
+}
+
+/**
+ * Validates that knowledge pooling queue exists
+ * Throws an error if the queue is missing and cannot be created
+ */
+export async function validateKnowledgePoolingQueueReadiness(): Promise<void> {
+  const health = await checkExamQueueHealth();
+
+  if (!health.knowledgePoolingQueue) {
+    logger.warn(
+      'Knowledge pooling queue is not healthy, attempting to create missing queue...',
+    );
+    await ensureKnowledgePoolingQueuesExist();
+
+    // Re-check after attempting to create
+    const recheckHealth = await checkExamQueueHealth();
+    if (!recheckHealth.knowledgePoolingQueue) {
+      throw new Error('Failed to ensure knowledge pooling queue is ready');
+    }
+  }
+
+  logger.info('Knowledge pooling queue is ready');
+}
+
+/**
+ * Validates that all application queues exist
+ * Throws an error if any critical queues are missing and cannot be created
+ */
+export async function validateAllQueuesReadiness(): Promise<void> {
+  const health = await checkExamQueueHealth();
+
+  if (!health.allQueuesHealthy) {
+    logger.warn(
+      'Some queues are not healthy, attempting to create missing queues...',
+    );
+    await ensureAllQueuesExist();
+
+    // Re-check after attempting to create
+    const recheckHealth = await checkExamQueueHealth();
+    if (!recheckHealth.allQueuesHealthy) {
+      throw new Error('Failed to ensure all application queues are ready');
+    }
+  }
+
+  logger.info('All application queues are ready');
 }

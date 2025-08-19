@@ -17,12 +17,10 @@ import {
   type ExamKnowledgePoolingData,
   type ConsolidatedKnowledgePoolingData,
 } from '../firestore/examKnowledgePoolingFirestoreService';
-import prismaInstance from '../prisma';
 
 export interface KnowledgePoolingRequest {
   exam_id: string;
   api_user_id: string;
-  firebase_user_id: string;
   force_regenerate?: boolean;
 }
 
@@ -46,59 +44,6 @@ export interface KnowledgePoolingResult {
 }
 
 export class KnowledgePoolingService {
-  /**
-   * Validates that the user has permission to access the requested data
-   */
-  private static async validateUserAuthorization(
-    api_user_id: string,
-    firebase_user_id: string,
-  ): Promise<{ isValid: boolean; error?: string; details?: string }> {
-    try {
-      const user = await prismaInstance.user.findUnique({
-        where: { user_id: api_user_id },
-        select: {
-          user_id: true,
-          firebase_user_id: true,
-        },
-      });
-
-      if (!user) {
-        logger.warn('User not found', { api_user_id, firebase_user_id });
-        return {
-          isValid: false,
-          error: 'User not found',
-          details: 'The provided api_user_id does not exist',
-        };
-      }
-
-      if (user.firebase_user_id !== firebase_user_id) {
-        logger.warn('Authorization failed', {
-          api_user_id,
-          firebase_user_id_from_token: firebase_user_id,
-          user_firebase_id: user.firebase_user_id,
-        });
-        return {
-          isValid: false,
-          error: 'Forbidden',
-          details: 'You can only access your own knowledge pooling data',
-        };
-      }
-
-      return { isValid: true };
-    } catch (error) {
-      logger.error('Error during user authorization validation', {
-        error: error instanceof Error ? error.message : 'Unknown error',
-        api_user_id,
-        firebase_user_id,
-      });
-      return {
-        isValid: false,
-        error: 'Authorization validation failed',
-        details: 'Unable to verify user permissions',
-      };
-    }
-  }
-
   /**
    * Checks if cached knowledge pooling data exists and is recent
    */
@@ -226,38 +171,17 @@ export class KnowledgePoolingService {
     request: KnowledgePoolingRequest,
   ): Promise<KnowledgePoolingResult> {
     const startTime = Date.now();
-    const {
-      exam_id,
-      api_user_id,
-      firebase_user_id,
-      force_regenerate = false,
-    } = request;
+    const { exam_id, api_user_id, force_regenerate = false } = request;
 
     try {
       logger.info('Knowledge pooling service request started', {
         exam_id,
         api_user_id,
-        firebase_user_id,
         force_regenerate,
         request_timestamp: new Date().toISOString(),
       });
 
-      // Step 1: Validate user authorization
-      const authValidation = await this.validateUserAuthorization(
-        api_user_id,
-        firebase_user_id,
-      );
-
-      if (!authValidation.isValid) {
-        return {
-          success: false,
-          message: 'Authorization failed',
-          error: authValidation.error,
-          details: authValidation.details,
-        };
-      }
-
-      // Step 2: Get exam data and validate access
+      // Step 1: Get exam data and validate access
       const examData = await getIncorrectAnswersForExam(exam_id, api_user_id);
 
       if (!examData.examInfo) {
@@ -271,7 +195,7 @@ export class KnowledgePoolingService {
       const { examInfo, incorrectAnswers } = examData;
       const cert_id = examInfo.cert_id;
 
-      // Step 3: Check for cached data (unless force regeneration)
+      // Step 2: Check for cached data (unless force regeneration)
       if (!force_regenerate) {
         const cachedData = await this.checkCachedData(
           api_user_id,
@@ -300,7 +224,7 @@ export class KnowledgePoolingService {
         }
       }
 
-      // Step 4: Handle case with no incorrect answers
+      // Step 3: Handle case with no incorrect answers
       if (incorrectAnswers.length === 0) {
         const processingTime = Date.now() - startTime;
         return {

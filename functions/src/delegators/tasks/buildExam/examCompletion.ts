@@ -1,7 +1,6 @@
 import { Response } from 'express';
 import logger from '../../../services/firebase/logger';
 import prismaInstance, { ExamStatus } from '../../../services/prisma';
-import { createCloudTask } from '../../../services/gcp/cloudTasks';
 import {
   associateQuestionsWithExam,
   updateExamAfterQuestionAssociation,
@@ -16,6 +15,10 @@ import {
   updateExamGenerationProgress,
 } from './rtdb';
 import { validateExamQueueReadiness } from '../../../utils/examQueueManager';
+import {
+  ExamGenerationTaskService,
+  ExamGenerationTaskPayload,
+} from '../../../services/cloudTasks/examGenerationTaskService';
 
 /**
  * Determines whether exam should be completed and handles completion or next batch creation
@@ -399,7 +402,7 @@ export const handleExamCompletionOrNextBatch = async (
       },
     );
 
-    const nextBatchPayload = {
+    const nextBatchPayload: ExamGenerationTaskPayload = {
       exam_id,
       cert_id,
       certification_name: payload.certification_name,
@@ -409,8 +412,6 @@ export const handleExamCompletionOrNextBatch = async (
       questions_per_batch,
       last_exam_report: payload.last_exam_report,
     };
-
-    const delaySeconds = 1;
 
     // CRITICAL FIX: Ensure Cloud Tasks queue exists before creating next batch task
     // This prevents failures when the queue has been accidentally deleted
@@ -491,12 +492,10 @@ export const handleExamCompletionOrNextBatch = async (
       return;
     }
 
-    const nextTaskName = await createCloudTask(
-      'exam-questions-queue',
-      `${process.env.GCP_TASKS_HOST}/delegators/tasks/take`,
-      nextBatchPayload,
-      delaySeconds,
-    );
+    const nextTaskName =
+      await ExamGenerationTaskService.getInstance().createNextBatchTask(
+        nextBatchPayload,
+      );
 
     // Log task creation
     ExamGenerationLogger.logTaskCreation({

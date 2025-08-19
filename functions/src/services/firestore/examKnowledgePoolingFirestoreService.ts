@@ -1,11 +1,13 @@
 import { FieldValue } from 'firebase-admin/firestore';
 import { firebaseFirestore } from '../firebase/admin';
 import logger from '../firebase/logger';
+import { randomUUID } from 'crypto';
 
 // Get Firestore instance
 const firestore = firebaseFirestore;
 
 export interface KnowledgeInsight {
+  insight_id: string;
   insight: string;
   context: string;
   exam_id: string;
@@ -141,6 +143,40 @@ export const saveExamKnowledgePoolingToFirestore = async (
 };
 
 /**
+ * Ensure insights have insight_id for backward compatibility
+ */
+function ensureInsightIds(knowledgePooling: ConsolidatedKnowledgePoolingData): {
+  data: ConsolidatedKnowledgePoolingData;
+  needsUpdate: boolean;
+} {
+  let needsUpdate = false;
+
+  const updatedKnowledgeInsights = knowledgePooling.knowledge_insights.map(
+    (topicItem) => ({
+      topic: topicItem.topic,
+      insights: topicItem.insights.map((insight) => {
+        if (!insight.insight_id) {
+          needsUpdate = true;
+          return {
+            ...insight,
+            insight_id: generateInsightId(),
+          };
+        }
+        return insight;
+      }),
+    }),
+  );
+
+  return {
+    data: {
+      ...knowledgePooling,
+      knowledge_insights: updatedKnowledgeInsights,
+    },
+    needsUpdate,
+  };
+}
+
+/**
  * Get consolidated knowledge pooling data from Firestore
  * Path: users/:api_user_id/certs/:cert_id/knowledge_pooling
  */
@@ -179,7 +215,33 @@ export const getConsolidatedKnowledgePoolingFromFirestore = async (
       },
     );
 
-    return knowledgePooling as ConsolidatedKnowledgePoolingData;
+    // Ensure all insights have insight_id for backward compatibility
+    const { data: dataWithInsightIds, needsUpdate } = ensureInsightIds(
+      knowledgePooling as ConsolidatedKnowledgePoolingData,
+    );
+
+    // If we added insight_ids, save the updated data back to Firestore
+    if (needsUpdate) {
+      try {
+        await docRef.set(
+          {
+            knowledge_pooling: dataWithInsightIds,
+          },
+          { merge: true },
+        );
+        logger.info(
+          `Updated knowledge pooling data with insight_ids for user ${apiUserId}, cert ${certId}`,
+        );
+      } catch (updateError) {
+        logger.warn(
+          `Failed to update knowledge pooling data with insight_ids for user ${apiUserId}, cert ${certId}:`,
+          updateError as any,
+        );
+        // Continue with the data even if update fails
+      }
+    }
+
+    return dataWithInsightIds;
   } catch (error) {
     logger.error(
       `Error retrieving consolidated knowledge pooling data for user ${apiUserId}, cert ${certId}:`,
@@ -383,6 +445,13 @@ export const deleteExamKnowledgePoolingFromFirestore = async (
 };
 
 /**
+ * Generate a unique insight ID
+ */
+function generateInsightId(): string {
+  return randomUUID();
+}
+
+/**
  * Merge knowledge insights by topic, avoiding duplicates and combining similar insights
  */
 function mergeKnowledgeInsightsByTopic(
@@ -393,9 +462,13 @@ function mergeKnowledgeInsightsByTopic(
 ): KnowledgePoolingItem[] {
   const topicMap = new Map<string, KnowledgeInsight[]>();
 
-  // Add existing insights
+  // Add existing insights (ensure they have insight_id)
   existingInsights.forEach((item) => {
-    topicMap.set(item.topic, [...(item.insights || [])]);
+    const existingInsightsWithIds = item.insights.map((insight) => ({
+      ...insight,
+      insight_id: insight.insight_id || generateInsightId(), // Generate ID if missing
+    }));
+    topicMap.set(item.topic, [...existingInsightsWithIds]);
   });
 
   // Add new insights, avoiding duplicates
@@ -412,9 +485,11 @@ function mergeKnowledgeInsightsByTopic(
       );
 
       if (!isDuplicate) {
-        // Add exam_id and generated_at to the new insight
+        // Add insight_id, exam_id and generated_at to the new insight
         const enhancedInsight: KnowledgeInsight = {
-          ...newInsight,
+          insight_id: generateInsightId(),
+          insight: newInsight.insight,
+          context: newInsight.context,
           exam_id: examId,
           generated_at: generatedAt,
         };

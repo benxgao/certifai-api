@@ -2,13 +2,13 @@ import { Response } from 'express';
 import logger from '../../../../services/firebase/logger';
 import { CustomRequest } from '../../../../types';
 import prismaInstance, { ExamStatus } from '../../../../services/prisma';
-import { createCloudTask } from '../../../../services/gcp/cloudTasks';
 import { OptimizedRateLimitService } from '../../../../services/optimizedRateLimit';
 import { CacheManager } from '../../../../services/cache';
 import { ExamGenerationLogger } from '../../../../services/exam-generation-logger';
 import { getRtdbValue } from '../../../../services/firebase/rtdb';
 import { BatchWriteOptimizer } from '../../../../services/database/batchWriteOptimizer';
 import { validateExamQueueReadiness } from '../../../../utils/examQueueManager';
+import { ExamGenerationTaskService, ExamGenerationTaskPayload } from '../../../../services/cloudTasks/examGenerationTaskService';
 
 const DEFAULT_NUMBER_OF_QUESTIONS = 20;
 const MAX_NUMBER_OF_QUESTIONS = 100; // Set a reasonable max
@@ -402,7 +402,7 @@ const handler = async (
       );
 
       // Use the generated topics from examPlanner
-      const firstBatchPayload = {
+      const firstBatchPayload: ExamGenerationTaskPayload = {
         exam_id: newExam.exam_id,
         cert_id: certification.cert_id,
         certification_name: certification.name,
@@ -516,11 +516,8 @@ const handler = async (
         },
       );
 
-      const taskName = await createCloudTask(
-        'exam-questions-queue',
-        `${process.env.GCP_TASKS_HOST}/delegators/tasks/take`,
+      const taskName = await ExamGenerationTaskService.getInstance().createFirstBatchTask(
         firstBatchPayload,
-        delaySeconds, // Pass delay in seconds
       );
       const cloudTaskEnd = Date.now();
       timingAudit.external_services.cloud_task_creation =

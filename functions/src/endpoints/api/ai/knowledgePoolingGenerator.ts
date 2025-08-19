@@ -85,11 +85,10 @@ export const knowledgePoolingGeneratorHandler = async (
       return;
     }
 
-    // Prepare service request
+    // Prepare service request (simplified without firebase_user_id verification)
     const serviceRequest: KnowledgePoolingRequest = {
       exam_id,
       api_user_id,
-      firebase_user_id: firebaseUserIdFromToken,
       force_regenerate,
     };
 
