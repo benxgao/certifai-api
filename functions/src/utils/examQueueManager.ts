@@ -8,6 +8,7 @@ import {
 export const EXAM_QUEUE_NAMES = {
   EXAM_QUESTIONS: 'exam-questions-queue',
   KNOWLEDGE_POOLING: 'knowledge-pooling-queue',
+  EXAM_REPORTS: 'exam-reports-queue',
   // Add other queue names here as needed
 } as const;
 
@@ -62,6 +63,31 @@ export async function ensureKnowledgePoolingQueuesExist(): Promise<void> {
 }
 
 /**
+ * Ensures the exam report queue exists
+ * This is called before creating exam report tasks
+ */
+export async function ensureExamReportQueuesExist(): Promise<void> {
+  try {
+    logger.info('Ensuring exam report queues exist...');
+
+    // Ensure the exam report queue exists
+    await ensureQueueExists(EXAM_QUEUE_NAMES.EXAM_REPORTS);
+
+    logger.info('All exam report queues verified/created successfully');
+  } catch (error) {
+    logger.error('Failed to ensure exam report queues exist:', {
+      error: error instanceof Error ? error.message : String(error),
+      structuredData: true,
+    });
+    throw new Error(
+      `Exam report queue setup failed: ${
+        error instanceof Error ? error.message : 'Unknown error'
+      }`,
+    );
+  }
+}
+
+/**
  * Ensures all application queues exist
  */
 export async function ensureAllQueuesExist(): Promise<void> {
@@ -73,6 +99,9 @@ export async function ensureAllQueuesExist(): Promise<void> {
 
     // Ensure knowledge pooling queues
     await ensureKnowledgePoolingQueuesExist();
+
+    // Ensure exam report queues
+    await ensureExamReportQueuesExist();
 
     logger.info('All application queues verified/created successfully');
   } catch (error) {
@@ -95,6 +124,7 @@ export async function ensureAllQueuesExist(): Promise<void> {
 export async function checkExamQueueHealth(): Promise<{
   examQuestionsQueue: boolean;
   knowledgePoolingQueue: boolean;
+  examReportsQueue: boolean;
   allQueuesHealthy: boolean;
 }> {
   try {
@@ -104,11 +134,16 @@ export async function checkExamQueueHealth(): Promise<{
     const knowledgePoolingExists = await checkQueueExists(
       EXAM_QUEUE_NAMES.KNOWLEDGE_POOLING,
     );
+    const examReportsExists = await checkQueueExists(
+      EXAM_QUEUE_NAMES.EXAM_REPORTS,
+    );
 
     const result = {
       examQuestionsQueue: examQuestionsExists,
       knowledgePoolingQueue: knowledgePoolingExists,
-      allQueuesHealthy: examQuestionsExists && knowledgePoolingExists,
+      examReportsQueue: examReportsExists,
+      allQueuesHealthy:
+        examQuestionsExists && knowledgePoolingExists && examReportsExists,
     };
 
     if (!result.allQueuesHealthy) {
@@ -124,6 +159,7 @@ export async function checkExamQueueHealth(): Promise<{
     return {
       examQuestionsQueue: false,
       knowledgePoolingQueue: false,
+      examReportsQueue: false,
       allQueuesHealthy: false,
     };
   }
@@ -173,6 +209,29 @@ export async function validateKnowledgePoolingQueueReadiness(): Promise<void> {
   }
 
   logger.info('Knowledge pooling queue is ready');
+}
+
+/**
+ * Validates that exam report queue exists
+ * Throws an error if the queue is missing and cannot be created
+ */
+export async function validateExamReportQueueReadiness(): Promise<void> {
+  const health = await checkExamQueueHealth();
+
+  if (!health.examReportsQueue) {
+    logger.warn(
+      'Exam report queue is not healthy, attempting to create missing queue...',
+    );
+    await ensureExamReportQueuesExist();
+
+    // Re-check after attempting to create
+    const recheckHealth = await checkExamQueueHealth();
+    if (!recheckHealth.examReportsQueue) {
+      throw new Error('Failed to ensure exam report queue is ready');
+    }
+  }
+
+  logger.info('Exam report queue is ready');
 }
 
 /**

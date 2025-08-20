@@ -3,8 +3,8 @@ import logger from '../../../../services/firebase/logger';
 import { CustomRequest } from '../../../../types';
 import prismaInstance, { ExamStatus } from '../../../../services/prisma';
 import { CacheManager } from '../../../../services/cache';
-import { generateExamReport } from '../../ai/examReportGenerator';
 import { KnowledgePoolingTaskService } from '../../../../services/cloudTasks/knowledgePoolingTaskService';
+import { ExamReportTaskService } from '../../../../services/cloudTasks/examReportTaskService';
 
 const handler = async (
   req: any | CustomRequest,
@@ -43,7 +43,8 @@ const handler = async (
             credit_tokens: true,
           },
         },
-        certification: { // Add certification details for knowledge pooling task
+        certification: {
+          // Add certification details for knowledge pooling task
           select: {
             cert_id: true,
             name: true,
@@ -199,22 +200,47 @@ const handler = async (
       `EXAM_SUBMIT_SUCCESS: exam_id=${exam_id}, score=${currentScore}%, correct=${correctlyAnsweredCount}/${scoreDenominator}, tokens_deducted=${tokenCost}, energy_awarded=${energyTokensToAward}`,
     );
 
-    // Automatically generate exam report after successful submission
+    // Trigger exam report generation in the background (non-blocking)
     try {
       logger.info(
-        `AUTO_EXAM_REPORT_INIT: Starting automatic report generation for exam_id=${exam_id}`,
+        `EXAM_REPORT_TASK_INIT: Triggering background exam report generation for exam_id=${exam_id}`,
       );
 
-      // Generate exam report automatically (skip auth check since we're in internal service call)
-      await generateExamReport(exam_id, undefined, true);
+      const examReportService = ExamReportTaskService.getInstance();
+      const reportTaskName =
+        await examReportService.createPostSubmissionReportTask(
+          exam_id,
+          user_id,
+          examAttempt.cert_id,
+          examAttempt.certification?.name || 'Unknown Certification',
+        );
 
-      logger.info(
-        `AUTO_EXAM_REPORT_SUCCESS: Automatic report generated for exam_id=${exam_id}`,
-      );
+      if (reportTaskName) {
+        logger.info(
+          `EXAM_REPORT_TASK_SUCCESS: Background report task created for exam_id=${exam_id}`,
+          {
+            task_name: reportTaskName,
+            cert_id: examAttempt.cert_id,
+            certification_name: examAttempt.certification?.name,
+            trigger_source: 'exam_submission',
+            structuredData: true,
+          },
+        );
+      } else {
+        logger.warn(
+          `EXAM_REPORT_TASK_FAILED: Failed to create background report task for exam_id=${exam_id}`,
+          {
+            cert_id: examAttempt.cert_id,
+            certification_name: examAttempt.certification?.name,
+            reason: 'task_creation_failed',
+            structuredData: true,
+          },
+        );
+      }
     } catch (reportError) {
       // Log the error but don't fail the submission - report generation is supplementary
       logger.error(
-        `AUTO_EXAM_REPORT_ERROR: Failed to generate automatic report for exam_id=${exam_id}`,
+        `EXAM_REPORT_TASK_ERROR: Failed to trigger background report generation for exam_id=${exam_id}`,
         {
           error: reportError as any,
           exam_id,

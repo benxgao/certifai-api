@@ -5,6 +5,7 @@ import { ensureQueueExists, checkQueueExists } from '../gcp/cloudTasks';
 export const CLOUD_TASK_QUEUE_NAMES = {
   EXAM_QUESTIONS: 'exam-questions-queue',
   KNOWLEDGE_POOLING: 'knowledge-pooling-queue',
+  EXAM_REPORTS: 'exam-reports-queue',
 } as const;
 
 /**
@@ -33,6 +34,9 @@ export class CloudTaskQueueManager {
 
       // Ensure knowledge pooling queue exists
       await ensureQueueExists(CLOUD_TASK_QUEUE_NAMES.KNOWLEDGE_POOLING);
+
+      // Ensure exam report queue exists
+      await ensureQueueExists(CLOUD_TASK_QUEUE_NAMES.EXAM_REPORTS);
 
       logger.info('All application queues verified/created successfully');
     } catch (error) {
@@ -97,11 +101,36 @@ export class CloudTaskQueueManager {
   }
 
   /**
+   * Ensures exam report queues exist
+   */
+  public async ensureExamReportQueuesExist(): Promise<void> {
+    try {
+      logger.info('Ensuring exam report queues exist...');
+
+      // Ensure the exam report queue exists
+      await ensureQueueExists(CLOUD_TASK_QUEUE_NAMES.EXAM_REPORTS);
+
+      logger.info('All exam report queues verified/created successfully');
+    } catch (error) {
+      logger.error('Failed to ensure exam report queues exist:', {
+        error: error instanceof Error ? error.message : String(error),
+        structuredData: true,
+      });
+      throw new Error(
+        `Exam report queue setup failed: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`,
+      );
+    }
+  }
+
+  /**
    * Checks the health status of all application queues
    */
   public async checkAllQueuesHealth(): Promise<{
     examQuestionsQueue: boolean;
     knowledgePoolingQueue: boolean;
+    examReportsQueue: boolean;
     allQueuesHealthy: boolean;
   }> {
     try {
@@ -111,11 +140,16 @@ export class CloudTaskQueueManager {
       const knowledgePoolingExists = await checkQueueExists(
         CLOUD_TASK_QUEUE_NAMES.KNOWLEDGE_POOLING,
       );
+      const examReportsExists = await checkQueueExists(
+        CLOUD_TASK_QUEUE_NAMES.EXAM_REPORTS,
+      );
 
       const result = {
         examQuestionsQueue: examQuestionsExists,
         knowledgePoolingQueue: knowledgePoolingExists,
-        allQueuesHealthy: examQuestionsExists && knowledgePoolingExists,
+        examReportsQueue: examReportsExists,
+        allQueuesHealthy:
+          examQuestionsExists && knowledgePoolingExists && examReportsExists,
       };
 
       if (!result.allQueuesHealthy) {
@@ -131,6 +165,7 @@ export class CloudTaskQueueManager {
       return {
         examQuestionsQueue: false,
         knowledgePoolingQueue: false,
+        examReportsQueue: false,
         allQueuesHealthy: false,
       };
     }
@@ -200,5 +235,27 @@ export class CloudTaskQueueManager {
     }
 
     logger.info('Knowledge pooling queue is ready');
+  }
+
+  /**
+   * Validates exam report queue readiness
+   */
+  public async validateExamReportQueueReadiness(): Promise<void> {
+    const health = await this.checkAllQueuesHealth();
+
+    if (!health.examReportsQueue) {
+      logger.warn(
+        'Exam report queue is not healthy, attempting to create missing queue...',
+      );
+      await this.ensureExamReportQueuesExist();
+
+      // Re-check after attempting to create
+      const recheckHealth = await this.checkAllQueuesHealth();
+      if (!recheckHealth.examReportsQueue) {
+        throw new Error('Failed to ensure exam report queue is ready');
+      }
+    }
+
+    logger.info('Exam report queue is ready');
   }
 }

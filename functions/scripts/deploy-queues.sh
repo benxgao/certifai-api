@@ -35,11 +35,24 @@ gcloud tasks queues create knowledge-pooling-queue \
 
 echo "✅ Knowledge pooling queue created"
 
+# Deploy exam reports queue
+echo "Creating exam-reports-queue..."
+gcloud tasks queues create exam-reports-queue \
+  --max-dispatches-per-second=15 \
+  --max-retry-duration=86400s \
+  --min-backoff=5s \
+  --max-backoff=120s \
+  --max-doublings=4 \
+  --location="$GCP_REGION"
+
+echo "✅ Exam reports queue created"
+
 echo ""
 echo "🎉 All queue deployments complete!"
 echo "Queues created:"
 echo "  - exam-questions-queue"
 echo "  - knowledge-pooling-queue"
+echo "  - exam-reports-queue"
 echo ""
 echo "🔧 Next steps:"
 echo "1. Ensure your service account has 'roles/cloudtasks.enqueuer' permission"

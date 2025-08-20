@@ -6,25 +6,19 @@
  * Structure for individual knowledge insights
  */
 export interface KnowledgeInsight {
+  insight_id: string;
   insight: string;
   context: string;
+  topic: string;
   exam_id: string;
   generated_at: string;
-}
-
-/**
- * Structure for knowledge pooling items grouped by topic
- */
-export interface KnowledgePoolingItem {
-  topic: string;
-  insights: KnowledgeInsight[];
 }
 
 /**
  * Complete knowledge pooling response structure
  */
 export interface KnowledgePoolingResponse {
-  knowledge_insights: KnowledgePoolingItem[];
+  knowledge_insights: KnowledgeInsight[];
   summary: string;
   generated_at: string;
   cert_id: number;

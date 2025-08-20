@@ -8,6 +8,10 @@ export {
   KnowledgePoolingTaskService,
   type KnowledgePoolingTaskPayload,
 } from './knowledgePoolingTaskService';
+export {
+  ExamReportTaskService,
+  type ExamReportTaskPayload,
+} from './examReportTaskService';
 
 // Cloud Task Queue Manager
 export { CloudTaskQueueManager } from './cloudTaskQueueManager';

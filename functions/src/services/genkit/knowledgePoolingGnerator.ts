@@ -14,30 +14,24 @@ import {
 enableFirebaseTelemetry();
 
 const KnowledgeInsightSchema = z.object({
+  insight: z
+    .string()
+    .describe(
+      'A key concept, tip, or knowledge point that the user should remember',
+    ),
+  context: z
+    .string()
+    .describe(
+      'Additional context or explanation for why this insight is important',
+    ),
   topic: z.string().describe('The topic/subject area this insight relates to'),
-  insights: z
-    .array(
-      z.object({
-        insight: z
-          .string()
-          .describe(
-            'A key concept, tip, or knowledge point that the user should remember',
-          ),
-        context: z
-          .string()
-          .describe(
-            'Additional context or explanation for why this insight is important',
-          ),
-      }),
-    )
-    .describe('Array of key insights and tips for this topic'),
 });
 
 const KnowledgePoolingSchema = z.object({
   knowledge_insights: z
     .array(KnowledgeInsightSchema)
     .describe(
-      'Array of knowledge insights organized by topic for areas where the user had incorrect answers',
+      'Array of knowledge insights for areas where the user had incorrect answers',
     ),
   summary: z
     .string()
@@ -95,27 +89,22 @@ export const createKnowledgePoolingGeneratorFlow = async (): Promise<any> => {
         });
 
         try {
-          // Group incorrect answers by topic
-          const topicGroups = new Map<string, typeof incorrect_answers_data>();
-
-          incorrect_answers_data.forEach((answer) => {
-            const topic = answer.topic || 'General Knowledge';
-            if (!topicGroups.has(topic)) {
-              topicGroups.set(topic, []);
-            }
-            topicGroups.get(topic)!.push(answer);
-          });
-
-          // Create topic analysis for the prompt
-          const topicAnalysis = Array.from(topicGroups.entries()).map(
-            ([topic, answers]) => {
-              return {
-                topic,
-                incorrect_count: answers.length,
-                sample_questions: answers.slice(0, 3), // Include up to 3 sample questions for context
-              };
-            },
-          );
+          const questionsAnalysis = incorrect_answers_data
+            .slice(0, 10)
+            .map((answer, idx) => {
+              return `${idx + 1}. Question: "${answer.question_text.substring(
+                0,
+                150,
+              )}..."
+   User selected: "${answer.user_selected_answer}"
+   Correct answer: "${answer.correct_answer}"
+   ${
+     answer.explanation
+       ? `Explanation: "${answer.explanation.substring(0, 200)}..."`
+       : ''
+   }
+   ${answer.topic ? `Topic: ${answer.topic}` : ''}`;
+            });
 
           const prompt = `
 As an AI learning advisor for ${certification_name} certification, analyze the incorrect answers from this specific exam and generate targeted knowledge insights and tips.
@@ -126,41 +115,23 @@ USER LEARNING DATA:
 - Certification: ${certification_name}
 - Total Incorrect Answers: ${incorrect_answers_data.length}
 
-TOPIC BREAKDOWN WITH INCORRECT ANSWERS:
-${topicAnalysis
-  .map(
-    (analysis) => `
-TOPIC: ${analysis.topic}
-- Incorrect answers: ${analysis.incorrect_count}
-
-Sample Questions & Issues:
-${analysis.sample_questions
-  .map(
-    (q, idx) => `
-${idx + 1}. Question: "${q.question_text.substring(0, 150)}..."
-   User selected: "${q.user_selected_answer}"
-   Correct answer: "${q.correct_answer}"
-   ${
-     q.explanation ? `Explanation: "${q.explanation.substring(0, 200)}..."` : ''
-   }`,
-  )
-  .join('\n')}
-`,
-  )
-  .join('\n')}
+INCORRECT ANSWERS ANALYSIS:
+${questionsAnalysis.join('\n\n')}
 
 GENERATE KNOWLEDGE INSIGHTS:
-For each topic where the user had incorrect answers in this exam, provide:
+Based on the incorrect answers above, provide individual insights that will help the user avoid similar mistakes. Each insight should include:
 
-1. Key concepts/tips the user should remember
-2. Common misconceptions to avoid (based on their wrong answers)
-3. Memory aids or mnemonics where applicable
-4. Practical application tips
+1. A specific concept, tip, or knowledge point the user should remember
+2. Clear context explaining why this insight matters
+3. The relevant topic/subject area this insight relates to
+4. Focused on preventing similar mistakes
+5. Concise but comprehensive
 
 Requirements:
-- Generate 2-5 insights per topic (depending on the number of incorrect answers)
-- Make insights specific, clean, and simple
+- Generate 3-8 individual insights (not grouped, but each should include its topic)
+- Make each insight standalone and specific
 - Provide clear context for why each insight matters
+- Include the relevant topic for each insight (e.g., "VPC Networking", "IAM Policies", etc.)
 - Keep insights concise but comprehensive
 - Focus on areas where the user made mistakes in this specific exam
 
@@ -193,7 +164,7 @@ Generate knowledge insights that will help the user avoid similar mistakes in fu
               cert_id,
               certification_name,
               total_incorrect_answers: incorrect_answers_data.length,
-              topics_analyzed: topicGroups.size,
+              topics_analyzed: 0,
               generated_at: new Date().toISOString(),
             },
           };
@@ -202,11 +173,7 @@ Generate knowledge insights that will help the user avoid similar mistakes in fu
             user_id,
             exam_id,
             cert_id,
-            topics_count: response.knowledge_insights.length,
-            total_insights: response.knowledge_insights.reduce(
-              (sum, topic) => sum + topic.insights.length,
-              0,
-            ),
+            total_insights: response.knowledge_insights.length,
           });
 
           return {

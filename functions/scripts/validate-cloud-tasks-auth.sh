@@ -100,6 +100,15 @@ else
     exit 1
 fi
 
+# Check exam reports queue
+if gcloud tasks queues describe exam-reports-queue --location="$GCP_REGION" --quiet >/dev/null 2>&1; then
+    echo "✅ Queue exists: exam-reports-queue"
+else
+    echo "❌ Queue not found: exam-reports-queue"
+    echo "💡 You can create it with: cd functions && ./scripts/deploy-queues.sh"
+    exit 1
+fi
+
 echo
 
 # Check if the delegators function exists and is deployed

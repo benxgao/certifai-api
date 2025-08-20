@@ -10,18 +10,14 @@ export interface KnowledgeInsight {
   insight_id: string;
   insight: string;
   context: string;
+  topic: string;
   exam_id: string;
   generated_at: string;
 }
 
-export interface KnowledgePoolingItem {
-  topic: string;
-  insights: KnowledgeInsight[];
-}
-
 export interface ExamKnowledgePoolingData {
   exam_id: string;
-  knowledge_insights: KnowledgePoolingItem[];
+  knowledge_insights: KnowledgeInsight[];
   summary: string;
   generated_at: string;
   cert_id: number;
@@ -31,7 +27,7 @@ export interface ExamKnowledgePoolingData {
 }
 
 export interface ConsolidatedKnowledgePoolingData {
-  knowledge_insights: KnowledgePoolingItem[];
+  knowledge_insights: KnowledgeInsight[];
   exam_summaries: Array<{
     exam_id: string;
     summary: string;
@@ -48,26 +44,109 @@ export interface ConsolidatedKnowledgePoolingData {
 }
 
 /**
- * Save knowledge pooling data for a specific exam and merge with existing certification data
- * Path: users/:api_user_id/certs/:cert_id/knowledge_pooling (document)
+ * Merge knowledge insights, avoiding duplicates
+ */
+function mergeKnowledgeInsights(
+  existingInsights: KnowledgeInsight[],
+  newInsights: KnowledgeInsight[],
+  examId: string,
+  generatedAt: string,
+): KnowledgeInsight[] {
+  const merged = [...existingInsights];
+
+  newInsights.forEach((newInsight) => {
+    const isDuplicate = merged.some((existing) => {
+      return (
+        existing.insight.toLowerCase().trim() ===
+        newInsight.insight.toLowerCase().trim()
+      );
+    });
+
+    if (!isDuplicate) {
+      merged.push({
+        ...newInsight,
+        insight_id: newInsight.insight_id || generateInsightId(),
+        exam_id: examId,
+        generated_at: generatedAt,
+      });
+    }
+  });
+
+  return merged;
+}
+
+/**
+ * Generate a unique insight ID
+ */
+function generateInsightId(): string {
+  return randomUUID();
+}
+
+/**
+ * Save exam knowledge pooling data to Firestore
+ *
+ * @param apiUserId - The user's API ID
+ * @param examData - The exam knowledge pooling data to save
+ * @param forceRegenerate - If true, removes existing knowledge pooling data for this specific exam before adding new data
+ * @returns Consolidated knowledge pooling data including all exams for the certification
  */
 export const saveExamKnowledgePoolingToFirestore = async (
   apiUserId: string,
   examData: ExamKnowledgePoolingData,
+  forceRegenerate: boolean = false,
 ): Promise<ConsolidatedKnowledgePoolingData> => {
   try {
     const docPath = `users/${apiUserId}/certs/${examData.cert_id}`;
     const docRef = firestore.doc(docPath);
 
-    // Get existing data
     const existingDoc = await docRef.get();
     const existingData = existingDoc.exists
       ? existingDoc.data()?.knowledge_pooling
       : null;
 
-    // Merge insights by topic
-    const mergedInsights = mergeKnowledgeInsightsByTopic(
-      existingData?.knowledge_insights || [],
+    let existingInsights = existingData?.knowledge_insights || [];
+    let existingExamSummaries = existingData?.exam_summaries || [];
+
+    // If force regenerate is true, remove all existing data for this specific exam
+    if (forceRegenerate) {
+      logger.info(
+        `Force regenerate enabled: removing existing knowledge pooling data for exam ${examData.exam_id}`,
+        {
+          apiUserId,
+          cert_id: examData.cert_id,
+          exam_id: examData.exam_id,
+          previous_insights_count: existingInsights.length,
+          previous_exam_summaries_count: existingExamSummaries.length,
+        },
+      );
+
+      // Remove insights from this specific exam
+      const insightsBeforeFilter = existingInsights.length;
+      existingInsights = existingInsights.filter(
+        (insight: KnowledgeInsight) => insight.exam_id !== examData.exam_id,
+      );
+      const insightsAfterFilter = existingInsights.length;
+
+      // Remove exam summary for this specific exam
+      const summariesBeforeFilter = existingExamSummaries.length;
+      existingExamSummaries = existingExamSummaries.filter(
+        (summary: any) => summary.exam_id !== examData.exam_id,
+      );
+      const summariesAfterFilter = existingExamSummaries.length;
+
+      logger.info(
+        `Force regenerate cleanup completed for exam ${examData.exam_id}`,
+        {
+          insights_removed: insightsBeforeFilter - insightsAfterFilter,
+          summaries_removed: summariesBeforeFilter - summariesAfterFilter,
+          remaining_insights: insightsAfterFilter,
+          remaining_summaries: summariesAfterFilter,
+        },
+      );
+    }
+
+    const mergedInsights = mergeKnowledgeInsights(
+      existingInsights,
       examData.knowledge_insights,
       examData.exam_id,
       examData.generated_at,
@@ -81,20 +160,17 @@ export const saveExamKnowledgePoolingToFirestore = async (
       total_incorrect_answers: examData.total_incorrect_answers,
     };
 
-    // Update or create exam summaries list
-    const existingExamSummaries = existingData?.exam_summaries || [];
+    // Filter out any remaining entries for this exam (safety check) and add the new one
     const filteredExamSummaries = existingExamSummaries.filter(
       (summary: any) => summary.exam_id !== examData.exam_id,
     );
     const updatedExamSummaries = [...filteredExamSummaries, newExamSummary];
 
-    // Create consolidated summary
     const consolidatedSummary = generateConsolidatedSummary(
       updatedExamSummaries,
       examData.certification_name,
     );
 
-    // Calculate totals
     const totalIncorrectAnswers = updatedExamSummaries.reduce(
       (sum, exam) => sum + exam.total_incorrect_answers,
       0,
@@ -109,26 +185,22 @@ export const saveExamKnowledgePoolingToFirestore = async (
       certification_name: examData.certification_name,
       total_exams_analyzed: updatedExamSummaries.length,
       total_incorrect_answers: totalIncorrectAnswers,
-      total_topics_analyzed: mergedInsights.length,
+      total_topics_analyzed: 0,
     };
 
-    // Save to Firestore
-    const firestoreData = {
-      knowledge_pooling: consolidatedData,
-    };
-
-    await docRef.set(firestoreData, { merge: true });
+    await docRef.set({ knowledge_pooling: consolidatedData }, { merge: true });
 
     logger.info(
-      `Exam knowledge pooling data saved and merged for user ${apiUserId}, cert ${examData.cert_id}, exam ${examData.exam_id}`,
+      `Exam knowledge pooling data saved and ${
+        forceRegenerate ? 'force regenerated' : 'merged'
+      } for user ${apiUserId}, cert ${examData.cert_id}, exam ${
+        examData.exam_id
+      }`,
       {
         path: docPath,
         total_exams: consolidatedData.total_exams_analyzed,
-        total_topics: consolidatedData.total_topics_analyzed,
-        total_insights: consolidatedData.knowledge_insights.reduce(
-          (sum, topic) => sum + topic.insights.length,
-          0,
-        ),
+        total_insights: consolidatedData.knowledge_insights.length,
+        force_regenerate: forceRegenerate,
       },
     );
 
@@ -143,42 +215,7 @@ export const saveExamKnowledgePoolingToFirestore = async (
 };
 
 /**
- * Ensure insights have insight_id for backward compatibility
- */
-function ensureInsightIds(knowledgePooling: ConsolidatedKnowledgePoolingData): {
-  data: ConsolidatedKnowledgePoolingData;
-  needsUpdate: boolean;
-} {
-  let needsUpdate = false;
-
-  const updatedKnowledgeInsights = knowledgePooling.knowledge_insights.map(
-    (topicItem) => ({
-      topic: topicItem.topic,
-      insights: topicItem.insights.map((insight) => {
-        if (!insight.insight_id) {
-          needsUpdate = true;
-          return {
-            ...insight,
-            insight_id: generateInsightId(),
-          };
-        }
-        return insight;
-      }),
-    }),
-  );
-
-  return {
-    data: {
-      ...knowledgePooling,
-      knowledge_insights: updatedKnowledgeInsights,
-    },
-    needsUpdate,
-  };
-}
-
-/**
  * Get consolidated knowledge pooling data from Firestore
- * Path: users/:api_user_id/certs/:cert_id/knowledge_pooling
  */
 export const getConsolidatedKnowledgePoolingFromFirestore = async (
   apiUserId: string,
@@ -211,37 +248,13 @@ export const getConsolidatedKnowledgePoolingFromFirestore = async (
       {
         path: docPath,
         total_exams: knowledgePooling.total_exams_analyzed || 0,
-        total_topics: knowledgePooling.knowledge_insights?.length || 0,
+        has_insights:
+          Array.isArray(knowledgePooling.knowledge_insights) &&
+          knowledgePooling.knowledge_insights.length > 0,
       },
     );
 
-    // Ensure all insights have insight_id for backward compatibility
-    const { data: dataWithInsightIds, needsUpdate } = ensureInsightIds(
-      knowledgePooling as ConsolidatedKnowledgePoolingData,
-    );
-
-    // If we added insight_ids, save the updated data back to Firestore
-    if (needsUpdate) {
-      try {
-        await docRef.set(
-          {
-            knowledge_pooling: dataWithInsightIds,
-          },
-          { merge: true },
-        );
-        logger.info(
-          `Updated knowledge pooling data with insight_ids for user ${apiUserId}, cert ${certId}`,
-        );
-      } catch (updateError) {
-        logger.warn(
-          `Failed to update knowledge pooling data with insight_ids for user ${apiUserId}, cert ${certId}:`,
-          updateError as any,
-        );
-        // Continue with the data even if update fails
-      }
-    }
-
-    return dataWithInsightIds;
+    return knowledgePooling as ConsolidatedKnowledgePoolingData;
   } catch (error) {
     logger.error(
       `Error retrieving consolidated knowledge pooling data for user ${apiUserId}, cert ${certId}:`,
@@ -306,42 +319,31 @@ export const hasRecentExamKnowledgePooling = async (
 };
 
 /**
- * Get insights from a specific exam from consolidated data
+ * Get insights from a specific exam
  */
-export const getInsightsByExamId = async (
+export const getFlattenedInsightsByExamId = async (
   apiUserId: string,
   certId: number,
   examId: string,
-): Promise<KnowledgePoolingItem[]> => {
+): Promise<KnowledgeInsight[]> => {
   try {
     const consolidatedData = await getConsolidatedKnowledgePoolingFromFirestore(
       apiUserId,
       certId,
     );
 
-    if (!consolidatedData || !consolidatedData.knowledge_insights) {
+    if (!consolidatedData?.knowledge_insights) {
       return [];
     }
 
-    // Filter insights to only include those from the specified exam
-    const examInsights: KnowledgePoolingItem[] =
-      consolidatedData.knowledge_insights
-        .map((topicItem) => ({
-          topic: topicItem.topic,
-          insights: topicItem.insights.filter(
-            (insight) => insight.exam_id === examId,
-          ),
-        }))
-        .filter((topicItem) => topicItem.insights.length > 0); // Only include topics that have insights from this exam
+    const examInsights = consolidatedData.knowledge_insights.filter(
+      (insight) => insight.exam_id === examId,
+    );
 
     logger.info(
       `Retrieved insights for exam ${examId} from user ${apiUserId}, cert ${certId}`,
       {
-        total_topics: examInsights.length,
-        total_insights: examInsights.reduce(
-          (sum, topic) => sum + topic.insights.length,
-          0,
-        ),
+        total_insights: examInsights.length,
       },
     );
 
@@ -376,13 +378,11 @@ export const deleteExamKnowledgePoolingFromFirestore = async (
       return null;
     }
 
-    // Remove the specific exam
     const updatedExamSummaries = consolidatedData.exam_summaries.filter(
       (summary) => summary.exam_id !== examId,
     );
 
     if (updatedExamSummaries.length === 0) {
-      // If no exams left, delete the entire knowledge_pooling field
       const docPath = `users/${apiUserId}/certs/${certId}`;
       const docRef = firestore.doc(docPath);
 
@@ -396,15 +396,9 @@ export const deleteExamKnowledgePoolingFromFirestore = async (
       return null;
     }
 
-    // Remove insights from the specific exam
-    const updatedKnowledgeInsights = consolidatedData.knowledge_insights
-      .map((topicItem) => ({
-        topic: topicItem.topic,
-        insights: topicItem.insights.filter(
-          (insight) => insight.exam_id !== examId,
-        ),
-      }))
-      .filter((topicItem) => topicItem.insights.length > 0); // Remove topics with no remaining insights
+    const updatedKnowledgeInsights = consolidatedData.knowledge_insights.filter(
+      (insight) => insight.exam_id !== examId,
+    );
 
     const updatedData: ConsolidatedKnowledgePoolingData = {
       ...consolidatedData,
@@ -415,7 +409,7 @@ export const deleteExamKnowledgePoolingFromFirestore = async (
         (sum, exam) => sum + exam.total_incorrect_answers,
         0,
       ),
-      total_topics_analyzed: updatedKnowledgeInsights.length,
+      total_topics_analyzed: 0, // No longer counting topics
       last_updated: new Date().toISOString(),
     };
 
@@ -443,69 +437,6 @@ export const deleteExamKnowledgePoolingFromFirestore = async (
     throw error;
   }
 };
-
-/**
- * Generate a unique insight ID
- */
-function generateInsightId(): string {
-  return randomUUID();
-}
-
-/**
- * Merge knowledge insights by topic, avoiding duplicates and combining similar insights
- */
-function mergeKnowledgeInsightsByTopic(
-  existingInsights: KnowledgePoolingItem[],
-  newInsights: KnowledgePoolingItem[],
-  examId: string,
-  generatedAt: string,
-): KnowledgePoolingItem[] {
-  const topicMap = new Map<string, KnowledgeInsight[]>();
-
-  // Add existing insights (ensure they have insight_id)
-  existingInsights.forEach((item) => {
-    const existingInsightsWithIds = item.insights.map((insight) => ({
-      ...insight,
-      insight_id: insight.insight_id || generateInsightId(), // Generate ID if missing
-    }));
-    topicMap.set(item.topic, [...existingInsightsWithIds]);
-  });
-
-  // Add new insights, avoiding duplicates
-  newInsights.forEach((item) => {
-    const existingTopicInsights = topicMap.get(item.topic) || [];
-    const newTopicInsights = [...existingTopicInsights];
-
-    item.insights.forEach((newInsight) => {
-      // Check for duplicate insights (simple string comparison)
-      const isDuplicate = existingTopicInsights.some(
-        (existing) =>
-          existing.insight.toLowerCase().trim() ===
-          newInsight.insight.toLowerCase().trim(),
-      );
-
-      if (!isDuplicate) {
-        // Add insight_id, exam_id and generated_at to the new insight
-        const enhancedInsight: KnowledgeInsight = {
-          insight_id: generateInsightId(),
-          insight: newInsight.insight,
-          context: newInsight.context,
-          exam_id: examId,
-          generated_at: generatedAt,
-        };
-        newTopicInsights.push(enhancedInsight);
-      }
-    });
-
-    topicMap.set(item.topic, newTopicInsights);
-  });
-
-  // Convert back to array format
-  return Array.from(topicMap.entries()).map(([topic, insights]) => ({
-    topic,
-    insights,
-  }));
-}
 
 /**
  * Generate a consolidated summary from multiple exam summaries

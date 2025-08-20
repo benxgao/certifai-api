@@ -138,11 +138,13 @@ export class KnowledgePoolingService {
   private static async saveKnowledgePoolingData(
     api_user_id: string,
     examKnowledgeData: ExamKnowledgePoolingData,
+    forceRegenerate: boolean = false,
   ): Promise<ConsolidatedKnowledgePoolingData> {
     try {
       const consolidatedData = await saveExamKnowledgePoolingToFirestore(
         api_user_id,
         examKnowledgeData,
+        forceRegenerate,
       );
 
       logger.info('Knowledge pooling data saved successfully', {
@@ -150,6 +152,7 @@ export class KnowledgePoolingService {
         exam_id: examKnowledgeData.exam_id,
         topics_analyzed: examKnowledgeData.topics_analyzed,
         total_exams_analyzed: consolidatedData.total_exams_analyzed,
+        force_regenerate: forceRegenerate,
       });
 
       return consolidatedData;
@@ -158,6 +161,7 @@ export class KnowledgePoolingService {
         error: error instanceof Error ? error.message : 'Unknown error',
         api_user_id,
         exam_id: examKnowledgeData.exam_id,
+        force_regenerate: forceRegenerate,
       });
       throw new Error('Failed to save knowledge pooling data');
     }
@@ -254,25 +258,35 @@ export class KnowledgePoolingService {
         incorrectAnswers,
       );
 
-      // Step 6: Prepare data for storage
+      const currentTimestamp = new Date().toISOString();
+      const transformedInsights = aiResult.knowledge_insights.map(
+        (insight: any) => ({
+          insight_id: '',
+          insight: insight.insight,
+          context: insight.context,
+          topic: insight.topic,
+          exam_id,
+          generated_at: currentTimestamp,
+        }),
+      );
+
       const examKnowledgeData: ExamKnowledgePoolingData = {
         exam_id,
-        knowledge_insights: aiResult.knowledge_insights,
+        knowledge_insights: transformedInsights,
         summary: aiResult.summary,
-        generated_at: new Date().toISOString(),
+        generated_at: currentTimestamp,
         cert_id,
         certification_name: examInfo.certification_name,
         total_incorrect_answers: incorrectAnswers.length,
-        topics_analyzed: aiResult.knowledge_insights.length,
+        topics_analyzed: 0,
       };
 
-      // Step 7: Save to storage
       const consolidatedData = await this.saveKnowledgePoolingData(
         api_user_id,
         examKnowledgeData,
+        force_regenerate,
       );
 
-      // Step 8: Return successful result
       const processingTime = Date.now() - startTime;
 
       logger.info('Knowledge pooling service completed successfully', {
