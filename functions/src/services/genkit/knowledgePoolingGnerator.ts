@@ -19,11 +19,6 @@ const KnowledgeInsightSchema = z.object({
     .describe(
       'A key concept, tip, or knowledge point that the user should remember',
     ),
-  context: z
-    .string()
-    .describe(
-      'Additional context or explanation for why this insight is important',
-    ),
   topic: z.string().describe('The topic/subject area this insight relates to'),
 });
 
@@ -92,50 +87,37 @@ export const createKnowledgePoolingGeneratorFlow = async (): Promise<any> => {
           const questionsAnalysis = incorrect_answers_data
             .slice(0, 10)
             .map((answer, idx) => {
-              return `${idx + 1}. Question: "${answer.question_text.substring(
-                0,
-                150,
-              )}..."
-   User selected: "${answer.user_selected_answer}"
-   Correct answer: "${answer.correct_answer}"
-   ${
-     answer.explanation
-       ? `Explanation: "${answer.explanation.substring(0, 200)}..."`
-       : ''
-   }
+              return `${idx + 1}; ${
+                answer.explanation
+                  ? `Explanation: "${answer.explanation.substring(0, 300)}..."`
+                  : ''
+              };
    ${answer.topic ? `Topic: ${answer.topic}` : ''}`;
             });
 
           const prompt = `
-As an AI learning advisor for ${certification_name} certification, analyze the incorrect answers from this specific exam and generate targeted knowledge insights and tips.
+As an AI learning advisor that specializes in ${certification_name} certification and understands the exam objectives and official exam guide, generate targeted knowledge insights and tips.
 
 USER LEARNING DATA:
-- User ID: ${user_id}
-- Exam ID: ${exam_id}
 - Certification: ${certification_name}
-- Total Incorrect Answers: ${incorrect_answers_data.length}
 
-INCORRECT ANSWERS ANALYSIS:
+QUESTION ANALYSIS:
 ${questionsAnalysis.join('\n\n')}
 
 GENERATE KNOWLEDGE INSIGHTS:
-Based on the incorrect answers above, provide individual insights that will help the user avoid similar mistakes. Each insight should include:
+Based on the question analysis above, provide individual insights that will help the user avoid similar mistakes. Each insight should include:
 
-1. A specific concept, tip, or knowledge point the user should remember
-2. Clear context explaining why this insight matters
-3. The relevant topic/subject area this insight relates to
-4. Focused on preventing similar mistakes
-5. Concise but comprehensive
+1. A specific concept or knowledge point which is the key concept to the exam
+2. The relevant topic/subject area this insight relates to is encouraged to be expanded
+3. The comparison of related concepts is highly encouraged to be included
+4. Concise but comprehensive
 
 Requirements:
-- Generate 3-8 individual insights (not grouped, but each should include its topic)
-- Make each insight standalone and specific
-- Provide clear context for why each insight matters
+- Generate 3-8 individual insights
 - Include the relevant topic for each insight (e.g., "VPC Networking", "IAM Policies", etc.)
 - Keep insights concise but comprehensive
-- Focus on areas where the user made mistakes in this specific exam
 
-Generate knowledge insights that will help the user avoid similar mistakes in future exams.
+Generate knowledge insights which should be covered by the official exam guide.
 `;
 
           // Simplified chunk handler
@@ -150,8 +132,8 @@ Generate knowledge insights that will help the user avoid similar mistakes in fu
             sendChunk,
             {
               ...DEFAULT_GENERATION_CONFIG,
-              maxOutputTokens: 2048,
-              temperature: 0.4,
+              maxOutputTokens: 4096,
+              temperature: 0.5,
             },
           );
 

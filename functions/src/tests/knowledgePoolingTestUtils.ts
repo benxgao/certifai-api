@@ -67,12 +67,9 @@ export const expectedKnowledgePoolingStructure = {
         {
           insight:
             'Remember the difference between NAT Gateways and NAT Instances',
-          context:
-            'NAT Gateways are managed services that provide automatic failover and high availability',
         },
         {
           insight: 'Understand default MTU sizes within VPC',
-          context: 'Default MTU is 1500 bytes, jumbo frames are optional',
         },
       ],
     },
@@ -81,7 +78,6 @@ export const expectedKnowledgePoolingStructure = {
       insights: [
         {
           insight: 'Remember IAM limits and quotas',
-          context: 'Users can belong to maximum 10 IAM groups',
         },
       ],
     },
@@ -91,7 +87,6 @@ export const expectedKnowledgePoolingStructure = {
         {
           insight:
             'Choose appropriate S3 storage classes based on access patterns',
-          context: 'Deep Archive is for data accessed less than once per year',
         },
       ],
     },
@@ -150,8 +145,6 @@ export const validateKnowledgePoolingResponse = (response: any): boolean => {
       'generated_at',
       'cert_id',
       'certification_name',
-      'total_incorrect_answers',
-      'topics_analyzed',
     ];
 
     for (const field of requiredFields) {
@@ -181,7 +174,7 @@ export const validateKnowledgePoolingResponse = (response: any): boolean => {
       }
 
       for (const item of insight.insights) {
-        const requiredInsightFields = ['insight', 'context'];
+        const requiredInsightFields = ['insight'];
         for (const field of requiredInsightFields) {
           if (!(field in item)) {
             console.error(`Missing required insight field: ${field}`);

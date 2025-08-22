@@ -102,8 +102,6 @@ The system analyzes incorrect answers with this structure:
   generated_at: string;
   cert_id: number;
   certification_name: string;
-  total_incorrect_answers: number;
-  topics_analyzed: number;
 }
 ```
 
@@ -132,9 +130,7 @@ The system analyzes incorrect answers with this structure:
     "summary": "Focus areas for improvement...",
     "generated_at": "2025-08-18T10:30:00.000Z",
     "cert_id": 123,
-    "certification_name": "AWS Solutions Architect",
-    "total_incorrect_answers": 15,
-    "topics_analyzed": 3
+    "certification_name": "AWS Solutions Architect"
   },
   "message": "Knowledge pooling generated successfully",
   "cached": false

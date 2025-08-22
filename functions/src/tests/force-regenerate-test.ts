@@ -15,7 +15,6 @@ const testExamData: ExamKnowledgePoolingData = {
     {
       insight_id: 'insight_1',
       insight: 'Test insight 1',
-      context: 'Test context 1',
       topic: 'Test Topic',
       exam_id: 'test_exam_123',
       generated_at: new Date().toISOString(),
@@ -23,7 +22,6 @@ const testExamData: ExamKnowledgePoolingData = {
     {
       insight_id: 'insight_2',
       insight: 'Test insight 2',
-      context: 'Test context 2',
       topic: 'Test Topic 2',
       exam_id: 'test_exam_123',
       generated_at: new Date().toISOString(),
@@ -75,7 +73,6 @@ export async function testForceRegenerate(testUserId: string): Promise<void> {
         {
           insight_id: 'new_insight_1',
           insight: 'Force regenerated insight 1',
-          context: 'New context 1',
           topic: 'New Topic',
           exam_id: 'test_exam_123',
           generated_at: new Date().toISOString(),

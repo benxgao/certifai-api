@@ -8,7 +8,6 @@
 export interface KnowledgeInsight {
   insight_id: string;
   insight: string;
-  context: string;
   topic: string;
   exam_id: string;
   generated_at: string;
@@ -23,8 +22,6 @@ export interface KnowledgePoolingResponse {
   generated_at: string;
   cert_id: number;
   certification_name: string;
-  total_incorrect_answers: number;
-  topics_analyzed: number;
   last_updated?: string;
 }
 

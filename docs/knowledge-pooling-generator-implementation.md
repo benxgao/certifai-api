@@ -58,9 +58,7 @@ Generates knowledge pooling insights based on user's exam history.
     "summary": "Focus on VPC concepts, especially NAT Gateway vs NAT Instance differences, and review IAM policy structure.",
     "generated_at": "2025-08-18T10:30:00.000Z",
     "cert_id": 123,
-    "certification_name": "AWS Solutions Architect",
-    "total_incorrect_answers": 15,
-    "topics_analyzed": 3
+    "certification_name": "AWS Solutions Architect"
   },
   "message": "Knowledge pooling generated successfully",
   "cached": false
@@ -88,9 +86,7 @@ Data is stored in Firestore at path: `users/{api_user_id}/certs/{cert_id}`
     "generated_at": "2025-08-18T10:30:00.000Z",
     "last_updated": "2025-08-18T10:30:00.000Z",
     "cert_id": 123,
-    "certification_name": "AWS Solutions Architect",
-    "total_incorrect_answers": 15,
-    "topics_analyzed": 3
+    "certification_name": "AWS Solutions Architect"
   }
 }
 ```

@@ -9,7 +9,6 @@ const firestore = firebaseFirestore;
 export interface KnowledgeInsight {
   insight_id: string;
   insight: string;
-  context: string;
   topic: string;
   exam_id: string;
   generated_at: string;
@@ -28,19 +27,9 @@ export interface ExamKnowledgePoolingData {
 
 export interface ConsolidatedKnowledgePoolingData {
   knowledge_insights: KnowledgeInsight[];
-  exam_summaries: Array<{
-    exam_id: string;
-    summary: string;
-    generated_at: string;
-    total_incorrect_answers: number;
-  }>;
-  consolidated_summary: string;
   last_updated: string;
   cert_id: number;
   certification_name: string;
-  total_exams_analyzed: number;
-  total_incorrect_answers: number;
-  total_topics_analyzed: number;
 }
 
 /**
@@ -105,7 +94,6 @@ export const saveExamKnowledgePoolingToFirestore = async (
       : null;
 
     let existingInsights = existingData?.knowledge_insights || [];
-    let existingExamSummaries = existingData?.exam_summaries || [];
 
     // If force regenerate is true, remove all existing data for this specific exam
     if (forceRegenerate) {
@@ -116,7 +104,6 @@ export const saveExamKnowledgePoolingToFirestore = async (
           cert_id: examData.cert_id,
           exam_id: examData.exam_id,
           previous_insights_count: existingInsights.length,
-          previous_exam_summaries_count: existingExamSummaries.length,
         },
       );
 
@@ -127,20 +114,11 @@ export const saveExamKnowledgePoolingToFirestore = async (
       );
       const insightsAfterFilter = existingInsights.length;
 
-      // Remove exam summary for this specific exam
-      const summariesBeforeFilter = existingExamSummaries.length;
-      existingExamSummaries = existingExamSummaries.filter(
-        (summary: any) => summary.exam_id !== examData.exam_id,
-      );
-      const summariesAfterFilter = existingExamSummaries.length;
-
       logger.info(
         `Force regenerate cleanup completed for exam ${examData.exam_id}`,
         {
           insights_removed: insightsBeforeFilter - insightsAfterFilter,
-          summaries_removed: summariesBeforeFilter - summariesAfterFilter,
           remaining_insights: insightsAfterFilter,
-          remaining_summaries: summariesAfterFilter,
         },
       );
     }
@@ -152,40 +130,11 @@ export const saveExamKnowledgePoolingToFirestore = async (
       examData.generated_at,
     );
 
-    // Prepare exam summary entry
-    const newExamSummary = {
-      exam_id: examData.exam_id,
-      summary: examData.summary,
-      generated_at: examData.generated_at,
-      total_incorrect_answers: examData.total_incorrect_answers,
-    };
-
-    // Filter out any remaining entries for this exam (safety check) and add the new one
-    const filteredExamSummaries = existingExamSummaries.filter(
-      (summary: any) => summary.exam_id !== examData.exam_id,
-    );
-    const updatedExamSummaries = [...filteredExamSummaries, newExamSummary];
-
-    const consolidatedSummary = generateConsolidatedSummary(
-      updatedExamSummaries,
-      examData.certification_name,
-    );
-
-    const totalIncorrectAnswers = updatedExamSummaries.reduce(
-      (sum, exam) => sum + exam.total_incorrect_answers,
-      0,
-    );
-
     const consolidatedData: ConsolidatedKnowledgePoolingData = {
       knowledge_insights: mergedInsights,
-      exam_summaries: updatedExamSummaries,
-      consolidated_summary: consolidatedSummary,
       last_updated: new Date().toISOString(),
       cert_id: examData.cert_id,
       certification_name: examData.certification_name,
-      total_exams_analyzed: updatedExamSummaries.length,
-      total_incorrect_answers: totalIncorrectAnswers,
-      total_topics_analyzed: 0,
     };
 
     await docRef.set({ knowledge_pooling: consolidatedData }, { merge: true });
@@ -198,7 +147,6 @@ export const saveExamKnowledgePoolingToFirestore = async (
       }`,
       {
         path: docPath,
-        total_exams: consolidatedData.total_exams_analyzed,
         total_insights: consolidatedData.knowledge_insights.length,
         force_regenerate: forceRegenerate,
       },
@@ -247,7 +195,6 @@ export const getConsolidatedKnowledgePoolingFromFirestore = async (
       `Consolidated knowledge pooling data retrieved for user ${apiUserId}, cert ${certId}`,
       {
         path: docPath,
-        total_exams: knowledgePooling.total_exams_analyzed || 0,
         has_insights:
           Array.isArray(knowledgePooling.knowledge_insights) &&
           knowledgePooling.knowledge_insights.length > 0,
@@ -279,19 +226,27 @@ export const hasRecentExamKnowledgePooling = async (
       certId,
     );
 
-    if (!consolidatedData || !consolidatedData.exam_summaries) {
+    if (!consolidatedData || !consolidatedData.knowledge_insights) {
       return false;
     }
 
-    const examSummary = consolidatedData.exam_summaries.find(
-      (summary) => summary.exam_id === examId,
+    // Find the most recent insight for this exam
+    const examInsights = consolidatedData.knowledge_insights.filter(
+      (insight) => insight.exam_id === examId,
     );
 
-    if (!examSummary || !examSummary.generated_at) {
+    if (examInsights.length === 0) {
       return false;
     }
 
-    const generatedAt = new Date(examSummary.generated_at);
+    // Find the most recent insight for this exam
+    const mostRecentInsight = examInsights.reduce((latest, current) => {
+      return new Date(current.generated_at) > new Date(latest.generated_at)
+        ? current
+        : latest;
+    });
+
+    const generatedAt = new Date(mostRecentInsight.generated_at);
     const maxAge = new Date();
     maxAge.setDate(maxAge.getDate() - maxAgeInDays);
 
@@ -302,7 +257,7 @@ export const hasRecentExamKnowledgePooling = async (
         isRecent ? 'recent' : 'outdated'
       }`,
       {
-        generated_at: examSummary.generated_at,
+        generated_at: mostRecentInsight.generated_at,
         max_age_days: maxAgeInDays,
         is_recent: isRecent,
       },
@@ -378,11 +333,12 @@ export const deleteExamKnowledgePoolingFromFirestore = async (
       return null;
     }
 
-    const updatedExamSummaries = consolidatedData.exam_summaries.filter(
-      (summary) => summary.exam_id !== examId,
+    const updatedKnowledgeInsights = consolidatedData.knowledge_insights.filter(
+      (insight) => insight.exam_id !== examId,
     );
 
-    if (updatedExamSummaries.length === 0) {
+    // If no insights remain, delete the entire knowledge_pooling field
+    if (updatedKnowledgeInsights.length === 0) {
       const docPath = `users/${apiUserId}/certs/${certId}`;
       const docRef = firestore.doc(docPath);
 
@@ -396,20 +352,9 @@ export const deleteExamKnowledgePoolingFromFirestore = async (
       return null;
     }
 
-    const updatedKnowledgeInsights = consolidatedData.knowledge_insights.filter(
-      (insight) => insight.exam_id !== examId,
-    );
-
     const updatedData: ConsolidatedKnowledgePoolingData = {
       ...consolidatedData,
       knowledge_insights: updatedKnowledgeInsights,
-      exam_summaries: updatedExamSummaries,
-      total_exams_analyzed: updatedExamSummaries.length,
-      total_incorrect_answers: updatedExamSummaries.reduce(
-        (sum, exam) => sum + exam.total_incorrect_answers,
-        0,
-      ),
-      total_topics_analyzed: 0, // No longer counting topics
       last_updated: new Date().toISOString(),
     };
 
@@ -437,27 +382,3 @@ export const deleteExamKnowledgePoolingFromFirestore = async (
     throw error;
   }
 };
-
-/**
- * Generate a consolidated summary from multiple exam summaries
- */
-function generateConsolidatedSummary(
-  examSummaries: Array<{
-    exam_id: string;
-    summary: string;
-    total_incorrect_answers: number;
-  }>,
-  certificationName: string,
-): string {
-  const totalExams = examSummaries.length;
-  const totalIncorrect = examSummaries.reduce(
-    (sum, exam) => sum + exam.total_incorrect_answers,
-    0,
-  );
-
-  if (totalExams === 1) {
-    return examSummaries[0].summary;
-  }
-
-  return `Based on analysis of ${totalExams} ${certificationName} exams with ${totalIncorrect} total incorrect answers, your main learning areas include the key concepts and misconceptions identified across your exam history. Focus on the consolidated insights to strengthen your understanding and avoid repeating similar mistakes.`;
-}

@@ -41,29 +41,14 @@ The `/api/ai/knowledge-pooling` endpoint analyzes incorrect answers from a speci
         ]
       }
     ],
-    "exam_summaries": [
-      {
-        "exam_id": "exam_123",
-        "summary": "Focus on VPC networking concepts and IAM limits",
-        "generated_at": "2025-08-18T22:00:00.000Z",
-        "total_incorrect_answers": 3
-      }
-    ],
-    "consolidated_summary": "Overall areas for improvement...",
     "last_updated": "2025-08-18T22:00:00.000Z",
     "cert_id": 1,
-    "certification_name": "AWS Solutions Architect",
-    "total_exams_analyzed": 1,
-    "total_incorrect_answers": 3,
-    "total_topics_analyzed": 2
+    "certification_name": "AWS Solutions Architect"
   },
   "message": "Knowledge pooling generated successfully",
   "metadata": {
     "exam_id": "exam_123",
     "certification_name": "AWS Solutions Architect",
-    "total_incorrect_answers": 3,
-    "topics_analyzed": 2,
-    "total_exams_analyzed": 1,
     "generated_at": "2025-08-18T22:00:00.000Z",
     "processing_time_ms": 1500
   }

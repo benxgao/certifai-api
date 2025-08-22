@@ -33,9 +33,6 @@ export interface KnowledgePoolingResult {
   metadata?: {
     exam_id: string;
     certification_name: string;
-    total_incorrect_answers: number;
-    topics_analyzed: number;
-    total_exams_analyzed: number;
     generated_at: string;
     processing_time_ms: number;
   };
@@ -151,7 +148,7 @@ export class KnowledgePoolingService {
         api_user_id,
         exam_id: examKnowledgeData.exam_id,
         topics_analyzed: examKnowledgeData.topics_analyzed,
-        total_exams_analyzed: consolidatedData.total_exams_analyzed,
+        total_insights: consolidatedData.knowledge_insights.length,
         force_regenerate: forceRegenerate,
       });
 
@@ -218,9 +215,6 @@ export class KnowledgePoolingService {
             metadata: {
               exam_id,
               certification_name: examInfo.certification_name,
-              total_incorrect_answers: incorrectAnswers.length,
-              topics_analyzed: cachedData.total_topics_analyzed,
-              total_exams_analyzed: cachedData.total_exams_analyzed,
               generated_at: cachedData.last_updated,
               processing_time_ms: processingTime,
             },
@@ -240,9 +234,6 @@ export class KnowledgePoolingService {
           metadata: {
             exam_id,
             certification_name: examInfo.certification_name,
-            total_incorrect_answers: 0,
-            topics_analyzed: 0,
-            total_exams_analyzed: 0,
             generated_at: new Date().toISOString(),
             processing_time_ms: processingTime,
           },
@@ -263,7 +254,6 @@ export class KnowledgePoolingService {
         (insight: any) => ({
           insight_id: '',
           insight: insight.insight,
-          context: insight.context,
           topic: insight.topic,
           exam_id,
           generated_at: currentTimestamp,
@@ -294,7 +284,7 @@ export class KnowledgePoolingService {
         api_user_id,
         topics_analyzed: examKnowledgeData.topics_analyzed,
         total_incorrect_answers: examKnowledgeData.total_incorrect_answers,
-        total_exams_analyzed: consolidatedData.total_exams_analyzed,
+        total_insights: consolidatedData.knowledge_insights.length,
         processing_time_ms: processingTime,
       });
 
@@ -305,9 +295,6 @@ export class KnowledgePoolingService {
         metadata: {
           exam_id,
           certification_name: examInfo.certification_name,
-          total_incorrect_answers: incorrectAnswers.length,
-          topics_analyzed: examKnowledgeData.topics_analyzed,
-          total_exams_analyzed: consolidatedData.total_exams_analyzed,
           generated_at: examKnowledgeData.generated_at,
           processing_time_ms: processingTime,
         },
@@ -334,9 +321,6 @@ export class KnowledgePoolingService {
         metadata: {
           exam_id,
           certification_name: 'Unknown',
-          total_incorrect_answers: 0,
-          topics_analyzed: 0,
-          total_exams_analyzed: 0,
           generated_at: new Date().toISOString(),
           processing_time_ms: processingTime,
         },

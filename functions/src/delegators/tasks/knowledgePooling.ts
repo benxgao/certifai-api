@@ -65,8 +65,6 @@ const handler = async (req: any | CustomRequest, res: Response) => {
         cert_id,
         trigger_source,
         analysis_needed: result.analysis_needed,
-        topics_analyzed: result.metadata?.topics_analyzed || 0,
-        total_incorrect_answers: result.metadata?.total_incorrect_answers || 0,
         processing_time_ms: result.metadata?.processing_time_ms || 0,
         structuredData: true,
       });
@@ -77,7 +75,6 @@ const handler = async (req: any | CustomRequest, res: Response) => {
         data: {
           exam_id,
           analysis_needed: result.analysis_needed,
-          topics_analyzed: result.metadata?.topics_analyzed || 0,
           certification_name: result.metadata?.certification_name,
         },
       });

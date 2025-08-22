@@ -60,19 +60,9 @@ users/:api_user_id/certs/:cert_id/knowledge_pooling
 ```typescript
 interface ConsolidatedKnowledgePoolingData {
   knowledge_insights: KnowledgePoolingItem[];
-  exam_summaries: Array<{
-    exam_id: string;
-    summary: string;
-    generated_at: string;
-    total_incorrect_answers: number;
-  }>;
-  consolidated_summary: string;
   last_updated: string;
   cert_id: number;
   certification_name: string;
-  total_exams_analyzed: number;
-  total_incorrect_answers: number;
-  total_topics_analyzed: number;
 }
 
 interface KnowledgeInsight {
@@ -129,17 +119,11 @@ POST /api/ai/knowledge-pooling
 {
   "success": true,
   "data": {
-    "knowledge_insights": [...],
-    "exam_summaries": [...],
-    "consolidated_summary": "...",
-    "total_exams_analyzed": 3,
-    "total_topics_analyzed": 8
+    "knowledge_insights": [...]
   },
   "metadata": {
     "exam_id": "exam_123",
     "certification_name": "AWS Solutions Architect",
-    "total_incorrect_answers": 5,
-    "topics_analyzed": 3,
     "generated_at": "2024-01-15T10:30:00.000Z"
   }
 }
