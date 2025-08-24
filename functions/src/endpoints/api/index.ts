@@ -33,6 +33,8 @@ import {
   getCertSummary,
   regenerateCertSummary,
 } from './users/certifications/getCertSummary';
+import { getKnowledgePooling } from './users/certifications/getKnowledgePooling';
+import { generateKnowledgePooling } from './users/certifications/generateKnowledgePooling';
 
 // Admin endpoints
 // import autoFailStuckExams from './admin/exams/autoFailStuckExams';
@@ -206,6 +208,22 @@ router.post(
   verifyFirebaseToken,
   verifyUserAccess,
   regenerateCertSummary,
+);
+
+// Get knowledge pooling data for a user certification
+router.get(
+  '/users/:user_id/certifications/:cert_id/knowledge-pooling',
+  verifyFirebaseToken,
+  verifyUserAccess,
+  getKnowledgePooling,
+);
+
+// Generate/regenerate knowledge pooling for a user certification
+router.post(
+  '/users/:user_id/certifications/:cert_id/knowledge-pooling',
+  verifyFirebaseToken,
+  verifyUserAccess,
+  generateKnowledgePooling,
 );
 
 // Get exam report for a user exam

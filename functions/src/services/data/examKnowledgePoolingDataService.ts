@@ -23,6 +23,7 @@ export const getIncorrectAnswersForExam = async (
     exam_id: string;
     cert_id: number;
     certification_name: string;
+    exam_guide_url: string | null;
     submitted_at: Date | null;
   };
 }> => {
@@ -39,6 +40,7 @@ export const getIncorrectAnswersForExam = async (
           select: {
             cert_id: true,
             name: true,
+            exam_guide_url: true,
           },
         },
       },
@@ -117,6 +119,7 @@ export const getIncorrectAnswersForExam = async (
       exam_id: exam.exam_id,
       cert_id: exam.certification.cert_id,
       certification_name: exam.certification.name,
+      exam_guide_url: exam.certification.exam_guide_url,
       submitted_at: exam.submitted_at,
     };
 

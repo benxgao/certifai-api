@@ -52,6 +52,7 @@ export const createKnowledgePoolingGeneratorFlow = async (): Promise<any> => {
           exam_id: z.string(),
           cert_id: z.number(),
           certification_name: z.string(),
+          exam_guide_url: z.string().nullable(),
           incorrect_answers_data: z.array(
             z.object({
               exam_id: z.string(),
@@ -72,6 +73,7 @@ export const createKnowledgePoolingGeneratorFlow = async (): Promise<any> => {
           exam_id,
           cert_id,
           certification_name,
+          exam_guide_url,
           incorrect_answers_data,
         } = input;
 
@@ -98,6 +100,8 @@ export const createKnowledgePoolingGeneratorFlow = async (): Promise<any> => {
           const prompt = `
 As an AI learning advisor that specializes in ${certification_name} certification and understands the exam objectives and official exam guide, generate targeted knowledge insights and tips.
 
+${exam_guide_url ? `OFFICIAL EXAM GUIDE: ${exam_guide_url}` : ''}
+
 USER LEARNING DATA:
 - Certification: ${certification_name}
 
@@ -116,6 +120,11 @@ Requirements:
 - Generate 3-8 individual insights
 - Include the relevant topic for each insight (e.g., "VPC Networking", "IAM Policies", etc.)
 - Keep insights concise but comprehensive
+${
+  exam_guide_url
+    ? `- Reference the official exam guide when applicable: ${exam_guide_url}`
+    : ''
+}
 
 Generate knowledge insights which should be covered by the official exam guide.
 `;

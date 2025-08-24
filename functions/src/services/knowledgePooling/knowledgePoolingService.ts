@@ -94,6 +94,7 @@ export class KnowledgePoolingService {
     exam_id: string,
     cert_id: number,
     certification_name: string,
+    exam_guide_url: string | null,
     incorrectAnswers: any[],
   ): Promise<any> {
     try {
@@ -101,6 +102,9 @@ export class KnowledgePoolingService {
         api_user_id,
         exam_id,
         cert_id,
+        certification_name,
+        has_exam_guide_url: !!exam_guide_url,
+        exam_guide_url: exam_guide_url,
         incorrect_answers_count: incorrectAnswers.length,
       });
 
@@ -110,6 +114,7 @@ export class KnowledgePoolingService {
         exam_id,
         cert_id,
         certification_name,
+        exam_guide_url,
         incorrect_answers_data: incorrectAnswers,
       });
 
@@ -246,6 +251,7 @@ export class KnowledgePoolingService {
         exam_id,
         cert_id,
         examInfo.certification_name,
+        examInfo.exam_guide_url,
         incorrectAnswers,
       );
 
