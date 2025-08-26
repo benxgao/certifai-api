@@ -11,6 +11,7 @@ import {
   automatedStuckExamCleanup,
   autoFailStuckExams,
 } from './scheduledFunctions/examGenerationMonitoring';
+import { isProduction } from './utils/utils';
 
 setGlobalOptions({
   maxInstances: 10,
@@ -19,7 +20,7 @@ setGlobalOptions({
 
 export const endpoints = onRequest(
   {
-    memory: '512MiB',
+    memory: isProduction ? '512MiB' : '256MiB',
     timeoutSeconds: 180,
   },
   apiEndpoints,
@@ -27,6 +28,7 @@ export const endpoints = onRequest(
 
 export const delegators = onRequest(
   {
+    memory: isProduction ? '512MiB' : '256MiB',
     timeoutSeconds: 180,
   },
   serviceDelegators,
