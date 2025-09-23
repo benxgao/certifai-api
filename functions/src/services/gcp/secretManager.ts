@@ -1,5 +1,13 @@
 import { SecretManagerServiceClient } from '@google-cloud/secret-manager';
 
+interface CachedSecret {
+  value: string;
+  expiresAt: number;
+}
+
+let googleGenAIApiKeyCache: CachedSecret | null = null;
+const CACHE_TTL_MS = 60 * 60 * 1000 * 24 * 30; // 30 days
+
 /**
  * Retrieves a secret from Google Cloud Secret Manager.
  *
@@ -12,6 +20,16 @@ export async function getSecret(
   secretName: string,
   version?: string,
 ): Promise<string> {
+  // Check cache for Google GenAI API key
+  if (secretName === 'GOOGLE_GENAI_API_KEY' && !version) {
+    if (
+      googleGenAIApiKeyCache &&
+      googleGenAIApiKeyCache.expiresAt > Date.now()
+    ) {
+      return googleGenAIApiKeyCache.value;
+    }
+  }
+
   const client = new SecretManagerServiceClient();
 
   const name = `projects/${
@@ -28,5 +46,20 @@ export async function getSecret(
 
   const secret = secretVersion.payload.data.toString();
 
+  // Cache Google GenAI API key
+  if (secretName === 'GOOGLE_GENAI_API_KEY' && !version) {
+    googleGenAIApiKeyCache = {
+      value: secret,
+      expiresAt: Date.now() + CACHE_TTL_MS,
+    };
+  }
+
   return secret;
+}
+
+/**
+ * Clears the cached Google GenAI API key (useful for key rotation)
+ */
+export function clearGoogleGenAICache(): void {
+  googleGenAIApiKeyCache = null;
 }
