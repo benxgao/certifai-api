@@ -1,4 +1,5 @@
 import { SecretManagerServiceClient } from '@google-cloud/secret-manager';
+import logger from '../firebase/logger';
 
 interface CachedSecret {
   value: string;
@@ -26,6 +27,12 @@ export async function getSecret(
       googleGenAIApiKeyCache &&
       googleGenAIApiKeyCache.expiresAt > Date.now()
     ) {
+      logger.info(`Using cached GOOGLE_GENAI_API_KEY:
+        | valid for ${Math.round(
+          (googleGenAIApiKeyCache.expiresAt - Date.now()) /
+            (1000 * 60 * 60 * 24),
+        )} days`);
+
       return googleGenAIApiKeyCache.value;
     }
   }

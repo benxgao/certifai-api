@@ -131,7 +131,7 @@ const buildBaseQuizPrompt = (
     1. Sophisticated distractors requiring expertise
     2. All 4 choices plausible and technically accurate
     3. Wrong answers: common misconceptions, not obvious fakes
-    4. Make questions text simple and clear, avoiding unnecessary complexity
+    4. Question scenarios can contain correlated topics like in real common business cases
     5. examTopic MUST be the exact topic name from the list above for each question
     6. Each provided exam topic must have a corresponding question (including duplicates)
     7. For duplicate topics, create different questions that test different aspects of the same topic

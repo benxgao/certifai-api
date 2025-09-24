@@ -28,57 +28,49 @@ export const DEFAULT_GENERATION_CONFIG: GenerationConfig = {
 };
 
 /**
- * Initialize a Genkit AI instance with Google AI plugin
+ * Singleton Genkit AI instance - shared across all operations
+ */
+let genkitInstance: Genkit | null = null;
+
+/**
+ * Initialize a Genkit AI instance with Google AI plugin (singleton)
  * @returns Promise<Genkit> - Initialized AI instance
  */
 export const initializeAiInstance = async (): Promise<Genkit> => {
-  const maxRetries = 3;
-  const retryDelay = 2000; // 2 seconds
-
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      logger.info(
-        `Attempting to initialize Genkit AI instance (attempt ${attempt}/${maxRetries})`,
-      );
-
-      const apiKey = await getSecret('GOOGLE_GENAI_API_KEY');
-
-      const ai = genkit({
-        plugins: [googleAI({ apiKey })],
-        model: gemini20Flash,
-      });
-
-      logger.info('Genkit AI instance initialized successfully.');
-
-      return ai;
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : 'Unknown error';
-      logger.error(
-        `Failed to initialize Genkit AI instance (attempt ${attempt}/${maxRetries}):`,
-        {
-          error: errorMessage,
-          attempt,
-          maxRetries,
-        },
-      );
-
-      if (attempt === maxRetries) {
-        logger.error(
-          'All attempts to initialize Genkit AI instance failed. AI services will be unavailable.',
-        );
-        throw new Error(
-          `Could not initialize AI services after ${maxRetries} attempts: ${errorMessage}`,
-        );
-      }
-
-      // Wait before retrying
-      await new Promise((resolve) => setTimeout(resolve, retryDelay * attempt));
-    }
+  // Return existing instance if already initialized
+  if (genkitInstance) {
+    logger.info(
+      'GenkitAI: instance reused - returning existing singleton instance',
+    );
+    return genkitInstance;
   }
 
-  // This should never be reached, but TypeScript requires it
-  throw new Error('Unexpected error in AI instance initialization');
+  try {
+    logger.info('GenkitAI: creating new instance - no existing instance found');
+
+    const apiKey = await getSecret('GOOGLE_GENAI_API_KEY');
+
+    genkitInstance = genkit({
+      plugins: [googleAI({ apiKey })],
+      model: gemini20Flash,
+    });
+
+    logger.info('GenkitAI: New instance created and cached successfully');
+
+    return genkitInstance;
+  } catch (error) {
+    const errorMessage =
+      error instanceof Error ? error.message : 'Unknown error';
+    logger.error(`GenkitAI: Failed to initialize instance:`, {
+      error: errorMessage,
+    });
+
+    logger.error(
+      'GenkitAI: All attempts to initialize instance failed. AI services will be unavailable.',
+    );
+
+    throw new Error(`Could not initialize AI services: ${errorMessage}`);
+  }
 };
 
 /**
@@ -198,15 +190,17 @@ export const createAiInstancePromise = (): Promise<Genkit> => {
       ),
     ]);
 
-    // Handle failures by resetting the promise so it can be retried later
+    // Handle failures by resetting both promises so they can be retried later
     aiInstancePromise = initWithTimeout.catch((error) => {
       logger.error(
-        'AI instance initialization failed, resetting singleton for retry:',
+        'AI instance initialization failed, resetting singletons for retry:',
         {
           error: error instanceof Error ? error.message : 'Unknown error',
         },
       );
+
       aiInstancePromise = null; // Reset so it can be retried
+      genkitInstance = null; // Reset genkit instance so it can be retried
       throw error;
     });
   }

@@ -8,7 +8,10 @@ import { ExamGenerationLogger } from '../../../../services/exam-generation-logge
 import { getRtdbValue } from '../../../../services/firebase/rtdb';
 import { BatchWriteOptimizer } from '../../../../services/database/batchWriteOptimizer';
 import { validateExamQueueReadiness } from '../../../../utils/examQueueManager';
-import { ExamGenerationTaskService, ExamGenerationTaskPayload } from '../../../../services/cloudTasks/examGenerationTaskService';
+import {
+  ExamGenerationTaskService,
+  ExamGenerationTaskPayload,
+} from '../../../../services/cloudTasks/examGenerationTaskService';
 
 const DEFAULT_NUMBER_OF_QUESTIONS = 20;
 const MAX_NUMBER_OF_QUESTIONS = 100; // Set a reasonable max
@@ -148,25 +151,6 @@ const handler = async (
 
     timingAudit.external_services.rate_limit_check =
       Date.now() - rateLimitStart;
-
-    // if (!rateLimitResult.isAllowed) {
-    //   logger.warn(
-    //     `Rate limit exceeded for user ${user_id}: ${rateLimitResult.currentCount}/${MAX_EXAMS_PER_24_HOURS} exams in 24 hours`,
-    //   );
-    //   res.status(429).json({
-    //     success: false,
-    //     error:
-    //       rateLimitResult.error ||
-    //       'Rate limit exceeded. You can create a maximum of 3 exams per 24 hours.',
-    //     data: {
-    //       maxExamsAllowed: MAX_EXAMS_PER_24_HOURS,
-    //       currentCount: rateLimitResult.currentCount,
-    //       remainingCount: rateLimitResult.remainingCount,
-    //       resetTime: new Date(rateLimitResult.resetTimeMs).toISOString(),
-    //     },
-    //   });
-    //   return;
-    // }
 
     logger.info(
       `Rate limit check passed for user ${user_id}: ${rateLimitResult.currentCount}/${MAX_EXAMS_PER_24_HOURS} exams used`,
@@ -516,9 +500,10 @@ const handler = async (
         },
       );
 
-      const taskName = await ExamGenerationTaskService.getInstance().createFirstBatchTask(
-        firstBatchPayload,
-      );
+      const taskName =
+        await ExamGenerationTaskService.getInstance().createFirstBatchTask(
+          firstBatchPayload,
+        );
       const cloudTaskEnd = Date.now();
       timingAudit.external_services.cloud_task_creation =
         cloudTaskEnd - cloudTaskStart;
@@ -641,7 +626,6 @@ const handler = async (
           total_batches: totalBatches,
           topics_generated: examPlan.questions.length,
           custom_prompt: customPromptText || '',
-          // Deprecated: keeping for backward compatibility only
           user_id: newExam.user_id, // @deprecated Use api_user_id instead
         },
       });
