@@ -238,6 +238,16 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       return;
     }
 
+    // Prevent deletion of Google Cloud Professional Cloud Developer cert for demo purposes
+    const PROTECTED_CERT_IDS = [8, 10, 11];
+    if (PROTECTED_CERT_IDS.includes(certIdNumber)) {
+      res.status(403).json({
+        success: false,
+        error: 'This certification cannot be deleted at this time.',
+      });
+      return;
+    }
+
     const startTime = Date.now();
     logger.info(
       `deleteCertification: Starting certification deletion for cert_id: ${cert_id}, user_id: ${user_id}`,

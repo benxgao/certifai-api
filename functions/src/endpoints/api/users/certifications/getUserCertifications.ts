@@ -5,7 +5,6 @@ import prismaInstance from '../../../../services/prisma';
 import {
   extractPaginationParams,
   createPaginatedResponse,
-  findManyWithCount,
 } from '../../../../utils/pagination';
 
 const handler = async (req: any | CustomRequest, res: Response) => {
@@ -37,27 +36,52 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       whereClause.cert_id = Number(cert_id);
     }
 
-    // Assuming 'certification' is the Prisma model for certifications associated with a user.
-    // Adjust the model name if yours is different (e.g., userCertification, achievedCertification).
-    const { data: certifications, total } = await findManyWithCount(
-      prismaInstance.userCertification.findMany({
-        where: whereClause,
-        include: {
-          certification: true, // Include details from the related 'Certification' model
-        },
-        skip: paginationParams.skip,
-        take: paginationParams.take,
-        orderBy: { assigned_at: 'desc' },
-      }),
-      prismaInstance.userCertification.count({
-        where: whereClause,
-      }),
+    // Demo certification IDs that should always appear at the top in this specific order
+    const DEMO_CERT_IDS = [11, 8, 10];
+
+    // Fetch all user certifications (without pagination limit) to properly sort demo certs to top
+    const allCertifications = await prismaInstance.userCertification.findMany({
+      where: whereClause,
+      include: {
+        certification: true, // Include details from the related 'Certification' model
+      },
+      orderBy: { assigned_at: 'desc' },
+    });
+
+    // Custom sorting: place demo certs at the top in the specified order, then other certs
+    const sortedCertifications = allCertifications.sort((a, b) => {
+      const aIsDemoIndex = DEMO_CERT_IDS.indexOf(a.cert_id);
+      const bIsDemoIndex = DEMO_CERT_IDS.indexOf(b.cert_id);
+
+      // If both are demo certs, maintain their order as specified in DEMO_CERT_IDS
+      if (aIsDemoIndex !== -1 && bIsDemoIndex !== -1) {
+        return aIsDemoIndex - bIsDemoIndex;
+      }
+
+      // If only a is a demo cert, it comes first
+      if (aIsDemoIndex !== -1) {
+        return -1;
+      }
+
+      // If only b is a demo cert, it comes first
+      if (bIsDemoIndex !== -1) {
+        return 1;
+      }
+
+      // For non-demo certs, maintain the original order (assigned_at: desc)
+      return new Date(b.assigned_at).getTime() - new Date(a.assigned_at).getTime();
+    });
+
+    // Apply pagination to the sorted results
+    const paginatedCertifications = sortedCertifications.slice(
+      paginationParams.skip,
+      paginationParams.skip + paginationParams.take,
     );
 
     // Create paginated response
     const response = createPaginatedResponse(
-      certifications || [],
-      total,
+      paginatedCertifications || [],
+      allCertifications.length,
       paginationParams,
     );
 
