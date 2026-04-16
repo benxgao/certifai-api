@@ -20,7 +20,7 @@ setGlobalOptions({
 
 export const endpoints = onRequest(
   {
-    memory: isProduction ? '512MiB' : '256MiB',
+    memory: isProduction ? '512MiB' : '512MiB',
     timeoutSeconds: 180,
   },
   apiEndpoints,
@@ -28,7 +28,7 @@ export const endpoints = onRequest(
 
 export const delegators = onRequest(
   {
-    memory: isProduction ? '512MiB' : '256MiB',
+    memory: isProduction ? '512MiB' : '512MiB',
     timeoutSeconds: 180,
   },
   serviceDelegators,
