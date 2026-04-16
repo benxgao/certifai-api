@@ -4,6 +4,7 @@ import logger from '../../../services/firebase/logger';
 import prismaInstance from '../../../services/prisma';
 import { CustomRequest, FirebaseJwtToken } from '../../../types';
 import { StripeFirestoreService } from '../../stripe/db';
+import { firebaseAdmin } from '../../../services/firebase/admin';
 
 const handler = async (req: any | CustomRequest, res: Response) => {
   try {
@@ -43,6 +44,9 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       return;
     }
 
+    // Extract autoVerify flag from request body (optional)
+    const autoVerify = req.body?.autoVerify || false;
+
     // Create or update user in our database using Firebase UID
     const user = await prismaInstance.user.upsert({
       where: {
@@ -63,9 +67,38 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       },
     });
 
-    logger.info(
-      `User successfully registered/updated: api_user_id=${user.user_id}, firebase_user_id=${firebaseUserId}`,
-    );
+    logger.info(`User successfully registered
+      | api_user_id=${user.user_id}
+      | firebase_user_id=${firebaseUserId}
+      | auto_verify=${autoVerify}
+      | gcp_project_id=${process.env.GCP_PROJECT_ID}
+    `);
+
+    // UAT BYPASS: Auto-verify email for UAT environment if autoVerify flag is true
+    if (autoVerify) {
+      try {
+        logger.info(
+          `UAT auto-verify: Verifying email for user ${firebaseUserId}`,
+        );
+        await firebaseAdmin.auth().updateUser(firebaseUserId, {
+          emailVerified: true,
+        });
+        logger.info(
+          `UAT auto-verify: Email verified successfully for user ${firebaseUserId}`,
+        );
+      } catch (autoVerifyError) {
+        // Non-blocking: Log warning but don't fail the registration
+        logger.warn(
+          `UAT auto-verify: Failed to auto-verify email for user ${firebaseUserId}`,
+          {
+            error:
+              autoVerifyError instanceof Error
+                ? autoVerifyError.message
+                : String(autoVerifyError),
+          },
+        );
+      }
+    }
 
     // Create or update Firestore account record
     try {
