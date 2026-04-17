@@ -42,13 +42,13 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       return;
     }
 
-    if (!firebaseUserIdFromToken) {
-      res.status(401).json({
-        success: false,
-        error: 'Unauthorized: Firebase token missing.',
-      });
-      return;
-    }
+    // if (!firebaseUserIdFromToken) {
+    //   res.status(401).json({
+    //     success: false,
+    //     error: 'Unauthorized: Firebase token missing.',
+    //   });
+    //   return;
+    // }
 
     // 1. Find the user by the provided user_id (internal UUID) or firebase_user_id
     let user = await prismaInstance.user.findUnique({
@@ -69,8 +69,9 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       return;
     }
 
-    // 2. Authorization: Check if the firebase_user_id from token matches the user's firebase_user_id
-    if (user.firebase_user_id !== firebaseUserIdFromToken) {
+    // 2. Authorization: Check firebase_user_id from token if available
+    // If token has firebase user ID, verify it matches
+    if (firebaseUserIdFromToken && user.firebase_user_id !== firebaseUserIdFromToken) {
       logger.warn(
         `Forbidden: Firebase user ${firebaseUserIdFromToken} attempted to fetch exams for user ${user_id}.`,
       );
