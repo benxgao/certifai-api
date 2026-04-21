@@ -22,7 +22,7 @@ export abstract class BaseCloudTaskService {
     const queueName = this.getQueueName();
     const endpoint = this.getTaskEndpoint();
 
-    logger.info(`Creating cloud task for ${this.constructor.name}`, {
+    logger.info(`16. CLOUD_TASK: CREATING: for ${this.constructor.name}`, {
       queue: queueName,
       endpoint,
       payload_keys: Object.keys(payload),
@@ -39,8 +39,7 @@ export abstract class BaseCloudTaskService {
       );
 
       if (taskName) {
-        logger.info(
-          `Successfully created cloud task for ${this.constructor.name}`,
+        logger.info(`17. CLOUD_TASK: CREATED: for ${this.constructor.name}`,
           {
             task_name: taskName,
             queue: queueName,

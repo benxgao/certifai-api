@@ -76,11 +76,13 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       cert_id,
     });
 
-    logger.info(
-      `EXAM_BATCH_PROCESS: exam_id=${exam_id}, batch=${batch_number}/${total_batches}, questions=${questions_to_generate}, topics=${topicNamesForGeneration.join(
-        ', ',
-      )}, batch_size_limit=${questions_per_batch}`,
-    );
+    logger.info(`EXAM_TRACK - 18. EXAM_BATCH_PROCESS:
+      exam_id=${exam_id}
+      batch=${batch_number}/${total_batches}
+      questions=${questions_to_generate}
+      topics=${topicNamesForGeneration.join(', ')}
+      batch_size_limit=${questions_per_batch}
+    `);
 
     // Validate that examTopicList is not negative (invalid state)
     if (questions_to_generate < 0) {

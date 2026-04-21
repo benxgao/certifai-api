@@ -103,9 +103,11 @@ const handler = async (
         ? Math.min(numQuestionsBody, MAX_NUMBER_OF_QUESTIONS)
         : DEFAULT_NUMBER_OF_QUESTIONS;
 
-    logger.info(
-      `EXAM_CREATE_INIT: user_id=${user_id}, cert_id=${certIdNumber}, questions=${requestedNumberOfQuestions}`,
-    );
+    logger.info(`EXAM_TRACK - 0. EXAM_CREATE_INIT:
+      user_id=${user_id}
+      cert_id=${certIdNumber}
+      questions=${requestedNumberOfQuestions}
+    `);
 
     // 1. Find the user by the provided user_id (internal UUID)
     const userQueryStart = Date.now();
@@ -116,7 +118,7 @@ const handler = async (
 
     timingAudit.prisma_operations.user_query = userQueryDuration;
 
-    logger.info('AUDIT_PRISMA_USER_QUERY', {
+    logger.info('EXAM_TRACK - 1. AUDIT_PRISMA_USER_QUERY', {
       operation: 'user.findUnique',
       duration_ms: userQueryDuration,
       user_id: user_id,
@@ -145,16 +147,14 @@ const handler = async (
 
     // 3. Check rate limit: Maximum 3 exams per 24 hours (using optimized Redis-based rate limiting)
     const rateLimitStart = Date.now();
-    const rateLimitResult = await OptimizedRateLimitService.checkExamRateLimit(
-      user_id,
-    );
+    const rateLimitResult =
+      await OptimizedRateLimitService.checkExamRateLimit(user_id);
 
     timingAudit.external_services.rate_limit_check =
       Date.now() - rateLimitStart;
 
-    logger.info(
-      `Rate limit check passed for user ${user_id}: ${rateLimitResult.currentCount}/${MAX_EXAMS_PER_24_HOURS} exams used`,
-    );
+    logger.info(`EXAM_TRACK - 2. RATE_LIMIT_VALIDATION_PASSED:
+      Rate limit check passed for user ${user_id}: ${rateLimitResult.currentCount}/${MAX_EXAMS_PER_24_HOURS} exams used`);
 
     // 4. Verify the certification exists
     const certQueryStart = Date.now();
@@ -165,7 +165,7 @@ const handler = async (
 
     timingAudit.prisma_operations.certification_query = certQueryDuration;
 
-    logger.info('AUDIT_PRISMA_CERTIFICATION_QUERY', {
+    logger.info('EXAM_TRACK - 3. AUDIT_PRISMA_CERTIFICATION_QUERY', {
       operation: 'certification.findUnique',
       duration_ms: certQueryDuration,
       cert_id: certIdNumber,
@@ -191,9 +191,11 @@ const handler = async (
       return;
     }
 
-    logger.info(
-      `User ${user.user_id} has sufficient credit tokens. Required: ${tokenCost}, Available: ${user.credit_tokens}`,
-    );
+    logger.info(`EXAM_TRACK - 4. TOKEN_VALIDATION_PASSED:
+      User ${user.user_id} has sufficient credit tokens.
+      Required: ${tokenCost}
+      Available: ${user.credit_tokens}
+    `);
 
     // 6. Create the exam with optimized batch operations for better performance
     const examCreateStart = Date.now();
@@ -231,7 +233,7 @@ const handler = async (
 
     timingAudit.prisma_operations.exam_create = examCreateDuration;
 
-    logger.info('AUDIT_PRISMA_EXAM_CREATE_OPTIMIZED', {
+    logger.info('EXAM_TRACK - 5. AUDIT_PRISMA_EXAM_CREATE_OPTIMIZED', {
       operation: 'examAttempt.create_batch',
       duration_ms: examCreateDuration,
       exam_id: newExam.exam_id,
@@ -242,9 +244,11 @@ const handler = async (
       optimization: 'batch_write_optimizer',
     });
 
-    logger.info(
-      `EXAM_CREATE_SUCCESS: exam_id=${newExam.exam_id}, user_id=${user.user_id}, status=QUESTIONS_GENERATING`,
-    );
+    logger.info(`EXAM_TRACK - 6. EXAM_CREATE_SUCCESS:
+      exam_id=${newExam.exam_id}
+      user_id=${user.user_id}
+      status=QUESTIONS_GENERATING
+    `);
 
     // 7. Execute post-creation operations in parallel for better performance
     const postCreationStart = Date.now();
@@ -266,17 +270,17 @@ const handler = async (
     timingAudit.external_services.cache_operations = postCreationDuration / 2;
 
     // 7. Generate exam topics using examPlanner and store in RTDB
-    logger.info(
-      `EXAM_TOPIC_GENERATION_START: exam_id=${newExam.exam_id}, total_questions=${requestedNumberOfQuestions}`,
-    );
+    logger.info(`EXAM_TRACK - 7. EXAM_TOPIC_GENERATION_START:
+      exam_id=${newExam.exam_id}
+      total_questions=${requestedNumberOfQuestions}
+    `);
 
     try {
       // Fetch the last completed exam with a report for adaptive learning from Firestore
       let lastExamReport: string | null = null;
       try {
-        const { examReportFirestore } = await import(
-          '../../../../services/firebase/examReportFirestore.js'
-        );
+        const { examReportFirestore } =
+          await import('../../../../services/firebase/examReportFirestore.js');
 
         const lastExamReportDoc =
           await examReportFirestore.getLastExamReportForUser(
@@ -291,7 +295,8 @@ const handler = async (
           lastExamReport = structuredDataJson;
 
           logger.info(
-            `ADAPTIVE_LEARNING_FIRESTORE: Found last exam report for user ${user.user_id} on certification ${certification.name}`,
+            `EXAM_TRACK - 8. ADAPTIVE_LEARNING_FIRESTORE
+            Found last exam report for user ${user.user_id} on certification ${certification.name}`,
             {
               exam_id: newExam.exam_id,
               last_exam_id: lastExamReportDoc.exam_id,
@@ -315,7 +320,8 @@ const handler = async (
           );
         } else {
           logger.info(
-            `ADAPTIVE_LEARNING_FIRESTORE: No previous exam report found for user ${user.user_id} on certification ${certification.name}`,
+            `EXAM_TRACK - 8. ADAPTIVE_LEARNING_FIRESTORE:
+            No previous exam report found for user ${user.user_id} on certification ${certification.name}`,
             {
               exam_id: newExam.exam_id,
               structuredData: true,
@@ -342,9 +348,8 @@ const handler = async (
 
       // Use examPlanner to generate topics and store in RTDB
       const topicGenerationStart = Date.now();
-      const { examPlannerPromise } = await import(
-        '../../../../services/genkit/examPlanner.js'
-      );
+      const { examPlannerPromise } =
+        await import('../../../../services/genkit/examPlanner.js');
       const examPlanner = await examPlannerPromise;
       const examPlan = await examPlanner({
         cert_name: certification.name,
@@ -358,14 +363,14 @@ const handler = async (
       timingAudit.ai_operations.topic_generation =
         Date.now() - topicGenerationStart;
 
-      logger.info(`EXAM_PLAN_GENERATE_BY_AI:
+      logger.info(`EXAM_TRACK - 9. EXAM_PLAN_GENERATE_BY_AI:
         | examPlan: ${JSON.stringify(examPlan, null, 2)}`);
 
       logger.info(
-        `EXAM_TOPICS_GENERATED: exam_id=${newExam.exam_id}, topics_count=${examPlan.questions.length}`,
-        {
-          exam_id: newExam.exam_id,
-        },
+        `EXAM_TRACK - 10. EXAM_TOPICS_GENERATED:
+        exam_id=${newExam.exam_id}
+        topics_count=${examPlan.questions.length}`,
+        { exam_id: newExam.exam_id },
       );
 
       // 8. Calculate batches and start question generation via Cloud Tasks
@@ -374,7 +379,11 @@ const handler = async (
       const totalBatches = Math.ceil(actualTopicsCount / QUESTIONS_PER_BATCH);
 
       logger.info(
-        `EXAM_BATCH_START: exam_id=${newExam.exam_id}, requested_questions=${requestedNumberOfQuestions}, actual_topics=${actualTopicsCount}, batches=${totalBatches}`,
+        `EXAM_TRACK - 11. EXAM_BATCH_START:
+        exam_id=${newExam.exam_id}
+        requested_questions=${requestedNumberOfQuestions}
+        actual_topics=${actualTopicsCount}
+        batches=${totalBatches}`,
         {
           exam_id: newExam.exam_id,
           requested_questions: requestedNumberOfQuestions,
@@ -423,7 +432,8 @@ const handler = async (
         }
 
         logger.info(
-          `EXAM_PLAN_VERIFIED: Successfully verified exam plan in RTDB with ${verificationResult.questions.length} topics`,
+          `EXAM_TRACK - 12. EXAM_PLAN_VERIFIED:
+          Successfully verified exam plan in RTDB with ${verificationResult.questions.length} topics`,
           {
             exam_id: newExam.exam_id,
             topics_count: verificationResult.questions.length,
@@ -446,7 +456,8 @@ const handler = async (
       // This prevents failures when the queue has been accidentally deleted or not yet created
       try {
         logger.info(
-          `QUEUE_VALIDATION_START: Ensuring exam generation queues exist before task creation`,
+          `EXAM_TRACK - 13. QUEUE_VALIDATION_START:
+          Ensuring exam generation queues exist before task creation`,
           {
             exam_id: newExam.exam_id,
             structuredData: true,
@@ -456,7 +467,7 @@ const handler = async (
         await validateExamQueueReadiness();
 
         logger.info(
-          `QUEUE_VALIDATION_SUCCESS: All exam generation queues are ready`,
+          `EXAM_TRACK - 14. QUEUE_VALIDATION_SUCCESS: All exam generation queues are ready`,
           {
             exam_id: newExam.exam_id,
             structuredData: true,
@@ -486,7 +497,8 @@ const handler = async (
       const delaySeconds = 1;
 
       logger.info(
-        `FIRST_BATCH_DELAYED: Scheduling first batch with 1-second delay to prevent RTDB race condition`,
+        `EXAM_TRACK - 15. FIRST_BATCH_DELAYED:
+        Scheduling first batch with 1-second delay to prevent RTDB race condition`,
         {
           exam_id: newExam.exam_id,
           batch_number: 1,

@@ -49,7 +49,9 @@ export const handleExamCompletionOrNextBatch = async (
   ).length;
 
   logger.info(
-    `BATCH_COMPLETION_ANALYSIS: exam_id=${exam_id}, batch=${batch_number}`,
+    `EXAM_TRACK - 19. BATCH_COMPLETION_ANALYSIS:
+    exam_id=${exam_id}
+    batch=${batch_number}`,
     {
       exam_id,
       batch_number,
@@ -93,11 +95,12 @@ export const handleExamCompletionOrNextBatch = async (
       batch_number >= total_batches
         ? 'planned_batches_complete'
         : remainingUnassignedTopics.length === 0
-        ? 'all_topics_assigned'
-        : 'target_questions_reached';
+          ? 'all_topics_assigned'
+          : 'target_questions_reached';
 
     logger.info(
-      `Completing exam generation for exam ${exam_id}, batch ${batch_number}. Reason: ${completionReason}`,
+      `EXAM_TRACK - 20. COMPLETING: EXAM_GENERATION:
+       for exam ${exam_id}, batch ${batch_number}. Reason: ${completionReason}`,
       {
         exam_id,
         batch_number,
@@ -162,7 +165,8 @@ export const handleExamCompletionOrNextBatch = async (
       const examPlanPath = `exam_plans/${exam_id}`;
       await deleteRtdbValue(examPlanPath); // Delete the exam plan
       logger.info(
-        `RTDB_CLEANUP_SUCCESS: Removed exam plan data for completed exam ${exam_id}`,
+        `EXAM_TRACK - 21.22. RTDB_CLEANUP_SUCCESS:
+        Removed exam plan data for completed exam ${exam_id}`,
         {
           exam_id,
           rtdb_path: examPlanPath,
@@ -195,11 +199,12 @@ export const handleExamCompletionOrNextBatch = async (
       status: 'READY',
     });
 
-    logger.info(
-      `EXAM_READY: exam_id=${exam_id}, status=READY, generation_time=${
+    logger.info(`EXAM_TRACK - 23. EXAM_READY:
+      exam_id=${exam_id}
+      status=DONE DONE DONE
+      generation_time=${
         totalGenerationTime?.processingDurationMinutes || 'unknown'
-      }min`,
-    );
+      }min`);
   } else {
     // Continue with next batch
     // Calculate remaining questions needed, ensuring we never go negative
@@ -231,11 +236,11 @@ export const handleExamCompletionOrNextBatch = async (
         certification: null,
       });
 
-      logger.info(
-        `EXAM_READY: exam_id=${exam_id}, status=READY, generation_time=${
-          timingInfo?.processingDurationMinutes || 'unknown'
-        }min, reason=target_questions_reached`,
-      );
+      logger.info(`EXAM_TRACK - 23. EXAM_READY:
+        exam_id=${exam_id}
+        status=READY
+        generation_time=${timingInfo?.processingDurationMinutes || 'unknown'}min
+        reason=target_questions_reached`);
 
       res.status(200).json({
         success: true,
@@ -285,11 +290,11 @@ export const handleExamCompletionOrNextBatch = async (
         certification: null,
       });
 
-      logger.info(
-        `EXAM_READY: exam_id=${exam_id}, status=READY, generation_time=${
-          timingInfo?.processingDurationMinutes || 'unknown'
-        }min, reason=all_topics_assigned`,
-      );
+      logger.info(`EXAM_TRACK - 23. EXAM_READY:
+        exam_id=${exam_id}
+        status=READY
+        generation_time=${timingInfo?.processingDurationMinutes || 'unknown'}min
+        reason=all_topics_assigned`);
 
       res.status(200).json({
         success: true,
@@ -314,7 +319,9 @@ export const handleExamCompletionOrNextBatch = async (
     );
 
     logger.info(
-      `EXAM_BATCH_CALCULATION: exam_id=${exam_id}, batch=${batch_number}`,
+      `EXAM_TRACK - 20. EXAM_BATCH_CALCULATION:
+      exam_id=${exam_id}
+      batch=${batch_number}`,
       {
         exam_id,
         current_batch: batch_number,
@@ -392,7 +399,10 @@ export const handleExamCompletionOrNextBatch = async (
     }
 
     logger.info(
-      `EXAM_TIMEOUT_CHECK_PASSED: exam_id=${exam_id}, processing_duration=${timeoutCheck.processingDurationMinutes} minutes within ${timeoutCheck.timeoutThresholdMinutes} minute threshold`,
+      `EXAM_TRACK - 21. EXAM_TIMEOUT_CHECK_PASSED:
+      exam_id=${exam_id},
+      processing_duration=${timeoutCheck.processingDurationMinutes} minutes
+      within= ${timeoutCheck.timeoutThresholdMinutes} minute threshold`,
       {
         exam_id,
         batch_number,
@@ -417,7 +427,8 @@ export const handleExamCompletionOrNextBatch = async (
     // This prevents failures when the queue has been accidentally deleted
     try {
       logger.info(
-        `QUEUE_VALIDATION_NEXT_BATCH: Ensuring exam generation queues exist before next batch task creation`,
+        `EXAM_TRACK - 22. QUEUE_VALIDATION_NEXT_BATCH:
+        Ensuring exam generation queues exist before next batch task creation`,
         {
           exam_id,
           current_batch: batch_number,
@@ -429,7 +440,8 @@ export const handleExamCompletionOrNextBatch = async (
       await validateExamQueueReadiness();
 
       logger.info(
-        `QUEUE_VALIDATION_NEXT_BATCH_SUCCESS: All exam generation queues are ready for next batch`,
+        `EXAM_TRACK - 23. QUEUE_VALIDATION_NEXT_BATCH_SUCCESS:
+        All exam generation queues are ready for next batch`,
         {
           exam_id,
           current_batch: batch_number,
@@ -550,11 +562,9 @@ export const handleExamCompletionOrNextBatch = async (
         `EXAM_GENERATION_FAILED: exam_id=${exam_id}, reason=task_creation_failed`,
       );
     } else {
-      logger.info(
-        `EXAM_BATCH_NEXT: exam_id=${exam_id}, next_batch=${
-          batch_number + 1
-        }/${adjustedTotalBatches}`,
-      );
+      logger.info(`EXAM_TRACK - 24. EXAM_BATCH_NEXT:
+        exam_id=${exam_id}
+        next_batch=${batch_number + 1}/${adjustedTotalBatches}`);
     }
   }
 
@@ -620,8 +630,10 @@ export const handleExamCompletionOrNextBatch = async (
         completion_percentage: shouldCompleteExam
           ? 100
           : exam.total_questions
-          ? Math.round((actualQuestionsGenerated / exam.total_questions) * 100)
-          : Math.round((batch_number / total_batches) * 100),
+            ? Math.round(
+                (actualQuestionsGenerated / exam.total_questions) * 100,
+              )
+            : Math.round((batch_number / total_batches) * 100),
       },
     },
   });
