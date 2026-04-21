@@ -7,6 +7,7 @@ import {
   deleteRtdbValue,
 } from '../../../../services/firebase/rtdb';
 import { CacheManager } from '../../../../services/cache';
+import memoryCache from '../../../../services/cache/memoryCache';
 
 /**
  * Deletes exam-related data from Firebase Realtime Database
@@ -365,6 +366,8 @@ const handler = async (req: any | CustomRequest, res: Response) => {
 
     // Invalidate user exam cache since exam was deleted
     await CacheManager.invalidateUserExamCache(user_id);
+    // Force clear memory cache (L1) to ensure deleted exam doesn't reappear on refresh
+    memoryCache.clear();
 
     // Return success response with comprehensive deletion details
     res.status(200).json({

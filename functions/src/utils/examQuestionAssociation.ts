@@ -342,6 +342,9 @@ export async function updateExamAfterQuestionAssociation(
         exam.user_id,
         `exam_status_changed_to_${examStatus}`,
       );
+      // Force clear memory cache (L1) to ensure stale generation status doesn't persist
+      const memoryCache = (await import('../../../../services/cache/memoryCache')).default;
+      memoryCache.clear();
       logger.info(
         `Cache invalidated for user ${exam.user_id} after exam ${exam_id} status change to ${examStatus}`,
       );

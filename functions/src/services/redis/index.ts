@@ -114,7 +114,7 @@ export const CACHE_CONFIG = {
   // User data needs to be fresh to avoid showing stale exam results or progress
   USER_EXAMS_TTL: 300, // 5 minutes - user exam data changes frequently
   USER_EXAM_QUESTIONS_TTL: 36000, // 10 hours - exam questions are stable during exam
-  USER_EXAM_DETAILS_TTL: 300, // 5 minutes - exam details may change based on progress
+  USER_EXAM_DETAILS_TTL: 120, // 2 minutes - exam details/generation status updated frequently
   USER_CERTIFICATIONS_TTL: 600, // 10 minutes - user certification progress
   USER_PROFILE_TTL: 1800, // 30 minutes - user profile data changes infrequently
   USER_RATE_LIMIT_TTL: 300, // 5 minutes - rate limit data changes when exams are created
