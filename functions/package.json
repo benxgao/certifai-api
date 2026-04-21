@@ -23,6 +23,7 @@
     "deploy:firestore": "cd .. && GOOGLE_APPLICATION_CREDENTIALS=./functions/gcp_credentials.json firebase deploy --only firestore:rules,firestore:indexes --non-interactive --debug",
     "deploy:all": "npm run deploy:firestore && npm run deploy",
     "logs": "firebase functions:log",
+    "debug:upstash": "ts-node src/scripts/debugUpstash.ts",
     "test": "echo \"No test specified\" && exit 0"
   },
   "engines": {
@@ -71,6 +72,7 @@
     "firebase-tools": "^14.4.0",
     "globals": "^16.2.0",
     "prisma": "^6.8.2",
+    "ts-node": "^10.9.2",
     "typescript": "^5.8.2"
   },
   "license": "MIT"
