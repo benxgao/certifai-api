@@ -380,7 +380,8 @@ async function testPoolStress(): Promise<void> {
         const duration = Date.now() - startTime;
         setTimings.push(duration);
         setSuccessCount++;
-      } catch (error) {
+      } catch (_error) {
+        console.log(_error);
         setFailureCount++;
       }
     })();
@@ -433,7 +434,8 @@ async function testPoolStress(): Promise<void> {
         const duration = Date.now() - startTime;
         getTimings.push(duration);
         getSuccessCount++;
-      } catch (error) {
+      } catch (_error) {
+        console.log(_error);
         getFailureCount++;
       }
     })();
@@ -475,7 +477,8 @@ async function testPoolStress(): Promise<void> {
         const duration = Date.now() - startTime;
         mixedTimings.push(duration);
         mixedSuccessCount++;
-      } catch (error) {
+      } catch (_error) {
+        console.log(_error);
         mixedFailureCount++;
       }
     })();
@@ -503,7 +506,8 @@ async function testPoolStress(): Promise<void> {
         const duration = Date.now() - startTime;
         mixedTimings.push(duration);
         mixedSuccessCount++;
-      } catch (error) {
+      } catch (_error) {
+        console.log(_error);
         mixedFailureCount++;
       }
     })();

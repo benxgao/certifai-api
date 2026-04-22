@@ -7,6 +7,7 @@ import { validateMultipleQuestionsExamConstraint } from './questionExamConstrain
 import { BatchWriteOptimizer } from '../services/database/batchWriteOptimizer';
 import { CacheManager } from '../services/cache';
 import memoryCache from '../services/cache/memoryCache';
+import { CACHE_CONFIG } from '../services/redis';
 
 export interface QuestionAssociationOptions {
   exam_id: string;
@@ -343,10 +344,11 @@ export async function updateExamAfterQuestionAssociation(
         exam.user_id,
         `exam_status_changed_to_${examStatus}`,
       );
-      // Force clear memory cache (L1) to ensure stale generation status doesn't persist
-      memoryCache.clear();
+      // Selectively clear memory cache (L1) for this user's exams to ensure fresh status
+      const memCachePrefix = `${CACHE_CONFIG.KEYS.USER_EXAMS}:${exam.user_id}`;
+      const deletedCount = memoryCache.deleteByPattern(memCachePrefix);
       logger.info(
-        `Cache invalidated for user ${exam.user_id} after exam ${exam_id} status change to ${examStatus}`,
+        `Cache invalidated for user ${exam.user_id} after exam ${exam_id} status change to ${examStatus} (cleared ${deletedCount} memory cache entries)`,
       );
     }
 

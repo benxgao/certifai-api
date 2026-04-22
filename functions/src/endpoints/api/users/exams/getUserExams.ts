@@ -123,9 +123,6 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       }`,
     );
 
-    // Note: Previously bypassed cache for generating exams, but now we use RTDB for progress tracking
-    // This allows us to use cache for better performance while progress is tracked separately
-
     // Create cache key for user exams
     const cacheKey = RedisService.generateUserCacheKey(
       CACHE_CONFIG.KEYS.USER_EXAMS,
@@ -139,7 +136,8 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       },
     );
 
-    // Always use cache since progress is now handled via RTDB
+    // Use cache for exams - memory cache is now selectively cleared on status changes
+    // This ensures fast access while still providing fresh data when exams complete generation
     const { data: examsFromDb, total } = await CacheHierarchyService.getOrSet(
       cacheKey,
       async () => {

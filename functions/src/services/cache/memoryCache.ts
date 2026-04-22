@@ -116,6 +116,22 @@ export class MemoryCache {
   }
 
   /**
+   * Delete multiple items from memory cache by pattern
+   * Useful for selective cache invalidation without wiping entire cache
+   * @param pattern - Pattern to match (simple prefix match, e.g., "user:exams:123")
+   */
+  deleteByPattern(pattern: string): number {
+    let deletedCount = 0;
+    for (const [key] of this.cache.entries()) {
+      if (key.startsWith(pattern)) {
+        this.cache.delete(key);
+        deletedCount++;
+      }
+    }
+    return deletedCount;
+  }
+
+  /**
    * Clear all items from memory cache
    * Useful for cache invalidation or memory cleanup
    */
