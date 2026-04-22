@@ -5,14 +5,20 @@ import { getRtdbValue } from '../../../../services/firebase/rtdb';
 import prismaInstance from '../../../../services/prisma';
 
 /**
- * Get exam live status with real-time progress from RTDB
- * This endpoint provides immediate visibility into exam generation status without cache delays
- * Used during generation to show progress, bypasses Redis cache for freshness
+ * Get exam live status with real-time progress from Firestore + RTDB
+ * This endpoint provides immediate visibility into exam generation status without cache delays.
+ * Used by frontend during generation to show progress, bypasses Redis cache for freshness.
+ *
+ * Progress Calculation:
+ * - Source: exam_plans/{exam_id}/questions[] array (counts topics with question_id populated)
+ * - NOT sourced from exam_progress (deprecated, being migrated)
+ * - Updated in real-time as questions are generated
  *
  * Returns:
- * - Real-time progress percentage from RTDB exam_progress
+ * - Real-time progress percentage calculated from exam_plans structure
  * - Current exam status from database (not cached)
  * - Estimated time remaining based on progress rate
+ * - is_complete flag: true when status === 'READY'
  */
 const handler = async (req: any | CustomRequest, res: Response) => {
   try {
@@ -71,11 +77,19 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       return;
     }
 
-    // Get real-time progress from RTDB (bypasses cache)
-    const examProgressPath = `exam_progress/${exam_id}`;
-    const rtdbProgress = await getRtdbValue(examProgressPath);
+    // PROGRESS TRACKING MIGRATION (2025):
+    // Previously read from `exam_progress/${exam_id}` RTDB path.
+    // Migrated to read from `exam_plans/${exam_id}` as the single source of truth.
+    //
+    // Why: exam_plans represents the final exam structure and is more reliable.
+    // The exam_progress path was used for intermediate generation metrics and is
+    // now maintained only for backward compatibility in getUserExam.ts.
+    // TODO: Fully deprecate exam_progress after migrating getUserExam.ts to exam_plans.
+    //
+    // const examProgressPath = `exam_progress/${exam_id}`;
+    // const rtdbProgress = await getRtdbValue(examProgressPath);
 
-    // Calculate actual progress percentage from RTDB data
+    // Calculate actual progress percentage from exam_plans (current source of truth)
     let progressPercentage = 0;
     let topicsWithQuestions = 0;
     let totalTopics = 0;
@@ -86,7 +100,8 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       topicsWithQuestions = exam.total_questions || 0;
       totalTopics = exam.total_questions || 0;
     } else if (exam.exam_status === 'QUESTIONS_GENERATING') {
-      // Get progress from exam_plans (current state) + exam_progress (tracked progression)
+      // Get progress from exam_plans (current state - source of truth for progress)
+      // exam_progress RTDB path is deprecated and NOT read here (migration in progress)
       const examPlanPath = `exam_plans/${exam_id}`;
       const examPlan = await getRtdbValue(examPlanPath);
 

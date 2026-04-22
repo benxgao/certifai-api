@@ -112,12 +112,15 @@ const handler = async (req: any | CustomRequest, res: Response) => {
     };
 
     // Get real-time generation progress if exam is currently generating
+    // TODO: Migrate to read from exam_plans instead of exam_progress (deprecated)
     let generationProgress = null;
     if (examFromDb.exam_status === 'QUESTIONS_GENERATING') {
       try {
         generationProgress = await getExamGenerationProgress(
           examFromDb.exam_id,
         );
+        // DEPRECATED: getExamGenerationProgress reads from exam_progress RTDB path.
+        // Should be refactored to calculate from exam_plans instead.
       } catch (progressError) {
         logger.warn(
           `Failed to get generation progress for exam ${examFromDb.exam_id}:`,

@@ -295,9 +295,27 @@ export async function calculateAndLogExamGenerationTime(
 }
 
 /**
+ * MIGRATION NOTE: exam_progress Path (2024-2025)
+ *
+ * This function updates exam_progress/{exam_id} in RTDB.
+ *
+ * Status: DEPRECATED but still written for backward compatibility
+ * Still Used By: getUserExam.ts (for additional generation metrics)
+ * NOT Used By: getExamLiveStatus.ts (migrated to exam_plans)
+ *
+ * TODO: Full Migration
+ * - [ ] Migrate getUserExam.ts to calculate progress from exam_plans instead of exam_progress
+ * - [ ] Remove updates to exam_progress path here
+ * - [ ] Clean up stale exam_progress data from RTDB
+ *
+ * Timeline: Maintain both paths until all consumers migrated to exam_plans.
+ */
+
+/**
  * Updates exam generation progress in RTDB for real-time tracking
  * @param exam_id - The exam identifier
  * @param progressInfo - Progress information to update
+ * @deprecated Use exam_plans instead. See MIGRATION NOTE above.
  */
 export async function updateExamGenerationProgress(
   exam_id: string,
@@ -311,6 +329,8 @@ export async function updateExamGenerationProgress(
   },
 ): Promise<void> {
   try {
+    // DEPRECATED: Writing to exam_progress for backward compatibility only.
+    // Prefer reading from exam_plans. See migration note above.
     const progressPath = `exam_progress/${exam_id}`;
 
     // Calculate completion percentage if not provided
