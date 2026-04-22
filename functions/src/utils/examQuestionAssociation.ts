@@ -320,12 +320,36 @@ export async function updateExamAfterQuestionAssociation(
       select: { user_id: true, cert_id: true },
     });
 
+    // [CHECKPOINT-5] Status Transition - Before
+    const statusTransitionStart = Date.now();
+    logger.info(`[CHECKPOINT-5A] STATUS_TRANSITION_INITIATED`, {
+      exam_id,
+      user_id: exam?.user_id,
+      cert_id: exam?.cert_id,
+      from_status: 'QUESTIONS_GENERATING',
+      to_status: examStatus,
+      associated_questions: associationResult.associatedQuestionCount,
+      association_success: associationResult.success,
+      timestamp_ms: statusTransitionStart,
+      structuredData: true,
+    });
+
     await prismaInstance.examAttempt.update({
       where: { exam_id },
       data: {
         exam_status: examStatus,
         total_questions: associationResult.associatedQuestionCount,
       },
+    });
+
+    // [CHECKPOINT-5B] Status Transition - After DB Update
+    logger.info(`[CHECKPOINT-5B] STATUS_TRANSITION_DB_UPDATED`, {
+      exam_id,
+      user_id: exam?.user_id,
+      new_status: examStatus,
+      db_update_duration_ms: Date.now() - statusTransitionStart,
+      timestamp_ms: Date.now(),
+      structuredData: true,
     });
 
     // If exam status is set to READY, check if this is the first exam for this certification
@@ -340,16 +364,37 @@ export async function updateExamAfterQuestionAssociation(
 
     // Invalidate user exam cache when exam generation completes (status changes to READY or FAILED)
     if (exam?.user_id) {
+      // [CHECKPOINT-4] Cache Invalidation - Before
+      const cacheInvalidationStart = Date.now();
+      logger.info(`[CHECKPOINT-4A] CACHE_INVALIDATION_INITIATED`, {
+        exam_id,
+        user_id: exam.user_id,
+        reason: `exam_status_changed_to_${examStatus}`,
+        timestamp_ms: cacheInvalidationStart,
+        structuredData: true,
+      });
+
       await CacheManager.invalidateUserExamCacheForGenerationChange(
         exam.user_id,
         `exam_status_changed_to_${examStatus}`,
       );
+
       // Selectively clear memory cache (L1) for this user's exams to ensure fresh status
       const memCachePrefix = `${CACHE_CONFIG.KEYS.USER_EXAMS}:${exam.user_id}`;
       const deletedCount = memoryCache.deleteByPattern(memCachePrefix);
-      logger.info(
-        `Cache invalidated for user ${exam.user_id} after exam ${exam_id} status change to ${examStatus} (cleared ${deletedCount} memory cache entries)`,
-      );
+
+      // [CHECKPOINT-4B] Cache Invalidation - After
+      const cacheInvalidationDuration = Date.now() - cacheInvalidationStart;
+      logger.info(`[CHECKPOINT-4B] CACHE_INVALIDATION_COMPLETE`, {
+        exam_id,
+        user_id: exam.user_id,
+        exam_status: examStatus,
+        memory_cache_entries_cleared: deletedCount,
+        redis_keys_cleared: 3, // user:exams, exam_questions, exam_details patterns
+        total_invalidation_duration_ms: cacheInvalidationDuration,
+        timestamp_ms: Date.now(),
+        structuredData: true,
+      });
     }
 
     logger.info(

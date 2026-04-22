@@ -199,6 +199,21 @@ export const handleExamCompletionOrNextBatch = async (
       status: 'READY',
     });
 
+    // [CHECKPOINT-6] Exam Completion
+    logger.info(`[CHECKPOINT-6] EXAM_COMPLETED`, {
+      exam_id,
+      user_id: exam.user_id,
+      final_status: 'READY',
+      total_questions_generated: actualQuestionsGenerated,
+      total_questions_associated: associationResult.associatedQuestionCount,
+      total_batches,
+      completion_reason: completionReason,
+      generation_duration_ms: totalGenerationTime,
+      rtdb_cleanup_complete: true,
+      timestamp_ms: Date.now(),
+      structuredData: true,
+    });
+
     logger.info(`EXAM_TRACK - 23. EXAM_READY:
       exam_id=${exam_id}
       status=DONE DONE DONE

@@ -12,7 +12,7 @@ export const verifyFirebaseToken = async (
   const authHeader = req.headers['authorization'];
   const token: string = authHeader && authHeader.split(' ')[1];
 
-  logger.info(`verifyFirebaseToken: token received: ${token}`);
+  // logger.info(`jwt_token received: ${token}`);
 
   if (!token) {
     res.status(401).json({
@@ -27,9 +27,9 @@ export const verifyFirebaseToken = async (
       .auth()
       .verifyIdToken(token);
 
-    logger.info(
-      `verifyFirebaseToken: decoded JWT: ${JSON.stringify(decodedToken)}`,
-    );
+    // logger.info(
+    //   `verifyFirebaseToken: decoded JWT: ${JSON.stringify(decodedToken)}`,
+    // );
 
     if (decodedToken.exp < Date.now() / 1000) {
       logger.info('verifyFirebaseToken: token expired');

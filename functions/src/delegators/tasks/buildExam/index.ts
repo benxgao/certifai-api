@@ -98,6 +98,17 @@ const handler = async (req: any | CustomRequest, res: Response) => {
 
     // Skip processing if no topics to generate questions for (valid scenario - all topics already have questions)
     if (questions_to_generate === 0) {
+      // [CHECKPOINT-2] Batch Processing - All Topics Already Have Questions
+      logger.info(`[CHECKPOINT-2] BATCH_START_SKIPPED_ALL_TOPICS_PROCESSED`, {
+        exam_id,
+        batch_number,
+        total_batches,
+        reason: 'all_topics_already_have_questions',
+        topics_with_questions: examTopicList.filter((t) => t.question_id !== null).length,
+        topics_without_questions: 0,
+        timestamp_ms: Date.now(),
+        structuredData: true,
+      });
       // Enhanced logging to help debug why all topics are assigned
       const topicsDebugInfo = examTopicList.map((topic, index) => ({
         index,
@@ -143,12 +154,34 @@ const handler = async (req: any | CustomRequest, res: Response) => {
     const exam = await validateExamState(exam_id);
 
     try {
+      // [CHECKPOINT-2] Batch Processing - Start
+      const batchStartTime = Date.now();
+      logger.info(`[CHECKPOINT-2] BATCH_START`, {
+        exam_id,
+        batch_number,
+        total_batches,
+        topics_to_process: questions_to_generate,
+        topic_names: topicNamesForGeneration.slice(0, 5), // First 5 for brevity
+        timestamp_ms: batchStartTime,
+        structuredData: true,
+      });
+
       // Generate questions using AI service
       const generatedQuestions = await generateQuestionsWithAI(
         payload,
         topicNamesForGeneration,
         questions_to_generate,
       );
+
+      // [CHECKPOINT-3] Questions Generated
+      logger.info(`[CHECKPOINT-3] BATCH_QUESTIONS_GENERATED`, {
+        exam_id,
+        batch_number,
+        total_questions_generated: generatedQuestions.length,
+        generation_duration_ms: Date.now() - batchStartTime,
+        timestamp_ms: Date.now(),
+        structuredData: true,
+      });
 
       // Validate generated questions
       const { validQuestionResults, invalidQuestionResults, validQuestions } =
@@ -298,6 +331,20 @@ const handler = async (req: any | CustomRequest, res: Response) => {
           'exam_generation_failed',
         );
       }
+
+      // [CHECKPOINT-7A] Generation Failed
+      logger.info(`[CHECKPOINT-7A] BATCH_FAILED`, {
+        exam_id,
+        user_id: examForFailure?.user_id,
+        batch_number,
+        total_batches: payload.total_batches,
+        final_status: 'QUESTION_GENERATION_FAILED',
+        error_reason: 'question_generation_error',
+        error_message: generationError instanceof Error ? generationError.message : 'Unknown error',
+        cache_invalidated: true,
+        timestamp_ms: Date.now(),
+        structuredData: true,
+      });
 
       // Log exam failure
       ExamGenerationLogger.logExamFailure({
