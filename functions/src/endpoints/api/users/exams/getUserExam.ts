@@ -2,7 +2,8 @@ import { Response } from 'express';
 import logger from '../../../../services/firebase/logger';
 import { CustomRequest } from '../../../../types';
 import prismaInstance from '../../../../services/prisma';
-import { getExamGenerationProgress } from '../../../../delegators/tasks/buildExam/rtdb';
+import { calculateExamProgressFromPlan } from '../../../../delegators/tasks/buildExam/rtdb';
+import { getRtdbValue } from '../../../../services/firebase/rtdb';
 
 const handler = async (req: any | CustomRequest, res: Response) => {
   try {
@@ -111,16 +112,18 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       },
     };
 
-    // Get real-time generation progress if exam is currently generating
-    // TODO: Migrate to read from exam_plans instead of exam_progress (deprecated)
+    // PHASE 3 (COMPLETED): Get real-time generation progress from exam_plans (migrated from exam_progress)
+    // Now reads from exam_plans/{exam_id} as the single source of truth for progress calculation
     let generationProgress = null;
     if (examFromDb.exam_status === 'QUESTIONS_GENERATING') {
       try {
-        generationProgress = await getExamGenerationProgress(
+        const examPlanPath = `exam_plans/${examFromDb.exam_id}`;
+        const examPlan = await getRtdbValue(examPlanPath);
+        generationProgress = await calculateExamProgressFromPlan(
           examFromDb.exam_id,
+          examPlan,
+          examFromDb.total_questions,
         );
-        // DEPRECATED: getExamGenerationProgress reads from exam_progress RTDB path.
-        // Should be refactored to calculate from exam_plans instead.
       } catch (progressError) {
         logger.warn(
           `Failed to get generation progress for exam ${examFromDb.exam_id}:`,

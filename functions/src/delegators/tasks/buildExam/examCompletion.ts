@@ -12,7 +12,7 @@ import { TaskPayload, logQuestionTopicAssociationSummary } from './helper';
 import {
   checkExamProcessingTimeout,
   calculateAndLogExamGenerationTime,
-  updateExamGenerationProgress,
+  // updateExamGenerationProgress, // PHASE 4: No longer used (deprecated exam_progress)
 } from './rtdb';
 import { validateExamQueueReadiness } from '../../../utils/examQueueManager';
 import {
@@ -597,27 +597,30 @@ export const handleExamCompletionOrNextBatch = async (
     }
   }
 
-  // Update real-time progress tracking in RTDB for frontend
-  try {
-    const progressInfo = {
-      current_batch: batch_number,
-      total_batches: shouldCompleteExam
-        ? batch_number
-        : adjustedTotalBatches || total_batches,
-      questions_generated: actualQuestionsGenerated,
-      target_questions: exam.total_questions || undefined,
-      completion_percentage: shouldCompleteExam ? 100 : undefined,
-      last_updated: Math.floor(Date.now() / 1000),
-    };
-
-    await updateExamGenerationProgress(exam_id, progressInfo);
-  } catch (progressError) {
-    logger.warn(
-      `Failed to update progress for exam ${exam_id}:`,
-      progressError as any,
-    );
-    // Don't fail the request if progress update fails
-  }
+  // PHASE 4 (COMPLETED): Stop writing to deprecated exam_progress RTDB path
+  // Progress is now calculated real-time from exam_plans by getUserExam.ts
+  // exam_progress RTDB path is deprecated as of 2026-04-22
+  // The following code block is intentionally disabled - metrics are now derived from exam_plans
+  // try {
+  //   const progressInfo = {
+  //     current_batch: batch_number,
+  //     total_batches: shouldCompleteExam
+  //       ? batch_number
+  //       : adjustedTotalBatches || total_batches,
+  //     questions_generated: actualQuestionsGenerated,
+  //     target_questions: exam.total_questions || undefined,
+  //     completion_percentage: shouldCompleteExam ? 100 : undefined,
+  //     last_updated: Math.floor(Date.now() / 1000),
+  //   };
+  //
+  //   await updateExamGenerationProgress(exam_id, progressInfo);
+  // } catch (progressError) {
+  //   logger.warn(
+  //     `Failed to update progress for exam ${exam_id}:`,
+  //     progressError as any,
+  //   );
+  //   // Don't fail the request if progress update fails
+  // }
 
   res.status(200).json({
     success: true,

@@ -295,27 +295,11 @@ export async function calculateAndLogExamGenerationTime(
 }
 
 /**
- * MIGRATION NOTE: exam_progress Path (2024-2025)
- *
- * This function updates exam_progress/{exam_id} in RTDB.
- *
- * Status: DEPRECATED but still written for backward compatibility
- * Still Used By: getUserExam.ts (for additional generation metrics)
- * NOT Used By: getExamLiveStatus.ts (migrated to exam_plans)
- *
- * TODO: Full Migration
- * - [ ] Migrate getUserExam.ts to calculate progress from exam_plans instead of exam_progress
- * - [ ] Remove updates to exam_progress path here
- * - [ ] Clean up stale exam_progress data from RTDB
- *
- * Timeline: Maintain both paths until all consumers migrated to exam_plans.
- */
-
-/**
- * Updates exam generation progress in RTDB for real-time tracking
+ * PHASE 5 (DEPRECATION): Updates exam generation progress in deprecated exam_progress RTDB path
  * @param exam_id - The exam identifier
  * @param progressInfo - Progress information to update
- * @deprecated Use exam_plans instead. See MIGRATION NOTE above.
+ * @deprecated No longer called as of 2025-04-22. Kept for rollback capability.
+ * exam_progress is no longer written. Use exam_plans instead (PHASE 2 migration complete).
  */
 export async function updateExamGenerationProgress(
   exam_id: string,
@@ -367,9 +351,11 @@ export async function updateExamGenerationProgress(
 }
 
 /**
- * Gets exam generation progress from RTDB
+ * PHASE 5 (DEPRECATION): Gets exam generation progress from deprecated exam_progress RTDB path
  * @param exam_id - The exam identifier
  * @returns Progress information or null if not found
+ * @deprecated Use calculateExamProgressFromPlan instead. Reads from deprecated exam_progress path.
+ * Will be removed after full migration to exam_plans.
  */
 export async function getExamGenerationProgress(exam_id: string): Promise<{
   current_batch: number;
@@ -386,6 +372,74 @@ export async function getExamGenerationProgress(exam_id: string): Promise<{
     return progressData || null;
   } catch (error) {
     logger.error(`Failed to get exam progress for ${exam_id}:`, error as any);
+    return null;
+  }
+}
+
+/**
+ * PHASE 2: Calculates exam generation progress from exam_plans (current source of truth)
+ * Replaces the deprecated getExamGenerationProgress which reads from exam_progress.
+ *
+ * @param exam_id - The exam identifier
+ * @param examPlan - The exam_plans structure from RTDB: { questions: [...], created_at?: number }
+ * @param totalQuestions - Total questions target from Firestore examAttempt.total_questions
+ * @returns Progress object matching the structure used by frontend, or null if exam_plan invalid
+ *
+ * @example
+ * const examPlan = await getRtdbValue(`exam_plans/${exam_id}`);
+ * const progress = await calculateExamProgressFromPlan(exam_id, examPlan, exam.total_questions);
+ * // Returns: { current_batch: 3, total_batches: 10, questions_generated: 3, completion_percentage: 30, ... }
+ */
+export async function calculateExamProgressFromPlan(
+  exam_id: string,
+  examPlan: any,
+  totalQuestions: number | null,
+): Promise<{
+  current_batch: number;
+  total_batches: number;
+  questions_generated: number;
+  target_questions?: number;
+  completion_percentage: number;
+  updated_at: number;
+} | null> {
+  try {
+    if (!examPlan || !examPlan.questions || !Array.isArray(examPlan.questions)) {
+      return null;
+    }
+
+    const total_batches = examPlan.questions.length;
+    const questions_generated = examPlan.questions.filter(
+      (q: any) => q.question_id !== null && q.question_id !== undefined,
+    ).length;
+
+    // Estimate current_batch as the next batch being processed
+    // (one past the last generated)
+    const current_batch = Math.min(questions_generated + 1, total_batches);
+
+    const completion_percentage =
+      total_batches > 0 ? Math.round((questions_generated / total_batches) * 100) : 0;
+
+    const progress = {
+      current_batch,
+      total_batches,
+      questions_generated,
+      completion_percentage,
+      updated_at: Math.floor(Date.now() / 1000),
+      ...(totalQuestions && { target_questions: totalQuestions }),
+    };
+
+    logger.info(`Calculated progress from exam_plans for ${exam_id}`, {
+      exam_id,
+      progress,
+      structuredData: true,
+    });
+
+    return progress;
+  } catch (error) {
+    logger.error(
+      `Failed to calculate exam progress from exam_plans for ${exam_id}:`,
+      error as any,
+    );
     return null;
   }
 }
