@@ -125,9 +125,19 @@ const handler = async (req: any | CustomRequest, res: Response) => {
           examFromDb.total_questions,
         );
       } catch (progressError) {
+        // Enhanced error logging for progress fetch failures
         logger.warn(
-          `Failed to get generation progress for exam ${examFromDb.exam_id}:`,
-          progressError as any,
+          `Failed to get generation progress for exam ${examFromDb.exam_id}`,
+          {
+            exam_id: examFromDb.exam_id,
+            exam_status: examFromDb.exam_status,
+            error_message: progressError instanceof Error ? progressError.message : String(progressError),
+            error_type: progressError instanceof Error ? progressError.constructor.name : typeof progressError,
+            error_stack: progressError instanceof Error ? progressError.stack : undefined,
+            user_id: user_id,
+            severity: 'warning', // Non-critical: exam still returns without progress data
+            structuredData: true,
+          },
         );
       }
     }

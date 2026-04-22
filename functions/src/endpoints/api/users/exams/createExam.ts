@@ -336,10 +336,9 @@ const handler = async (
             exam_id: newExam.exam_id,
             user_id: user.user_id,
             cert_id: certIdNumber,
-            error:
-              reportFetchError instanceof Error
-                ? reportFetchError.message
-                : 'Unknown error',
+            error_message: reportFetchError instanceof Error ? reportFetchError.message : String(reportFetchError),
+            error_type: reportFetchError instanceof Error ? reportFetchError.constructor.name : typeof reportFetchError,
+            error_stack: reportFetchError instanceof Error ? reportFetchError.stack : undefined,
             storage: 'firestore',
             structuredData: true,
           },
@@ -445,7 +444,10 @@ const handler = async (
           `EXAM_PLAN_VERIFICATION_ERROR: Failed to verify exam plan before batch creation`,
           {
             exam_id: newExam.exam_id,
-            error: verificationError,
+            error_message: verificationError instanceof Error ? verificationError.message : String(verificationError),
+            error_type: verificationError instanceof Error ? verificationError.constructor.name : typeof verificationError,
+            error_stack: verificationError instanceof Error ? verificationError.stack : undefined,
+            verification_path: `exam_plans/${newExam.exam_id}`,
             structuredData: true,
           },
         );
@@ -709,13 +711,30 @@ const handler = async (
   } catch (error) {
     // Log timing for general errors
     timingAudit.total_operation = Date.now() - operationStart;
-    logger.error('AUDIT_OPERATION_TIMING_ERROR', {
+
+    // Enhanced error logging with full context for debugging 500 errors
+    const errorContext = {
       operation: 'createExam_general_error',
       timing_breakdown: timingAudit,
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error_message: error instanceof Error ? error.message : String(error),
+      error_type: error instanceof Error ? error.constructor.name : typeof error,
+      error_stack: error instanceof Error ? error.stack : undefined,
+      user_id: (req.params?.user_id || 'unknown'),
+      cert_id: (req.params?.cert_id || 'unknown'),
+      num_questions: (req.body?.numberOfQuestions || 'unknown'),
+      structuredData: true,
+    };
+
+    logger.error('AUDIT_OPERATION_TIMING_ERROR', errorContext);
+    logger.error('EXAM_CREATION_FAILED_WITH_500', {
+      ...errorContext,
+      full_error: error instanceof Error ? {
+        message: error.message,
+        name: error.name,
+        stack: error.stack
+      } : error,
     });
 
-    logger.error('Error in createExamAndQueueQuestions handler:', error as any);
     if (
       error instanceof Error &&
       error.message.includes('Foreign key constraint failed')
@@ -724,11 +743,26 @@ const handler = async (
         success: false,
         error: 'Invalid user_id or cert_id provided.',
       });
+    } else if (
+      error instanceof Error &&
+      error.message.includes('Queue setup failed')
+    ) {
+      res.status(503).json({
+        success: false,
+        error: 'Service temporarily unavailable. Queue setup failed.',
+      });
+    } else if (
+      error instanceof Error &&
+      error.message.includes('verification failed')
+    ) {
+      res.status(500).json({
+        success: false,
+        error: 'Exam plan verification failed. Please retry.',
+      });
     } else {
       res.status(500).json({
         success: false,
-        error:
-          error instanceof Error ? error.message : 'Unknown error occurred',
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
       });
     }
   }

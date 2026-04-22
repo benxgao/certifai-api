@@ -15,6 +15,29 @@ import logger from './logger';
  */
 
 /**
+ * Wraps a promise with a timeout, rejecting if it takes longer than specified milliseconds
+ * @param promise - The promise to wrap
+ * @param timeoutMs - Timeout in milliseconds
+ * @param label - Optional label for error messages
+ * @returns Promise that rejects with TimeoutError if timeout exceeded
+ */
+export function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  label: string = 'Operation'
+): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(
+        () => reject(new Error(`${label} exceeded timeout of ${timeoutMs}ms`)),
+        timeoutMs
+      )
+    ),
+  ]);
+}
+
+/**
  * Get data from Firebase Realtime Database
  * @param path - The database path to read from (e.g., 'users/123' or 'config/settings')
  * @returns Promise resolving to the data at the specified path, or null if not found

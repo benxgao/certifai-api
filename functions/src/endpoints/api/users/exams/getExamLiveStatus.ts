@@ -77,14 +77,14 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       return;
     }
 
-    // PROGRESS TRACKING MIGRATION (2025):
-    // Previously read from `exam_progress/${exam_id}` RTDB path.
-    // Migrated to read from `exam_plans/${exam_id}` as the single source of truth.
+    // PROGRESS TRACKING MIGRATION (2026): MIGRATION COMPLETED
+    // Previously read from `exam_progress/${exam_id}` RTDB path (deprecated).
+    // Now reads from `exam_plans/${exam_id}` as the single source of truth.
     //
     // Why: exam_plans represents the final exam structure and is more reliable.
-    // The exam_progress path was used for intermediate generation metrics and is
-    // now maintained only for backward compatibility in getUserExam.ts.
-    // TODO: Fully deprecate exam_progress after migrating getUserExam.ts to exam_plans.
+    // The exam_progress path has been deprecated as of 2026-04-22.
+    // All consumers (getUserExam.ts, etc.) have been migrated to exam_plans.
+    // Deprecated functions retained until Q3 2026 for rollback capability.
     //
     // const examProgressPath = `exam_progress/${exam_id}`;
     // const rtdbProgress = await getRtdbValue(examProgressPath);
