@@ -1,0 +1,171 @@
+import { Response } from 'express';
+import logger from '../../../../services/firebase/logger';
+import { CustomRequest } from '../../../../types';
+import { getRtdbValue } from '../../../../services/firebase/rtdb';
+import prismaInstance from '../../../../services/prisma';
+
+/**
+ * Get exam live status with real-time progress from RTDB
+ * This endpoint provides immediate visibility into exam generation status without cache delays
+ * Used during generation to show progress, bypasses Redis cache for freshness
+ *
+ * Returns:
+ * - Real-time progress percentage from RTDB exam_progress
+ * - Current exam status from database (not cached)
+ * - Estimated time remaining based on progress rate
+ */
+const handler = async (req: any | CustomRequest, res: Response) => {
+  try {
+    const { user_id, exam_id } = req.params;
+
+    if (!user_id) {
+      res.status(400).json({
+        success: false,
+        error: 'User ID is required.',
+      });
+      return;
+    }
+
+    if (!exam_id) {
+      res.status(400).json({
+        success: false,
+        error: 'Exam ID is required.',
+      });
+      return;
+    }
+
+    // [LIVE-STATUS] Log checkpoint
+    const queryStart = Date.now();
+    logger.info(`[LIVE-STATUS] QUERY_INITIATED`, {
+      exam_id,
+      user_id,
+      timestamp_ms: queryStart,
+      structuredData: true,
+    });
+
+    // Query exam status directly from database (not cached) for freshness
+    const exam = await prismaInstance.examAttempt.findUnique({
+      where: { exam_id },
+      select: {
+        exam_status: true,
+        user_id: true,
+        total_questions: true,
+        started_at: true,
+      },
+    });
+
+    if (!exam) {
+      res.status(404).json({
+        success: false,
+        error: 'Exam not found.',
+      });
+      return;
+    }
+
+    // Verify user owns this exam
+    if (exam.user_id !== user_id) {
+      res.status(403).json({
+        success: false,
+        error: 'Access denied.',
+      });
+      return;
+    }
+
+    // Get real-time progress from RTDB (bypasses cache)
+    const examProgressPath = `exam_progress/${exam_id}`;
+    const rtdbProgress = await getRtdbValue(examProgressPath);
+
+    // Calculate actual progress percentage from RTDB data
+    let progressPercentage = 0;
+    let topicsWithQuestions = 0;
+    let totalTopics = 0;
+
+    if (exam.exam_status === 'READY') {
+      // Exam is complete
+      progressPercentage = 100;
+      topicsWithQuestions = exam.total_questions || 0;
+      totalTopics = exam.total_questions || 0;
+    } else if (exam.exam_status === 'QUESTIONS_GENERATING') {
+      // Get progress from exam_plans (current state) + exam_progress (tracked progression)
+      const examPlanPath = `exam_plans/${exam_id}`;
+      const examPlan = await getRtdbValue(examPlanPath);
+
+      if (
+        examPlan &&
+        examPlan.questions &&
+        Array.isArray(examPlan.questions)
+      ) {
+        totalTopics = examPlan.questions.length;
+        topicsWithQuestions = examPlan.questions.filter(
+          (topic: any) =>
+            topic.question_id !== null && topic.question_id !== undefined,
+        ).length;
+
+        progressPercentage =
+          totalTopics > 0
+            ? Math.round((topicsWithQuestions / totalTopics) * 100)
+            : 0;
+      }
+    }
+
+    // Calculate estimated time remaining based on progress rate
+    let estimatedSecondsRemaining = 0;
+    if (
+      exam.exam_status === 'QUESTIONS_GENERATING' &&
+      progressPercentage > 0 &&
+      progressPercentage < 100 &&
+      exam.started_at
+    ) {
+      const elapsedMs = Date.now() - new Date(exam.started_at).getTime();
+      const elapsedSeconds = elapsedMs / 1000;
+      const progressRate = progressPercentage / elapsedSeconds;
+      const remainingPercent = 100 - progressPercentage;
+      estimatedSecondsRemaining = Math.round(remainingPercent / progressRate);
+    }
+
+    // [LIVE-STATUS] Query complete
+    const queryDurationMs = Date.now() - queryStart;
+    logger.info(`[LIVE-STATUS] QUERY_COMPLETE`, {
+      exam_id,
+      user_id,
+      exam_status: exam.exam_status,
+      progress_percentage: progressPercentage,
+      topics_with_questions: topicsWithQuestions,
+      total_topics: totalTopics,
+      query_duration_ms: queryDurationMs,
+      timestamp_ms: Date.now(),
+      structuredData: true,
+    });
+
+    // Return live status data
+    res.status(200).json({
+      success: true,
+      data: {
+        exam_id,
+        exam_status: exam.exam_status,
+        progress_percentage: progressPercentage,
+        topics_with_questions: topicsWithQuestions,
+        total_topics: totalTopics,
+        total_questions: exam.total_questions,
+        estimated_seconds_remaining:
+          estimatedSecondsRemaining > 0 ? estimatedSecondsRemaining : 0,
+        is_complete: exam.exam_status === 'READY',
+        query_duration_ms: queryDurationMs,
+        timestamp_ms: Date.now(),
+      },
+    });
+  } catch (error) {
+    logger.error(`Error fetching exam live status for exam:`, {
+      error: error instanceof Error ? error.message : String(error),
+      exam_id: req.params.exam_id,
+      user_id: req.params.user_id,
+    });
+
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch exam live status.',
+    });
+  }
+};
+
+export default handler;

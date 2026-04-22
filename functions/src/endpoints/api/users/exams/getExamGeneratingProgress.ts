@@ -5,9 +5,16 @@ import { getRtdbValue } from '../../../../services/firebase/rtdb';
 import prismaInstance from '../../../../services/prisma';
 
 /**
+ * DEPRECATED: Use `/api/users/{user_id}/exams/{exam_id}/live-status` instead
+ *
+ * This endpoint is deprecated as of 2026-04-22.
+ * Migrate to getExamLiveStatus.ts which provides real-time status without Redis cache.
+ *
  * Get exam generation progress by counting topics with question_id in RTDB
  * This provides a simple, accurate way to track progress percentage
  * Works for exams in QUESTIONS_GENERATING state, and returns completed progress for READY exams
+ *
+ * @deprecated Use /api/users/{user_id}/exams/{exam_id}/live-status instead
  */
 const handler = async (req: any | CustomRequest, res: Response) => {
   try {

@@ -1,4 +1,5 @@
-import { RedisService } from '../redis';
+import { RedisService, CACHE_CONFIG } from '../redis';
+import memoryCache from './memoryCache';
 import logger from '../firebase/logger';
 
 /**
@@ -28,6 +29,7 @@ export class CacheManager {
    */
   static async invalidateUserExamCache(userId: string): Promise<void> {
     try {
+      const startTime = Date.now();
       logger.info(`Invalidating user exam cache for user ${userId}`);
 
       // Invalidate all exam-related cache entries for this user
@@ -35,7 +37,17 @@ export class CacheManager {
       await RedisService.invalidateUserCache(userId, 'exam_questions');
       await RedisService.invalidateUserCache(userId, 'exam_details');
 
-      logger.info('User exam cache invalidation completed');
+      // Also clear memory cache (L1) for this user's exam keys
+      const memCachePrefix = `${CACHE_CONFIG.KEYS.USER_EXAMS}:${userId}`;
+      const memoryEntriesCleared = memoryCache.deleteByPattern(memCachePrefix);
+
+      const duration = Date.now() - startTime;
+      logger.info(`User exam cache invalidation completed`, {
+        user_id: userId,
+        memory_cache_entries_cleared: memoryEntriesCleared,
+        duration_ms: duration,
+        structuredData: true,
+      });
     } catch (error) {
       logger.error(`Error invalidating user exam cache: ${error}`);
       // Don't throw - cache invalidation failures shouldn't break business logic
@@ -62,6 +74,7 @@ export class CacheManager {
     reason: string,
   ): Promise<void> {
     try {
+      const startTime = Date.now();
       logger.info(
         `Invalidating user exam cache for generation status change: user ${userId}, reason: ${reason}`,
       );
@@ -69,8 +82,20 @@ export class CacheManager {
       // Invalidate exam cache to ensure fresh data
       await RedisService.invalidateUserCache(userId, 'exams');
 
+      // Also clear memory cache (L1) for this user's exam keys
+      const memCachePrefix = `${CACHE_CONFIG.KEYS.USER_EXAMS}:${userId}`;
+      const memoryEntriesCleared = memoryCache.deleteByPattern(memCachePrefix);
+
+      const duration = Date.now() - startTime;
       logger.info(
-        'User exam cache invalidation completed for generation change',
+        `User exam cache invalidation completed for generation change`,
+        {
+          user_id: userId,
+          reason,
+          memory_cache_entries_cleared: memoryEntriesCleared,
+          duration_ms: duration,
+          structuredData: true,
+        },
       );
     } catch (error) {
       logger.error(

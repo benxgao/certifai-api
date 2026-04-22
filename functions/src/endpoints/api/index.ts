@@ -12,6 +12,7 @@ import { generateServiceToken } from './auth/generateServiceToken';
 import getUserExams from './users/exams/getUserExams';
 import getUserExam from './users/exams/getUserExam';
 import getExamGeneratingProgress from './users/exams/getExamGeneratingProgress';
+import getExamLiveStatus from './users/exams/getExamLiveStatus';
 import publicRoutes from './public';
 
 import registerCert from './users/certifications/register';
@@ -168,6 +169,14 @@ router.get(
   verifyFirebaseToken,
   verifyUserAccess,
   getExamGeneratingProgress,
+);
+
+// Get exam live status with real-time progress (bypasses cache)
+router.get(
+  '/users/:user_id/exams/:exam_id/live-status',
+  verifyFirebaseToken,
+  verifyUserAccess,
+  getExamLiveStatus,
 );
 
 // Answer a specific question in a user exam
