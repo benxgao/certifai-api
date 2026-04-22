@@ -1,7 +1,7 @@
 import { Response } from 'express';
 import logger from '../../../../services/firebase/logger';
 import { CustomRequest } from '../../../../types';
-import { getRtdbValue } from '../../../../services/firebase/rtdb';
+import { getRtdbValueWithTimeout } from '../../../../services/firebase/rtdb';
 import prismaInstance from '../../../../services/prisma';
 
 /**
@@ -103,23 +103,49 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       // Get progress from exam_plans (current state - source of truth for progress)
       // exam_progress RTDB path is deprecated and NOT read here (migration in progress)
       const examPlanPath = `exam_plans/${exam_id}`;
-      const examPlan = await getRtdbValue(examPlanPath);
+      
+      try {
+        const examPlan = await getRtdbValueWithTimeout(examPlanPath, 5000);
 
-      if (
-        examPlan &&
-        examPlan.questions &&
-        Array.isArray(examPlan.questions)
-      ) {
-        totalTopics = examPlan.questions.length;
-        topicsWithQuestions = examPlan.questions.filter(
-          (topic: any) =>
-            topic.question_id !== null && topic.question_id !== undefined,
-        ).length;
+        if (
+          examPlan &&
+          examPlan.questions &&
+          Array.isArray(examPlan.questions)
+        ) {
+          totalTopics = examPlan.questions.length;
+          topicsWithQuestions = examPlan.questions.filter(
+            (topic: any) =>
+              topic.question_id !== null && topic.question_id !== undefined,
+          ).length;
 
-        progressPercentage =
-          totalTopics > 0
-            ? Math.round((topicsWithQuestions / totalTopics) * 100)
-            : 0;
+          progressPercentage =
+            totalTopics > 0
+              ? Math.round((topicsWithQuestions / totalTopics) * 100)
+              : 0;
+        } else {
+          // Fallback: exam_plans not yet available during initial generation phase
+          // Use conservative estimate of 10% to indicate generation has started
+          progressPercentage = 10;
+          totalTopics = exam.total_questions || 0;
+          topicsWithQuestions = Math.max(1, Math.round((exam.total_questions || 0) * 0.1));
+          
+          logger.warn('Fallback progress calculation: exam_plans missing during QUESTIONS_GENERATING', {
+            exam_id,
+            total_questions: exam.total_questions,
+            fallback_progress: progressPercentage,
+          });
+        }
+      } catch (error) {
+        // If exam_plans fetch fails (timeout or error), use conservative fallback
+        progressPercentage = 10;
+        totalTopics = exam.total_questions || 0;
+        topicsWithQuestions = Math.max(1, Math.round((exam.total_questions || 0) * 0.1));
+        
+        logger.warn('Exam plans fetch error, using fallback calculation', {
+          exam_id,
+          error: error instanceof Error ? error.message : 'Unknown error',
+          fallback_progress: progressPercentage,
+        });
       }
     }
 

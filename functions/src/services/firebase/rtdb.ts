@@ -64,6 +64,33 @@ export async function getRtdbValue(path: string): Promise<any> {
 }
 
 /**
+ * Get data from Firebase Realtime Database with timeout protection
+ * Prevents indefinite hangs if Firebase DB becomes unresponsive
+ * @param path - The database path to read from
+ * @param timeoutMs - Timeout in milliseconds (default: 5000ms)
+ * @returns Promise resolving to the data at the specified path, or null if not found
+ * @throws Error if timeout exceeded or database error occurs
+ */
+export async function getRtdbValueWithTimeout(path: string, timeoutMs: number = 5000): Promise<any> {
+  try {
+    const data = await withTimeout(
+      getRtdbValue(path),
+      timeoutMs,
+      `RTDB read from ${path}`
+    );
+
+    return data;
+  } catch (error) {
+    logger.error('RTDB getRtdbValueWithTimeout error', {
+      path,
+      timeoutMs,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+    throw error;
+  }
+}
+
+/**
  * Remove undefined values from an object recursively
  * Firebase doesn't accept undefined values
  */
