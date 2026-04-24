@@ -939,6 +939,5 @@ When debugging exam creation flow issues, verify these checkpoints:
 - [ ] **Phase 2**: Final batch completion triggers `examCompletion.ts` handler
 - [ ] **Phase 3**: `updateExamAfterQuestionAssociation()` called with correct exam_id
 - [ ] **Phase 3**: Prisma update succeeds: `exam_status→READY`, `total_questions` set
-- [ ] **Phase 3**: RTDB `exam_plans/{exam_id}` deleted after transition
 - [ ] **Frontend**: `useExamLiveStatus()` polling stops when status becomes READY
 - [ ] **Frontend**: UI components update to show "Ready to Start" status

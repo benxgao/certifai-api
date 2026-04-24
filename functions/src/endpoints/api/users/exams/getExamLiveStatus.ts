@@ -42,12 +42,12 @@ const handler = async (req: any | CustomRequest, res: Response) => {
 
     // [LIVE-STATUS] Log checkpoint
     const queryStart = Date.now();
-    logger.info(`[LIVE-STATUS] QUERY_INITIATED`, {
-      exam_id,
-      user_id,
-      timestamp_ms: queryStart,
-      structuredData: true,
-    });
+    // logger.info(`[LIVE-STATUS] QUERY_INITIATED`, {
+    //   exam_id,
+    //   user_id,
+    //   timestamp_ms: queryStart,
+    //   structuredData: true,
+    // });
 
     // Query exam status directly from database (not cached) for freshness
     const exam = await prismaInstance.examAttempt.findUnique({
@@ -168,13 +168,13 @@ const handler = async (req: any | CustomRequest, res: Response) => {
     const queryDurationMs = Date.now() - queryStart;
     logger.info(`[LIVE-STATUS] QUERY_COMPLETE`, {
       exam_id,
-      user_id,
+      // user_id,
       exam_status: exam.exam_status,
       progress_percentage: progressPercentage,
       topics_with_questions: topicsWithQuestions,
       total_topics: totalTopics,
-      query_duration_ms: queryDurationMs,
-      timestamp_ms: Date.now(),
+      // query_duration_ms: queryDurationMs,
+      // timestamp_ms: Date.now(),
       structuredData: true,
     });
 

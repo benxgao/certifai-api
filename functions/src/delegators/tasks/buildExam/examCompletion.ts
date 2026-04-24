@@ -7,7 +7,7 @@ import {
 } from '../../../utils/examQuestionAssociation';
 import { ExamGenerationLogger } from '../../../services/exam-generation-logger';
 import { CacheManager } from '../../../services/cache';
-import { deleteRtdbValue } from '../../../services/firebase/rtdb';
+// import { deleteRtdbValue } from '../../../services/firebase/rtdb';
 import { TaskPayload, logQuestionTopicAssociationSummary } from './helper';
 import {
   checkExamProcessingTimeout,
@@ -161,34 +161,34 @@ export const handleExamCompletionOrNextBatch = async (
     );
 
     // Clean up RTDB exam plan data now that exam is complete
-    try {
-      const examPlanPath = `exam_plans/${exam_id}`;
-      await deleteRtdbValue(examPlanPath); // Delete the exam plan
-      logger.info(
-        `EXAM_TRACK - 21.22. RTDB_CLEANUP_SUCCESS:
-        Removed exam plan data for completed exam ${exam_id}`,
-        {
-          exam_id,
-          rtdb_path: examPlanPath,
-          cleanup_reason: 'exam_generation_complete',
-          total_generation_time: totalGenerationTime,
-          structuredData: true,
-        },
-      );
-    } catch (cleanupError) {
-      logger.warn(
-        `RTDB_CLEANUP_FAILED: Failed to clean up exam plan for ${exam_id}`,
-        {
-          exam_id,
-          error:
-            cleanupError instanceof Error
-              ? cleanupError.message
-              : 'Unknown cleanup error',
-          structuredData: true,
-        },
-      );
-      // Don't throw - cleanup failure shouldn't affect exam completion
-    }
+    // try {
+    //   const examPlanPath = `exam_plans/${exam_id}`;
+    //   await deleteRtdbValue(examPlanPath); // Delete the exam plan
+    //   logger.info(
+    //     `EXAM_TRACK - 21.22. RTDB_CLEANUP_SUCCESS:
+    //     Removed exam plan data for completed exam ${exam_id}`,
+    //     {
+    //       exam_id,
+    //       rtdb_path: examPlanPath,
+    //       cleanup_reason: 'exam_generation_complete',
+    //       total_generation_time: totalGenerationTime,
+    //       structuredData: true,
+    //     },
+    //   );
+    // } catch (cleanupError) {
+    //   logger.warn(
+    //     `RTDB_CLEANUP_FAILED: Failed to clean up exam plan for ${exam_id}`,
+    //     {
+    //       exam_id,
+    //       error:
+    //         cleanupError instanceof Error
+    //           ? cleanupError.message
+    //           : 'Unknown cleanup error',
+    //       structuredData: true,
+    //     },
+    //   );
+    //   // Don't throw - cleanup failure shouldn't affect exam completion
+    // }
 
     // Log exam completion with timing information
     ExamGenerationLogger.logExamComplete({

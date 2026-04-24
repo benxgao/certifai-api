@@ -44,9 +44,9 @@ export const verifyUserAccess = async (
       return;
     }
 
-    logger.info(
-      `VERIFY_USER_ACCESS: Checking access for user_id=${user_id}, firebase_user=${firebaseUserIdFromToken}`,
-    );
+    // logger.info(
+    //   `VERIFY_USER_ACCESS: Checking access for user_id=${user_id}, firebase_user=${firebaseUserIdFromToken}`,
+    // );
 
     // Find the user by user_id and get their firebase_user_id
     const user = await prismaInstance.user.findUnique({
@@ -80,9 +80,9 @@ export const verifyUserAccess = async (
     // Add the verified user to the request object for downstream handlers
     (req as any).verified_user = user;
 
-    logger.info(
-      `VERIFY_USER_ACCESS: Access granted for user_id=${user_id}, firebase_user=${firebaseUserIdFromToken}`,
-    );
+    // logger.info(
+    //   `VERIFY_USER_ACCESS: Access granted for user_id=${user_id}, firebase_user=${firebaseUserIdFromToken}`,
+    // );
 
     next();
   } catch (error: any) {
