@@ -269,7 +269,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       ExamGenerationLogger.logAIResponse({
         exam_id,
         batch_number,
-        ai_service: 'gemini20Flash',
+        ai_service: 'gemini-2.5-flash',
         questions_generated: 0,
         duration_ms: 0,
         success: false,

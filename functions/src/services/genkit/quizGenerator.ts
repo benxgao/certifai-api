@@ -9,6 +9,8 @@ import {
   handleGenerationError,
   logGenerationStart,
   logGenerationComplete,
+  googleAI,
+  DEFAULT_GENAI_MODEL,
 } from './utils';
 import {
   buildQuizPrompt,
@@ -121,11 +123,12 @@ export const quizGeneratorPromise = aiInstancePromise
             z.array(QuizSchema),
             sendChunk,
             {
-              maxOutputTokens: 4096 * 100,
+              maxOutputTokens: 8192,
               temperature: 0.6,
               topP: 0.9,
               topK: 40,
             },
+            googleAI.model(DEFAULT_GENAI_MODEL),
           );
 
           // Validate and filter questions with missing examTopic using shared utility

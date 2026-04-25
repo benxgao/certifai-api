@@ -29,7 +29,7 @@ export const generateQuestionsWithAI = async (
   ExamGenerationLogger.logAIRequest({
     exam_id,
     batch_number,
-    ai_service: 'gemini20Flash',
+    ai_service: 'gemini-2.5-flash',
     certification_name,
     questions_requested: questions_to_generate,
   });
@@ -37,18 +37,37 @@ export const generateQuestionsWithAI = async (
   const aiStartTime = Date.now();
 
   // Generate questions using the quiz generator
-  const { quizGeneratorPromise } = await import(
-    '../../../services/genkit/quizGenerator.js'
-  );
-  const quizGenerator = await quizGeneratorPromise;
-  const generatedQuestions = await quizGenerator({
-    // Use only unassigned topics for generation
-    subject: certification_name,
-    examTopicList: topicNamesForGeneration,
-    exam_id,
-    customPromptText: custom_prompt_text,
-    lastExamReport: last_exam_report,
-  });
+  let generatedQuestions: any;
+  try {
+    const { quizGeneratorPromise } = await import(
+      '../../../services/genkit/quizGenerator.js'
+    );
+    const quizGenerator = await quizGeneratorPromise;
+    generatedQuestions = await quizGenerator({
+      // Use only unassigned topics for generation
+      subject: certification_name,
+      examTopicList: topicNamesForGeneration,
+      exam_id,
+      customPromptText: custom_prompt_text,
+      lastExamReport: last_exam_report,
+    });
+  } catch (flowError) {
+    const aiDuration = Date.now() - aiStartTime;
+    const errorMessage =
+      flowError instanceof Error ? flowError.message : String(flowError);
+    logger.error(
+      `EXAM_BATCH_QUESTION_GENERATOR_ERROR: exam_id=${exam_id}, batch=${batch_number}`,
+      {
+        error: errorMessage,
+        duration_ms: aiDuration,
+        exam_id,
+        batch_number,
+      },
+    );
+    throw new Error(
+      `Failed to generate questions for batch ${batch_number}: ${errorMessage}`,
+    );
+  }
 
   const aiDuration = Date.now() - aiStartTime;
 
@@ -56,7 +75,7 @@ export const generateQuestionsWithAI = async (
   ExamGenerationLogger.logAIResponse({
     exam_id,
     batch_number,
-    ai_service: 'gemini20Flash',
+    ai_service: 'gemini-2.5-flash',
     questions_generated: generatedQuestions.length,
     duration_ms: aiDuration,
     success: true,

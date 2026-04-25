@@ -1,5 +1,5 @@
 import { genkit, z, Genkit } from 'genkit';
-import { googleAI, gemini20Flash } from '@genkit-ai/googleai';
+import { googleAI } from '@genkit-ai/google-genai';
 import { enableFirebaseTelemetry } from '@genkit-ai/firebase';
 
 import logger from '../firebase/logger';
@@ -28,6 +28,11 @@ export const DEFAULT_GENERATION_CONFIG: GenerationConfig = {
 };
 
 /**
+ * Default Genkit AI model for text generation
+ */
+export const DEFAULT_GENAI_MODEL = 'gemini-2.5-flash';
+
+/**
  * Singleton Genkit AI instance - shared across all operations
  */
 let genkitInstance: Genkit | null = null;
@@ -52,7 +57,6 @@ export const initializeAiInstance = async (): Promise<Genkit> => {
 
     genkitInstance = genkit({
       plugins: [googleAI({ apiKey })],
-      model: gemini20Flash,
     });
 
     logger.info('GenkitAI: New instance created and cached successfully');
@@ -82,10 +86,20 @@ export const processAiStream = async (
   stream: any,
   sendChunk: (chunk: string) => void,
 ): Promise<void> => {
-  for await (const chunk of stream) {
-    if (chunk.text) {
-      sendChunk(chunk.text);
+  try {
+    for await (const chunk of stream) {
+      if (chunk.text) {
+        sendChunk(chunk.text);
+      }
     }
+  } catch (streamError) {
+    const errorMessage =
+      streamError instanceof Error ? streamError.message : String(streamError);
+    logger.error('Error processing AI response stream:', {
+      error: errorMessage,
+      streamErrorType: streamError?.constructor?.name,
+    });
+    throw streamError;
   }
 };
 
@@ -129,6 +143,7 @@ export const validateAndFilterResponse = <T>(
  * @param schema - Zod schema for output validation
  * @param sendChunk - Function to send chunks to client
  * @param config - Generation configuration
+ * @param model - AI model to use (e.g., googleAI.model('gemini-2.5-flash'))
  * @returns Generated and validated response
  */
 export const generateWithValidation = async <T>(
@@ -137,8 +152,9 @@ export const generateWithValidation = async <T>(
   schema: z.ZodSchema<T>,
   sendChunk: (chunk: string) => void,
   config: GenerationConfig = DEFAULT_GENERATION_CONFIG,
+  model?: any,
 ): Promise<T> => {
-  const { response, stream } = ai.generateStream({
+  const generateParams: any = {
     prompt,
     config: {
       maxOutputTokens: config.maxOutputTokens,
@@ -147,18 +163,45 @@ export const generateWithValidation = async <T>(
       topK: config.topK,
     },
     output: { schema },
-  });
+  };
 
-  await processAiStream(stream, sendChunk);
-
-  const generateResponse = await response;
-  const output = generateResponse.output;
-
-  if (!output) {
-    throw new Error('AI response was null or empty');
+  // Add model if provided (required when no default model in genkit config)
+  if (model) {
+    generateParams.model = model;
   }
 
-  return output;
+  try {
+    const { response, stream } = ai.generateStream(generateParams);
+
+    await processAiStream(stream, sendChunk);
+
+    const generateResponse = await response;
+    const output = generateResponse.output;
+
+    if (!output) {
+      logger.warn('AI response output was null or empty', {
+        hasOutput: !!generateResponse?.output,
+      });
+      throw new Error('AI response was null or empty');
+    }
+
+    return output;
+  } catch (validationError) {
+    logger.error('Error in generateWithValidation:', {
+      error:
+        validationError instanceof Error
+          ? validationError.message
+          : String(validationError),
+      configUsed: {
+        maxOutputTokens: config.maxOutputTokens,
+        temperature: config.temperature,
+        topP: config.topP,
+        topK: config.topK,
+      },
+      modelUsed: model ? 'custom' : 'default',
+    });
+    throw validationError;
+  }
 };
 
 /**
@@ -261,3 +304,9 @@ export const logGenerationComplete = (
     },
   );
 };
+
+/**
+ * Export googleAI instance for model creation in service flows
+ * Use: googleAI.model('gemini-2.5-flash') to create model references
+ */
+export { googleAI };
