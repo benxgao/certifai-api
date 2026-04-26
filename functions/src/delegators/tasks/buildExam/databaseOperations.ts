@@ -26,12 +26,29 @@ export const storeQuestionsInDatabase = async (
   const { exam_id, batch_number, cert_id } = payload;
   const batchStartTime = Date.now();
 
+  logger.info(`DEBUG_DB_STORE_START: exam_id=${exam_id}, batch=${batch_number}`, {
+    exam_id,
+    batch_number,
+    questions_to_store: validQuestions.length,
+    question_results_count: validQuestionResults.length,
+    cert_id,
+    structuredData: true,
+  });
+
   // Use optimized batch operations for better performance
   return await BatchWriteOptimizer.batchOperations(
     prismaInstance,
     [
       {
         operation: async (tx) => {
+          logger.info(`DEBUG_DB_BATCH_OP_START: exam_id=${exam_id}, batch=${batch_number}`, {
+            exam_id,
+            batch_number,
+            operation: 'batch_create_questions',
+            timestamp: Date.now(),
+            structuredData: true,
+          });
+
           // Step 1: Prepare and batch create questions
           const { questionsData, getOptionsData } =
             QuestionBatchHelper.prepareBatchData(
@@ -40,10 +57,29 @@ export const storeQuestionsInDatabase = async (
               exam_id,
             );
 
+          logger.info(`DEBUG_QUESTIONS_DATA_PREPARED: exam_id=${exam_id}, batch=${batch_number}`, {
+            exam_id,
+            batch_number,
+            prepared_questions_count: questionsData.length,
+            first_question_has_text: !!questionsData[0]?.question,
+            first_question_has_options: !!questionsData[0]?.first_answer_index,
+            structuredData: true,
+          });
+
           // Batch create questions with optimized data preparation
           const createdQuestions = await tx.quizQuestion.createManyAndReturn({
             data: questionsData,
             skipDuplicates: true,
+          });
+
+          logger.info(`DEBUG_QUESTIONS_CREATED: exam_id=${exam_id}, batch=${batch_number}`, {
+            exam_id,
+            batch_number,
+            created_count: createdQuestions.length,
+            prepared_count: questionsData.length,
+            mismatch: createdQuestions.length !== questionsData.length,
+            first_question_id: createdQuestions[0]?.quiz_question_id,
+            structuredData: true,
           });
 
           // Log question creation performance
@@ -64,12 +100,29 @@ export const storeQuestionsInDatabase = async (
           const optionsData = getOptionsData(createdQuestions);
           let createdOptionsCount = 0;
 
+          logger.info(`DEBUG_OPTIONS_DATA_PREPARED: exam_id=${exam_id}, batch=${batch_number}`, {
+            exam_id,
+            batch_number,
+            options_count: optionsData.length,
+            questions_with_options: createdQuestions.length,
+            structuredData: true,
+          });
+
           if (optionsData.length > 0) {
             await tx.answerOption.createMany({
               data: optionsData,
               skipDuplicates: true,
             });
             createdOptionsCount = optionsData.length;
+
+            logger.info(`DEBUG_OPTIONS_CREATED: exam_id=${exam_id}, batch=${batch_number}`, {
+              exam_id,
+              batch_number,
+              created_options_count: createdOptionsCount,
+              prepared_options_count: optionsData.length,
+              mismatch: createdOptionsCount !== optionsData.length,
+              structuredData: true,
+            });
 
             logger.info(
               `BATCH_OPTIONS_CREATED: exam_id=${exam_id}, batch=${batch_number}, count=${createdOptionsCount}`,
@@ -91,6 +144,15 @@ export const storeQuestionsInDatabase = async (
             validQuestionResults,
           );
           const associationDuration = Date.now() - associationStartTime;
+
+          logger.info(`DEBUG_TOPIC_ASSOCIATION_COMPLETE: exam_id=${exam_id}, batch=${batch_number}`, {
+            exam_id,
+            batch_number,
+            association_duration_ms: associationDuration,
+            topics_updated: updatedExamTopicList.length,
+            topics_with_questions: updatedExamTopicList.filter((t: any) => t.question_id !== null).length,
+            structuredData: true,
+          });
 
           // Log performance metrics
           const totalBatchDuration = Date.now() - batchStartTime;

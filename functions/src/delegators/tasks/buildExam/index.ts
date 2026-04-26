@@ -18,6 +18,10 @@ import {
 } from './questionGeneration';
 import { storeQuestionsInDatabase } from './databaseOperations';
 import { handleExamCompletionOrNextBatch } from './examCompletion';
+import {
+  classifyExamGenerationError,
+  logClassifiedExamError,
+} from './errorClassifier';
 
 const handler = async (req: any | CustomRequest, res: Response) => {
   let batchMetrics: {
@@ -312,16 +316,44 @@ const handler = async (req: any | CustomRequest, res: Response) => {
         generationError as any,
       );
 
+      // Classify the error to understand what went wrong
+      const classifiedError = classifyExamGenerationError(
+        generationError,
+        {
+          exam_id,
+          batch_number,
+          lastSuccessfulStep: 'batch_start',
+        }
+      );
+
+      // Log the classified error with full context
+      logClassifiedExamError(classifiedError);
+
+      logger.error(`EXAM_GENERATION_ERROR_FULL_CONTEXT: exam_id=${exam_id}, batch=${batch_number}`, {
+        exam_id,
+        batch_number,
+        error_classification: classifiedError.classification,
+        error_message: classifiedError.errorMessage,
+        recovery_hint: classifiedError.recoveryHint,
+        last_successful_step: classifiedError.errorData.lastSuccessfulStep,
+        timestamp: classifiedError.errorData.timestamp,
+        structuredData: true,
+      });
+
       // Get exam details for cache invalidation
       const examForFailure = await prismaInstance.examAttempt.findUnique({
         where: { exam_id },
         select: { user_id: true },
       });
 
-      // Update exam status to failed
+      // Update exam status to failed with failure reason
       await prismaInstance.examAttempt.update({
         where: { exam_id },
-        data: { exam_status: ExamStatus.QUESTION_GENERATION_FAILED },
+        data: {
+          exam_status: ExamStatus.QUESTION_GENERATION_FAILED,
+          // Store failure reason for later analysis - will be added to schema if needed
+          // failure_reason: classifiedError.classification,
+        },
       });
 
       // Invalidate user exam cache when exam generation fails
@@ -339,8 +371,9 @@ const handler = async (req: any | CustomRequest, res: Response) => {
         batch_number,
         total_batches: payload.total_batches,
         final_status: 'QUESTION_GENERATION_FAILED',
-        error_reason: 'question_generation_error',
-        error_message: generationError instanceof Error ? generationError.message : 'Unknown error',
+        error_reason: classifiedError.classification,
+        error_message: classifiedError.errorMessage,
+        recovery_hint: classifiedError.recoveryHint,
         cache_invalidated: true,
         timestamp_ms: Date.now(),
         structuredData: true,
@@ -368,20 +401,35 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       });
     }
   } catch (error) {
-    // Enhanced error logging with more context
-    logger.error('Error in task handler:', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
-      exam_id: payload?.exam_id || 'unknown',
-      batch_number: payload?.batch_number || 'unknown',
-      error_type:
-        error instanceof Error ? error.constructor.name : typeof error,
+    // Enhanced error logging with classification and context
+    const exam_id = payload?.exam_id || 'unknown';
+    const batch_number = payload?.batch_number || 'unknown';
+
+    const classifiedError = classifyExamGenerationError(
+      error,
+      {
+        exam_id: exam_id as string,
+        batch_number: batch_number as number,
+        lastSuccessfulStep: 'task_handler_outer_catch',
+      }
+    );
+
+    logClassifiedExamError(classifiedError);
+
+    logger.error('Error in task handler - outer catch:', {
+      error_classification: classifiedError.classification,
+      error_message: classifiedError.errorMessage,
+      error_stack: classifiedError.stackTrace?.split('\n').slice(0, 5).join(' | '),
+      recovery_hint: classifiedError.recoveryHint,
+      exam_id,
+      batch_number,
+      error_type: error instanceof Error ? error.constructor.name : typeof error,
       structuredData: true,
     });
 
     res.status(500).json({
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error occurred',
+      error: classifiedError.errorMessage || 'Unknown error occurred in exam generation',
     });
   }
 };

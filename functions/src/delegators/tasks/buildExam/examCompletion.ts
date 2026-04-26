@@ -48,6 +48,18 @@ export const handleExamCompletionOrNextBatch = async (
     (t) => t.question_id !== null,
   ).length;
 
+  logger.info(`DEBUG_COMPLETION_ANALYSIS_START: exam_id=${exam_id}, batch=${batch_number}`, {
+    exam_id,
+    batch_number,
+    questions_processed_this_batch: questionsProcessedThisBatch,
+    questions_failed_this_batch: questionsFailedThisBatch,
+    actual_questions_generated_total: actualQuestionsGenerated,
+    topics_assigned: examTopicList.filter((t) => t.question_id !== null).length,
+    topics_remaining: examTopicList.filter((t) => t.question_id === null).length,
+    target_questions: exam.total_questions,
+    structuredData: true,
+  });
+
   logger.info(
     `EXAM_TRACK - 19. BATCH_COMPLETION_ANALYSIS:
     exam_id=${exam_id}
@@ -71,6 +83,19 @@ export const handleExamCompletionOrNextBatch = async (
   const remainingUnassignedTopics = examTopicList.filter(
     (topic) => topic.question_id === null,
   );
+
+  logger.info(`DEBUG_COMPLETION_DECISION_CRITERIA: exam_id=${exam_id}, batch=${batch_number}`, {
+    exam_id,
+    batch_number,
+    criterion_1_reached_planned_batches: batch_number >= total_batches,
+    criterion_2_all_topics_assigned: remainingUnassignedTopics.length === 0,
+    criterion_3_reached_target_questions: actualQuestionsGenerated >= (exam.total_questions || 0),
+    current_batch_vs_total: `${batch_number}/${total_batches}`,
+    remaining_topics: remainingUnassignedTopics.length,
+    actual_questions_generated: actualQuestionsGenerated,
+    target_questions: exam.total_questions,
+    structuredData: true,
+  });
 
   // Determine if we should complete the exam based on actual progress:
   // 1. We've reached the planned total batches
@@ -97,6 +122,13 @@ export const handleExamCompletionOrNextBatch = async (
         : remainingUnassignedTopics.length === 0
           ? 'all_topics_assigned'
           : 'target_questions_reached';
+
+    logger.info(`DEBUG_EXAM_COMPLETION_TRIGGERED: exam_id=${exam_id}, batch=${batch_number}`, {
+      exam_id,
+      batch_number,
+      completion_reason: completionReason,
+      structuredData: true,
+    });
 
     logger.info(
       `EXAM_TRACK - 20. COMPLETING: EXAM_GENERATION:
@@ -438,6 +470,18 @@ export const handleExamCompletionOrNextBatch = async (
       last_exam_report: payload.last_exam_report,
     };
 
+    logger.info(`DEBUG_NEXT_BATCH_PAYLOAD_CREATED: exam_id=${exam_id}, batch=${batch_number}`, {
+      exam_id,
+      batch_number,
+      next_batch_payload: {
+        batch_number: nextBatchPayload.batch_number,
+        total_batches: nextBatchPayload.total_batches,
+        questions_per_batch: nextBatchPayload.questions_per_batch,
+        cert_id: nextBatchPayload.cert_id,
+      },
+      structuredData: true,
+    });
+
     // CRITICAL FIX: Ensure Cloud Tasks queue exists before creating next batch task
     // This prevents failures when the queue has been accidentally deleted
     try {
@@ -519,10 +563,30 @@ export const handleExamCompletionOrNextBatch = async (
       return;
     }
 
+    logger.info(`DEBUG_CREATING_NEXT_BATCH_TASK: exam_id=${exam_id}, batch=${batch_number}`, {
+      exam_id,
+      batch_number,
+      next_batch: batch_number + 1,
+      adjusted_total_batches: adjustedTotalBatches,
+      questions_for_next_batch: questionsForNextBatch,
+      remaining_topics: remainingUnassignedTopics.length,
+      timestamp: Date.now(),
+      structuredData: true,
+    });
+
     const nextTaskName =
       await ExamGenerationTaskService.getInstance().createNextBatchTask(
         nextBatchPayload,
       );
+
+    logger.info(`DEBUG_NEXT_BATCH_TASK_CREATED: exam_id=${exam_id}, batch=${batch_number}`, {
+      exam_id,
+      batch_number,
+      next_batch: batch_number + 1,
+      task_name: nextTaskName,
+      task_created_at: Date.now(),
+      structuredData: true,
+    });
 
     // Log task creation
     ExamGenerationLogger.logTaskCreation({

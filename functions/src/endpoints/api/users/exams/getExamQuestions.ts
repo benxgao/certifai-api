@@ -104,16 +104,42 @@ const handler = async (req: any | CustomRequest, res: Response) => {
         error:
           'Exam questions are still being generated. Please wait and try again.',
         exam_status: exam.exam_status,
+        data: {
+          exam_id: exam_id,
+          status: exam.exam_status,
+          message: 'Generation in progress',
+          started_at: null,
+        },
       });
       return;
     }
 
     if (exam.exam_status === 'QUESTION_GENERATION_FAILED') {
+      logger.error(`EXAM_GENERATION_FAILED: exam_id=${exam_id}, user_id=${user_id}`, {
+        exam_id,
+        user_id,
+        status: exam.exam_status,
+        total_questions_target: exam.total_questions,
+        started_at: null,
+        structuredData: true,
+      });
+
       res.status(500).json({
         success: false,
         error:
           'Question generation failed for this exam. Please contact support or create a new exam.',
         exam_status: exam.exam_status,
+        data: {
+          exam_id: exam_id,
+          status: exam.exam_status,
+          message: 'Question generation encountered an error',
+          recommendation: 'Please create a new exam or contact support',
+          failure_details: {
+            failure_type: 'QUESTION_GENERATION_FAILED',
+            timestamp: new Date().toISOString(),
+            note: 'Check Cloud Logging for detailed error trace with exam_id',
+          },
+        },
       });
       return;
     }

@@ -25,6 +25,20 @@ export const generateQuestionsWithAI = async (
   logger.info(`EXAM_BATCH_QUESTION_GENERATOR_START: exam_id=${exam_id}, batch=${batch_number}
     | task_payload: ${JSON.stringify(payload)}`);
 
+  // Log AI request input details
+  logger.info(`DEBUG_AI_REQUEST_INPUT: exam_id=${exam_id}, batch=${batch_number}`, {
+    exam_id,
+    batch_number,
+    topics_count: topicNamesForGeneration.length,
+    topics_first_5: topicNamesForGeneration.slice(0, 5),
+    questions_requested: questions_to_generate,
+    has_custom_prompt: !!custom_prompt_text,
+    custom_prompt_length: custom_prompt_text?.length || 0,
+    has_last_exam_report: !!last_exam_report,
+    certification_name,
+    structuredData: true,
+  });
+
   // Log AI request start
   ExamGenerationLogger.logAIRequest({
     exam_id,
@@ -39,10 +53,34 @@ export const generateQuestionsWithAI = async (
   // Generate questions using the quiz generator
   let generatedQuestions: any;
   try {
+    logger.info(`DEBUG_IMPORTING_QUIZ_GENERATOR: exam_id=${exam_id}, batch=${batch_number}`, {
+      exam_id,
+      batch_number,
+      import_start: Date.now(),
+      structuredData: true,
+    });
+
     const { quizGeneratorPromise } = await import(
       '../../../services/genkit/quizGenerator.js'
     );
     const quizGenerator = await quizGeneratorPromise;
+
+    logger.info(`DEBUG_QUIZ_GENERATOR_IMPORTED: exam_id=${exam_id}, batch=${batch_number}`, {
+      exam_id,
+      batch_number,
+      generator_type: typeof quizGenerator,
+      import_duration_ms: Date.now() - aiStartTime,
+      structuredData: true,
+    });
+
+    logger.info(`DEBUG_AI_CALL_START: exam_id=${exam_id}, batch=${batch_number}`, {
+      exam_id,
+      batch_number,
+      ai_call_timestamp: Date.now(),
+      request_topics: topicNamesForGeneration.length,
+      structuredData: true,
+    });
+
     generatedQuestions = await quizGenerator({
       // Use only unassigned topics for generation
       subject: certification_name,
@@ -51,17 +89,34 @@ export const generateQuestionsWithAI = async (
       customPromptText: custom_prompt_text,
       lastExamReport: last_exam_report,
     });
+
+    logger.info(`DEBUG_AI_CALL_SUCCESS: exam_id=${exam_id}, batch=${batch_number}`, {
+      exam_id,
+      batch_number,
+      response_received: Date.now(),
+      questions_in_response: generatedQuestions?.length || 0,
+      response_type: typeof generatedQuestions,
+      is_array: Array.isArray(generatedQuestions),
+      structuredData: true,
+    });
   } catch (flowError) {
     const aiDuration = Date.now() - aiStartTime;
     const errorMessage =
       flowError instanceof Error ? flowError.message : String(flowError);
+    const errorStack = flowError instanceof Error ? flowError.stack : undefined;
+
     logger.error(
       `EXAM_BATCH_QUESTION_GENERATOR_ERROR: exam_id=${exam_id}, batch=${batch_number}`,
       {
         error: errorMessage,
+        error_stack: errorStack,
+        error_name: flowError instanceof Error ? flowError.name : typeof flowError,
         duration_ms: aiDuration,
         exam_id,
         batch_number,
+        topics_requested: topicNamesForGeneration.length,
+        questions_requested: questions_to_generate,
+        structuredData: true,
       },
     );
     throw new Error(
@@ -71,12 +126,26 @@ export const generateQuestionsWithAI = async (
 
   const aiDuration = Date.now() - aiStartTime;
 
+  // Log AI response with detailed metrics
+  logger.info(`DEBUG_AI_RESPONSE_PARSING: exam_id=${exam_id}, batch=${batch_number}`, {
+    exam_id,
+    batch_number,
+    response_count: generatedQuestions?.length || 0,
+    response_is_array: Array.isArray(generatedQuestions),
+    first_question_has_examTopic: generatedQuestions?.[0]?.examTopic !== undefined,
+    first_question_has_question: generatedQuestions?.[0]?.question !== undefined,
+    first_question_has_choices: generatedQuestions?.[0]?.choices !== undefined,
+    first_question_topic_preview: generatedQuestions?.[0]?.examTopic?.substring(0, 50),
+    duration_ms: aiDuration,
+    structuredData: true,
+  });
+
   // Log AI response
   ExamGenerationLogger.logAIResponse({
     exam_id,
     batch_number,
     ai_service: 'gemini-2.5-flash',
-    questions_generated: generatedQuestions.length,
+    questions_generated: generatedQuestions?.length || 0,
     duration_ms: aiDuration,
     success: true,
   });
@@ -101,6 +170,14 @@ export const validateGeneratedQuestions = (
   invalidQuestionResults: any[];
   validQuestions: any[];
 } => {
+  logger.info(`DEBUG_VALIDATION_START: exam_id=${exam_id}, batch=${batch_number}`, {
+    exam_id,
+    batch_number,
+    questions_to_validate: generatedQuestions?.length || 0,
+    batch_topics_count: topicsForThisBatch?.length || 0,
+    structuredData: true,
+  });
+
   // Log examTopic values for debugging with improved matching info
   const examTopics = generatedQuestions
     .map((q, index) => ({
@@ -113,6 +190,7 @@ export const validateGeneratedQuestions = (
   logger.info(`Generated examTopics with matching analysis:`, {
     exam_id,
     batch_number,
+    topics_count: examTopics.length,
     topics: examTopics,
     available_rtdb_topics: topicsForThisBatch.map((t) => ({
       original: t.exam_topic,
@@ -165,6 +243,22 @@ export const validateGeneratedQuestions = (
       }
     }
 
+    // Log individual question validation details
+    if (validationErrors.length > 0) {
+      logger.info(`DEBUG_QUESTION_VALIDATION_ERROR: exam_id=${exam_id}, batch=${batch_number}`, {
+        exam_id,
+        batch_number,
+        question_index: index,
+        exam_topic: question.examTopic?.substring(0, 50) || 'MISSING',
+        has_question_text: !!question.question,
+        has_choices: !!question.choices && Array.isArray(question.choices),
+        choices_count: question.choices?.length || 0,
+        answer_index: question.answerIndex,
+        validation_errors: validationErrors,
+        structuredData: true,
+      });
+    }
+
     return {
       question,
       index,
@@ -182,7 +276,7 @@ export const validateGeneratedQuestions = (
     (result) => !result.isValid,
   );
 
-  // Log validation summary
+  // Log validation summary with detailed metrics
   logger.info(
     `QUESTION_VALIDATION_SUMMARY: exam_id=${exam_id}, batch=${batch_number}`,
     {
@@ -197,6 +291,19 @@ export const validateGeneratedQuestions = (
       structuredData: true,
     },
   );
+
+  // Log detailed validation result summary
+  logger.info(`DEBUG_VALIDATION_SUMMARY: exam_id=${exam_id}, batch=${batch_number}`, {
+    exam_id,
+    batch_number,
+    total_questions_validated: generatedQuestions.length,
+    passed_validation: validQuestionResults.length,
+    failed_validation: invalidQuestionResults.length,
+    pass_rate_percent: generatedQuestions.length > 0 ? Math.round(
+      (validQuestionResults.length / generatedQuestions.length) * 100,
+    ) : 0,
+    structuredData: true,
+  });
 
   // Log details for invalid questions
   invalidQuestionResults.forEach((result) => {
