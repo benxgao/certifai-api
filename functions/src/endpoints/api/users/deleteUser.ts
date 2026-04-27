@@ -4,6 +4,9 @@ import { CustomRequest } from '../../../types';
 import prismaInstance from '../../../services/prisma';
 import { firebaseAdmin } from '../../../services/firebase/admin';
 import { CacheManager } from '../../../services/cache';
+import { firestoreService } from '../../../services/firebase/firestore';
+import { CertSummaryFirestoreService } from '../../../services/firebase/certSummaryFirestore';
+import { deleteRtdbValue } from '../../../services/firebase/rtdb';
 
 /**
  * Validates that all related data has been properly deleted for a user
@@ -46,6 +49,271 @@ async function validateUserDeletion(user_id: string): Promise<{
     examUserAnswers === 0;
 
   return { isCompletelyDeleted, remainingData };
+}
+
+/**
+ * Helper function to execute with exponential backoff retry
+ * @param operation - Async function to execute
+ * @param maxRetries - Maximum number of retries (default: 3)
+ * @param baseDelay - Base delay in milliseconds (default: 100)
+ * @returns Promise resolving to the result of the operation
+ */
+async function executeWithRetry<T>(
+  operation: () => Promise<T>,
+  maxRetries: number = 3,
+  baseDelay: number = 100,
+): Promise<T> {
+  let lastError: any;
+
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error;
+      const isRetryable =
+        error instanceof Error &&
+        (error.message.includes('DEADLINE_EXCEEDED') ||
+          error.message.includes('UNAVAILABLE') ||
+          error.message.includes('timeout') ||
+          error.message.includes('connection') ||
+          error.message.includes('P2024') ||
+          error.message.includes('P2034') ||
+          error.message.includes('deadlock'));
+
+      if (!isRetryable || attempt === maxRetries - 1) {
+        throw error;
+      }
+
+      const delay = baseDelay * Math.pow(2, attempt);
+      logger.warn(
+        `deleteUser: Retrying operation (attempt ${attempt + 1}/${maxRetries}) after ${delay}ms:`,
+        { error: error instanceof Error ? error.message : error },
+      );
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+
+  throw lastError;
+}
+
+/**
+ * Delete all Firestore data for a user's certifications (exam reports and summaries)
+ * Executes deletions in parallel for 1-5 certs
+ */
+async function deleteUserFirestoreCertData(
+  user_id: string,
+  userCertifications: Array<{ cert_id: string }>,
+): Promise<{
+  certsProcessed: number;
+  reportDocsDeleted: number;
+  summariesDeleted: number;
+  certDeleteErrors: Array<{ cert_id: string; error: string }>;
+}> {
+  const startTime = Date.now();
+  const certDeleteErrors: Array<{ cert_id: string; error: string }> = [];
+  let reportDocsDeleted = 0;
+  let summariesDeleted = 0;
+
+  // Parallel deletion of all cert data (exam reports + summaries)
+  const certDeletionPromises = userCertifications.map(async ({ cert_id }) => {
+    try {
+      // Step 1: Delete exam reports subcollection in bulk
+      try {
+        const reportsPath = `users/${user_id}/certs/${cert_id}/exam_reports`;
+        const reportDocs = await firestoreService.list(reportsPath);
+
+        if (reportDocs.length > 0) {
+          // Batch delete all report documents
+          const deleteOps = reportDocs.map((doc: any) => ({
+            type: 'delete' as const,
+            collectionPath: reportsPath,
+            docId: doc.id,
+          }));
+
+          await firestoreService.batch(deleteOps);
+          reportDocsDeleted += reportDocs.length;
+          logger.info(
+            `deleteUser: Deleted ${reportDocs.length} exam reports for cert ${cert_id}`,
+            { user_id, cert_id, count: reportDocs.length },
+          );
+        }
+      } catch (reportsError) {
+        logger.warn(
+          `deleteUser: Failed to delete exam reports for cert ${cert_id}:`,
+          reportsError as any,
+        );
+        // Continue to summary deletion even if reports fail
+      }
+
+      // Step 2: Delete cert summary document
+      try {
+        await CertSummaryFirestoreService.deleteCertSummary(user_id, cert_id);
+        summariesDeleted++;
+        logger.info(`deleteUser: Deleted cert summary for cert ${cert_id}`, {
+          user_id,
+          cert_id,
+        });
+      } catch (summaryError) {
+        logger.warn(
+          `deleteUser: Failed to delete cert summary for cert ${cert_id}:`,
+          summaryError as any,
+        );
+        // Continue even if summary deletion fails
+      }
+    } catch (certError) {
+      certDeleteErrors.push({
+        cert_id,
+        error:
+          certError instanceof Error ? certError.message : String(certError),
+      });
+    }
+  });
+
+  // Execute all cert deletions in parallel
+  await Promise.allSettled(certDeletionPromises);
+
+  const duration = Date.now() - startTime;
+  logger.info(`deleteUser: Completed Firestore cert deletions`, {
+    user_id,
+    certsProcessed: userCertifications.length,
+    reportDocsDeleted,
+    summariesDeleted,
+    certDeleteErrors: certDeleteErrors.length,
+    durationMs: duration,
+  });
+
+  return {
+    certsProcessed: userCertifications.length,
+    reportDocsDeleted,
+    summariesDeleted,
+    certDeleteErrors,
+  };
+}
+
+/**
+ * Delete Firestore account document
+ */
+async function deleteUserFirestoreAccount(
+  user_id: string,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    await firestoreService.batch([
+      { type: 'delete', collectionPath: 'users', docId: user_id },
+    ]);
+    logger.info(`deleteUser: Deleted Firestore account doc for user`, {
+      user_id,
+    });
+    return { success: true };
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    logger.warn(`deleteUser: Failed to delete Firestore account doc:`, {
+      user_id,
+      error: errorMsg,
+    });
+    return { success: false, error: errorMsg };
+  }
+}
+
+/**
+ * Delete all RTDB exam plans for a user
+ * Executes parallel chunk deletions (100 per chunk) with exponential backoff
+ */
+async function deleteUserRtdbExamPlans(user_id: string): Promise<{
+  examPlansFound: number;
+  examPlansDeleted: number;
+  examPlanErrors: number;
+}> {
+  const startTime = Date.now();
+  let examPlansFound = 0;
+  let examPlansDeleted = 0;
+  let examPlanErrors = 0;
+
+  try {
+    // Step 1: Query all exam_plans from RTDB (this is a single query, not paginated)
+    const examPlansSnapshot = await executeWithRetry(
+      () => firebaseAdmin.database().ref('exam_plans').once('value'),
+      3,
+      100,
+    );
+
+    const allExamPlans = examPlansSnapshot.val();
+    if (!allExamPlans || typeof allExamPlans !== 'object') {
+      logger.info(`deleteUser: No exam_plans found in RTDB for user`, {
+        user_id,
+      });
+      return { examPlansFound: 0, examPlansDeleted: 0, examPlanErrors: 0 };
+    }
+
+    // Step 2: Filter exam plans that belong to this user
+    const userExamPlanIds = Object.entries(allExamPlans)
+      .filter(([, planData]: any) => {
+        const plan = planData as any;
+        return plan && plan.user_id === user_id;
+      })
+      .map(([examId]) => examId);
+
+    examPlansFound = userExamPlanIds.length;
+    logger.info(`deleteUser: Found ${examPlansFound} exam plans for user`, {
+      user_id,
+      count: examPlansFound,
+    });
+
+    if (examPlansFound === 0) {
+      return { examPlansFound: 0, examPlansDeleted: 0, examPlanErrors: 0 };
+    }
+
+    // Step 3: Delete exam plans in parallel chunks (100 per chunk)
+    const CHUNK_SIZE = 100;
+    const chunks = [];
+    for (let i = 0; i < userExamPlanIds.length; i += CHUNK_SIZE) {
+      chunks.push(userExamPlanIds.slice(i, i + CHUNK_SIZE));
+    }
+
+    const chunkDeletionPromises = chunks.map(async (chunk) => {
+      return Promise.allSettled(
+        chunk.map((examId: string) =>
+          executeWithRetry(
+            () => deleteRtdbValue(`exam_plans/${examId}`),
+            3,
+            100,
+          ).catch((error) => {
+            examPlanErrors++;
+            logger.warn(
+              `deleteUser: Failed to delete exam_plan ${examId}:`,
+              error as any,
+            );
+            return null;
+          }),
+        ),
+      );
+    });
+
+    // Execute all chunks in parallel (no inter-chunk delays for speed)
+    const results = await Promise.all(chunkDeletionPromises);
+    examPlansDeleted = results
+      .flat()
+      .filter((r) => r.status === 'fulfilled' && r.value !== null).length;
+
+    logger.info(`deleteUser: Completed RTDB exam_plans deletions`, {
+      user_id,
+      examPlansFound,
+      examPlansDeleted,
+      examPlanErrors,
+      chunks: chunks.length,
+    });
+  } catch (error) {
+    logger.error(`deleteUser: Failed to delete RTDB exam_plans:`, {
+      user_id,
+      error: error instanceof Error ? error.message : error,
+    });
+  }
+
+  const duration = Date.now() - startTime;
+  logger.info(`deleteUser: RTDB exam_plans deletion took ${duration}ms`, {
+    user_id,
+  });
+
+  return { examPlansFound, examPlansDeleted, examPlanErrors };
 }
 
 /**
@@ -109,7 +377,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
     }
 
     // Get count of all related data for logging
-    const [examAttempts, userCertifications, examUserAnswers] =
+    const [examAttempts, userCertificationsData, examUserAnswers] =
       await Promise.all([
         prismaInstance.examAttempt.findMany({
           where: { user_id },
@@ -118,8 +386,9 @@ const handler = async (req: any | CustomRequest, res: Response) => {
             exam_status: true,
           },
         }),
-        prismaInstance.userCertification.count({
+        prismaInstance.userCertification.findMany({
           where: { user_id },
+          select: { cert_id: true },
         }),
         prismaInstance.examUserAnswer.count({
           where: {
@@ -130,106 +399,171 @@ const handler = async (req: any | CustomRequest, res: Response) => {
         }),
       ]);
 
+    const userCertifications = userCertificationsData.length;
+
     logger.info(
       `deleteUser: Found data to delete for user ${user_id}: ${examAttempts.length} exam attempts, ${userCertifications} certification registrations, ${examUserAnswers} user answers`,
     );
 
-    // Use a transaction to ensure all related data is cleaned up atomically
-    // Delete in proper cascade order to avoid foreign key constraint violations
-    const deletionCounts = await prismaInstance.$transaction(async (prisma) => {
-      let deletedUserAnswers = 0;
-      let deletedExamAttempts = 0;
-      let deletedUserCertifications = 0;
+    // ===== PHASE 2 & 3: Delete Firestore cert data and account doc (parallel) =====
+    const startTime = Date.now();
 
-      // Step 1: Delete exam user answers first (they reference exam attempts)
-      if (examUserAnswers > 0) {
-        const userAnswerResult = await prisma.examUserAnswer.deleteMany({
-          where: {
-            examAttempt: {
-              user_id,
-            },
-          },
-        });
-        deletedUserAnswers = userAnswerResult.count;
-        logger.info(
-          `deleteUser: Deleted ${deletedUserAnswers} exam user answers for user ${user_id}`,
-        );
-      }
+    const firestoreDeletionPromises = [
+      // Phase 2: Delete Firestore cert data (exam reports + summaries)
+      deleteUserFirestoreCertData(
+        user_id,
+        userCertificationsData as unknown as Array<{ cert_id: string }>,
+      ),
+      // Phase 3: Delete Firestore account document (parallel)
+      deleteUserFirestoreAccount(user_id),
+    ];
 
-      // Step 2: Delete exam attempts
-      if (examAttempts.length > 0) {
-        const examAttemptResult = await prisma.examAttempt.deleteMany({
-          where: { user_id },
-        });
-        deletedExamAttempts = examAttemptResult.count;
-        logger.info(
-          `deleteUser: Deleted ${deletedExamAttempts} exam attempts for user ${user_id}`,
-        );
-      }
+    const firestoreResults = await Promise.allSettled(
+      firestoreDeletionPromises,
+    );
+    const firestoreCertResults =
+      firestoreResults[0].status === 'fulfilled'
+        ? firestoreResults[0].value
+        : null;
+    const firestoreAccountResult =
+      firestoreResults[1].status === 'fulfilled'
+        ? firestoreResults[1].value
+        : null;
 
-      // Step 3: Delete user certifications
-      if (userCertifications > 0) {
-        const userCertificationResult =
-          await prisma.userCertification.deleteMany({
-            where: { user_id },
-          });
-        deletedUserCertifications = userCertificationResult.count;
-        logger.info(
-          `deleteUser: Deleted ${deletedUserCertifications} user certifications for user ${user_id}`,
-        );
-      }
-
-      // Step 4: Delete the user record itself
-      await prisma.user.delete({
-        where: { user_id },
-      });
-
-      logger.info(
-        `deleteUser: Successfully deleted user ${user_id} with all related data:`,
-        {
-          user_id,
-          deleted_user_answers: deletedUserAnswers,
-          deleted_exam_attempts: deletedExamAttempts,
-          deleted_user_certifications: deletedUserCertifications,
-        },
-      );
-
-      // Return deletion counts for response
-      return {
-        deletedUserAnswers,
-        deletedExamAttempts,
-        deletedUserCertifications,
-      };
+    logger.info(`deleteUser: Completed Firestore deletions`, {
+      user_id,
+      firestoreCertResults,
+      firestoreAccountError:
+        firestoreAccountResult &&
+        'success' in firestoreAccountResult &&
+        !firestoreAccountResult.success
+          ? firestoreAccountResult.error
+          : null,
     });
 
-    // Delete Firebase user account after successful database deletion
-    try {
-      if (user.firebase_user_id) {
-        await firebaseAdmin.auth().deleteUser(user.firebase_user_id);
-        logger.info(
-          `deleteUser: Successfully deleted Firebase user ${user.firebase_user_id}`,
-        );
-      }
-    } catch (firebaseError) {
-      logger.warn(
-        `deleteUser: Failed to delete Firebase user ${user.firebase_user_id}:`,
-        firebaseError as any,
-      );
-      // Continue with response even if Firebase deletion fails
-      // The database cleanup was successful
-    }
+    // ===== PHASE 4: Delete RTDB exam plans (parallel chunks) =====
+    const rtdbDeletionResult = await deleteUserRtdbExamPlans(user_id);
 
-    // Invalidate all caches for this user
-    try {
-      await CacheManager.invalidateUserCaches(user_id);
-      logger.info(`deleteUser: Invalidated caches for user ${user_id}`);
-    } catch (cacheError) {
-      logger.warn(
-        `deleteUser: Failed to invalidate caches for user ${user_id}:`,
-        cacheError as any,
-      );
-      // Continue with response even if cache invalidation fails
-    }
+    // ===== PHASE 5: Prisma Transaction (extended timeout for bulk delete) =====
+    logger.info(
+      `deleteUser: Starting Prisma transaction (extended timeout: 45s)`,
+      {
+        user_id,
+      },
+    );
+
+    const deletionCounts = await prismaInstance.$transaction(
+      async (prisma) => {
+        let deletedUserAnswers = 0;
+        let deletedExamAttempts = 0;
+        let deletedUserCertifications = 0;
+
+        // Step 1: Delete exam user answers first (they reference exam attempts)
+        if (examUserAnswers > 0) {
+          const userAnswerResult = await prisma.examUserAnswer.deleteMany({
+            where: {
+              examAttempt: {
+                user_id,
+              },
+            },
+          });
+          deletedUserAnswers = userAnswerResult.count;
+          logger.info(
+            `deleteUser: Deleted ${deletedUserAnswers} exam user answers for user ${user_id}`,
+          );
+        }
+
+        // Step 2: Delete exam attempts
+        if (examAttempts.length > 0) {
+          const examAttemptResult = await prisma.examAttempt.deleteMany({
+            where: { user_id },
+          });
+          deletedExamAttempts = examAttemptResult.count;
+          logger.info(
+            `deleteUser: Deleted ${deletedExamAttempts} exam attempts for user ${user_id}`,
+          );
+        }
+
+        // Step 3: Delete user certifications
+        if (userCertifications > 0) {
+          const userCertificationResult =
+            await prisma.userCertification.deleteMany({
+              where: { user_id },
+            });
+          deletedUserCertifications = userCertificationResult.count;
+          logger.info(
+            `deleteUser: Deleted ${deletedUserCertifications} user certifications for user ${user_id}`,
+          );
+        }
+
+        // Step 4: Delete the user record itself
+        await prisma.user.delete({
+          where: { user_id },
+        });
+
+        logger.info(
+          `deleteUser: Successfully deleted user ${user_id} with all related data:`,
+          {
+            user_id,
+            deleted_user_answers: deletedUserAnswers,
+            deleted_exam_attempts: deletedExamAttempts,
+            deleted_user_certifications: deletedUserCertifications,
+          },
+        );
+
+        // Return deletion counts for response
+        return {
+          deletedUserAnswers,
+          deletedExamAttempts,
+          deletedUserCertifications,
+        };
+      },
+      {
+        timeout: 60000, // 60 seconds timeout for bulk operations (100+ exams, 5000-20000 answers)
+        isolationLevel: 'ReadCommitted',
+      },
+    );
+
+    // ===== PHASE 6: Firebase Auth + Cache Invalidation (parallel, non-blocking) =====
+    let firebaseAuthDeleted = false;
+    let cacheInvalidated = false;
+
+    const authCachePromises = [
+      (async () => {
+        try {
+          if (user.firebase_user_id) {
+            await firebaseAdmin.auth().deleteUser(user.firebase_user_id);
+            logger.info(
+              `deleteUser: Successfully deleted Firebase user ${user.firebase_user_id}`,
+            );
+            firebaseAuthDeleted = true;
+          }
+        } catch (firebaseError) {
+          logger.warn(
+            `deleteUser: Failed to delete Firebase user ${user.firebase_user_id}:`,
+            firebaseError as any,
+          );
+        }
+      })(),
+      (async () => {
+        try {
+          await CacheManager.invalidateUserCaches(user_id);
+          logger.info(`deleteUser: Invalidated caches for user ${user_id}`);
+          cacheInvalidated = true;
+        } catch (cacheError) {
+          logger.warn(
+            `deleteUser: Failed to invalidate caches for user ${user_id}:`,
+            cacheError as any,
+          );
+        }
+      })(),
+    ];
+
+    // Execute Firebase Auth and cache invalidation in parallel (non-blocking)
+    await Promise.allSettled(authCachePromises);
+
+    // ===== PHASE 7: Validation & Response =====
+    const totalDuration = Date.now() - startTime;
 
     // Validate that all related data has been completely removed
     const validationResults = await validateUserDeletion(user_id);
@@ -252,13 +586,44 @@ const handler = async (req: any | CustomRequest, res: Response) => {
         deleted_user_id: user_id,
         deleted_firebase_user_id: user.firebase_user_id,
         deletion_summary: {
+          // Firestore deletions
+          firestore_cert_reports_deleted:
+            firestoreCertResults && 'reportDocsDeleted' in firestoreCertResults
+              ? firestoreCertResults.reportDocsDeleted
+              : 0,
+          firestore_cert_summaries_deleted:
+            firestoreCertResults && 'summariesDeleted' in firestoreCertResults
+              ? firestoreCertResults.summariesDeleted
+              : 0,
+          firestore_cert_deletions_with_errors:
+            firestoreCertResults && 'certDeleteErrors' in firestoreCertResults
+              ? firestoreCertResults.certDeleteErrors.length
+              : 0,
+          firestore_account_doc_deleted:
+            firestoreAccountResult && 'success' in firestoreAccountResult
+              ? firestoreAccountResult.success
+              : false,
+          // RTDB deletions
+          rtdb_exam_plans_found: rtdbDeletionResult.examPlansFound,
+          rtdb_exam_plans_deleted: rtdbDeletionResult.examPlansDeleted,
+          rtdb_exam_plan_deletion_errors: rtdbDeletionResult.examPlanErrors,
+          // Prisma deletions
           user_answers_deleted: deletionCounts.deletedUserAnswers,
           exam_attempts_deleted: deletionCounts.deletedExamAttempts,
           user_certifications_deleted: deletionCounts.deletedUserCertifications,
+          // Firebase Auth & Cache
+          firebase_user_deleted: firebaseAuthDeleted,
+          user_caches_invalidated: cacheInvalidated,
         },
         validation: {
           completely_deleted: validationResults.isCompletelyDeleted,
           remaining_data_check: validationResults.remainingData,
+        },
+        performance: {
+          total_duration_ms: totalDuration,
+          estimated_exams: examAttempts.length,
+          estimated_certifications: userCertifications,
+          estimated_answered_questions: examUserAnswers,
         },
       },
     });
