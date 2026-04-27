@@ -37,8 +37,11 @@ export function extractPaginationParams(
 ): PaginationParams {
   const { defaultPageSize = 10, maxPageSize = 100, minPageSize = 1 } = options;
 
-  let page = parseInt(req.query.page as string, 10);
-  let pageSize = parseInt(req.query.pageSize as string, 10);
+  const pageParam = (typeof req.query.page === 'string' ? req.query.page : Array.isArray(req.query.page) ? req.query.page[0] : '') as string;
+  const pageSizeParam = (typeof req.query.pageSize === 'string' ? req.query.pageSize : Array.isArray(req.query.pageSize) ? req.query.pageSize[0] : '') as string;
+
+  let page = parseInt(pageParam, 10);
+  let pageSize = parseInt(pageSizeParam, 10);
 
   // Validate and set defaults
   if (isNaN(page) || page <= 0) {

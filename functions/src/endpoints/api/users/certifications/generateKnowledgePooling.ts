@@ -42,7 +42,7 @@ export const generateKnowledgePooling = async (
   const startTime = Date.now();
 
   try {
-    const { user_id, cert_id } = req.params;
+    const { user_id, cert_id } = req.params as { user_id: string; cert_id: string };
     const { exam_id, forceGenerate = true } = req.body;
     const firebaseUserIdFromToken = (req as CustomRequest).firebase_user_info
       ?.uid;

@@ -98,7 +98,7 @@ export const getPublicCertificationById = async (
   res: Response,
 ): Promise<void> => {
   try {
-    const certId = parseInt(req.params.certId, 10);
+    const certId = parseInt(req.params.certId as string, 10);
 
     if (isNaN(certId)) {
       res.status(400).json({
@@ -258,7 +258,7 @@ export const getPublicCertificationsByFirm = async (
   res: Response,
 ): Promise<void> => {
   try {
-    const firmId = parseInt(req.params.firmId, 10);
+    const firmId = parseInt(req.params.firmId as string, 10);
 
     if (isNaN(firmId)) {
       res.status(400).json({

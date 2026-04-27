@@ -93,7 +93,7 @@ export const getPublicFirmById = async (
   res: Response,
 ): Promise<void> => {
   try {
-    const firmId = parseInt(req.params.firmId, 10);
+    const firmId = parseInt(req.params.firmId as string, 10);
 
     if (isNaN(firmId)) {
       res.status(400).json({

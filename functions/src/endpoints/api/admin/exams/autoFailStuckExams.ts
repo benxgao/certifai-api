@@ -22,7 +22,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
 
     // Get threshold from query parameter, default to 10 minutes
     const thresholdMinutes =
-      parseInt(req.query.threshold_minutes as string) || 10;
+      parseInt(Array.isArray(req.query.threshold_minutes) ? req.query.threshold_minutes[0] : (req.query.threshold_minutes ?? '10')) || 10;
 
     if (thresholdMinutes < 1 || thresholdMinutes > 1440) {
       // Max 24 hours

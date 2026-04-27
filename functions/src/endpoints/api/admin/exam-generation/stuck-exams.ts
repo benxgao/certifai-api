@@ -33,7 +33,7 @@ const handler = async (
   res: Response,
 ): Promise<void> => {
   try {
-    const threshold = parseInt(req.query.threshold as string) || 30;
+    const threshold = parseInt(Array.isArray(req.query.threshold) ? req.query.threshold[0] : (req.query.threshold ?? '30')) || 30;
 
     logger.info('STUCK_EXAMS_REQUESTED', {
       threshold_minutes: threshold,

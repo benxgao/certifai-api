@@ -74,15 +74,14 @@ export const clearFirmsCache = async (
   try {
     logger.info(`Clearing firms cache, user: ${JSON.stringify(req.user)}`);
 
-    const firmId = req.params.firmId
-      ? parseInt(req.params.firmId, 10)
-      : undefined;
-    await CacheManager.invalidateFirmCache(firmId);
+    const firmId = req.params.firmId as string | undefined;
+    const firmIdNum = firmId ? parseInt(firmId, 10) : undefined;
+    await CacheManager.invalidateFirmCache(firmIdNum);
 
     res.status(200).json({
       success: true,
       message: `Firms cache cleared successfully${
-        firmId ? ` for firm ${firmId}` : ''
+        firmIdNum ? ` for firm ${firmIdNum}` : ''
       }`,
       timestamp: new Date().toISOString(),
     });
@@ -107,14 +106,12 @@ export const clearCertificationsCache = async (
       `Clearing certifications cache, user: ${JSON.stringify(req.user)}`,
     );
 
-    const certId = req.params.certId
-      ? parseInt(req.params.certId, 10)
-      : undefined;
-    const firmId = req.params.firmId
-      ? parseInt(req.params.firmId, 10)
-      : undefined;
+    const certId = req.params.certId as string | undefined;
+    const firmId = req.params.firmId as string | undefined;
+    const certIdNum = certId ? parseInt(certId, 10) : undefined;
+    const firmIdNum = firmId ? parseInt(firmId, 10) : undefined;
 
-    await CacheManager.invalidateCertificationCache(certId, firmId);
+    await CacheManager.invalidateCertificationCache(certIdNum, firmIdNum);
 
     res.status(200).json({
       success: true,

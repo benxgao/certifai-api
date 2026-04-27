@@ -52,7 +52,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       return;
     }
 
-    const certIdNumber = parseInt(cert_id as string, 10);
+    const certIdNumber = parseInt(Array.isArray(cert_id) ? cert_id[0] : (cert_id ?? ''), 10);
     if (isNaN(certIdNumber)) {
       res.status(400).json({
         success: false,

@@ -1,11 +1,11 @@
 {
   "$schema": "https://json.schemastore.org/package.json",
   "name": "functions",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Firebase services of certestic.com",
   "author": {
     "name": "Ben Gao",
-    "email": "hi@benxgao.com"
+    "email": "info@certestic.com"
   },
   "scripts": {
     "lint": "eslint --ext .js,.ts .",

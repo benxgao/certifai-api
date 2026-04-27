@@ -1,6 +1,6 @@
 # Stripe Integration - Certifai API
 
-This directory contains the complete Stripe subscription management implementation for the Certifai API, built for Stripe API version `2025-07-30.basil`.
+This directory contains the complete Stripe subscription management implementation for the Certifai API, built for Stripe API version `2025-08-27.basil`.
 
 ## Files Overview
 
@@ -71,7 +71,7 @@ STRIPE_WEBHOOK_SECRET=whsec_...
 
 ### ✅ Latest Stripe API Support
 
-- Built for Stripe API version `2025-07-30.basil`
+- Built for Stripe API version `2025-08-27.basil`
 - Modern TypeScript types and error handling
 - Proper webhook signature verification
 

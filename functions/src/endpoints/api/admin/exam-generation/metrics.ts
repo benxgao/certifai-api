@@ -27,7 +27,7 @@ const handler = async (
   res: Response,
 ): Promise<void> => {
   try {
-    const timeWindow = parseInt(req.query.timeWindow as string) || 60;
+    const timeWindow = parseInt(Array.isArray(req.query.timeWindow) ? req.query.timeWindow[0] : (req.query.timeWindow ?? '60')) || 60;
 
     logger.info('METRICS_REPORT_REQUESTED', {
       timestamp: new Date().toISOString(),

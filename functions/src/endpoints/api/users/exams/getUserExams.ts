@@ -96,7 +96,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
     };
 
     if (cert_id) {
-      whereClause.cert_id = parseInt(cert_id as string, 10);
+      whereClause.cert_id = parseInt(Array.isArray(cert_id) ? cert_id[0] : (cert_id ?? ''), 10);
     }
 
     // Configure sorting options with started_at as default
@@ -108,11 +108,13 @@ const handler = async (req: any | CustomRequest, res: Response) => {
     ] as const;
     const validSortOrders = ['asc', 'desc'] as const;
 
-    const sortField = validSortFields.includes(sort_by as any)
-      ? (sort_by as string)
+    const narrowedSortBy = Array.isArray(sort_by) ? sort_by[0] : sort_by;
+    const sortField = validSortFields.includes(narrowedSortBy as any)
+      ? narrowedSortBy
       : 'started_at';
-    const sortDirection = validSortOrders.includes(sort_order as any)
-      ? (sort_order as string)
+    const narrowedSortOrder = Array.isArray(sort_order) ? sort_order[0] : sort_order;
+    const sortDirection = validSortOrders.includes(narrowedSortOrder as any)
+      ? narrowedSortOrder
       : 'desc';
 
     const orderBy = { [sortField]: sortDirection };
