@@ -60,7 +60,7 @@ export function SubscriptionCanceledTemplate({
 
             <div class="footer">
               <p>Questions? <a href="mailto:support@certestic.com">Contact our support team</a></p>
-              <p>© 2025 Certestic. All rights reserved.</p>
+              <p>© 2025-2026 Certestic. All rights reserved.</p>
             </div>
           </div>
         </div>

@@ -316,3 +316,9 @@ DIRECT_URL="postgresql://..."  # For Prisma migrations
 - [Cache System Guide](docs/cache-system-complete-guide.md)
 - [Performance Optimizations](docs/performance-analysis-and-optimization.md)
 - [Public API Documentation](docs/public-api.md)
+
+## License
+
+Starting from version 2.0.0, this project is licensed under **MPL 2.0** (Mozilla Public License 2.0). Previous versions remain under MIT.
+
+For details, see the [LICENSE](LICENSE) file in this repository.
