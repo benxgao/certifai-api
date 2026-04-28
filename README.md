@@ -13,7 +13,7 @@ Firebase Functions backend for the **certifai** AI-powered certification trainin
 
 ### Prerequisites
 
-- Node.js v22 or later
+- Node.js v24 or later
 - Firebase CLI (`npm install -g firebase-tools`)
 - PostgreSQL database (local or cloud)
 - Redis instance (Upstash recommended)
