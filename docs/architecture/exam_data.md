@@ -1,303 +1,210 @@
-# Exam Status Transition: QUESTIONS_GENERATING → READY
+# Exam Status Transition Architecture
 
 ## Overview
 
-This document traces the complete end-to-end flow of how exam status transitions from "generating" to "ready" (active) when a new exam is created. It covers the backend initiation, RTDB/Prisma database interactions, Cloud Task batch processing, the status transition mechanism, and frontend polling/display.
+How exam status transitions from **QUESTIONS_GENERATING** → **READY** when all questions are created and associated with the exam.
 
-**Quick Timeline:**
+## Status Transition Sequence
 
 ```
-1. User Creates Exam (API)
-   ↓
-2. Prisma: ExamAttempt created (status=QUESTIONS_GENERATING)
-   ↓
-3. RTDB: exam_plans/{exam_id} written with topics
-   ↓
-4. Cloud Task: First batch queued to generate questions
-   ↓
-5. Cloud Task Loop: Process batches (10 questions each)
-   ↓
-6. Final Batch Completion: Trigger updateExamAfterQuestionAssociation()
-   ↓
-7. Prisma: Update exam_status → READY, total_questions updated
-   ↓
-8. RTDB: Delete exam_plans/{exam_id} (cleanup)
-   ↓
-9. Frontend: Poll detects READY status, displays completion
+1. User creates exam
+   └→ Status: QUESTIONS_GENERATING
+   └→ Create ExamAttempt record in PostgreSQL
+   └→ Write topic list to RTDB
+
+2. Cloud Tasks generate batches of questions (10 at a time)
+   └→ Store questions in Firestore
+   └→ Update RTDB progress
+
+3. Final batch completes
+   └→ Trigger completion handler
+   └→ Associate all questions with exam
+
+4. Association complete
+   └→ Status: READY ← KEY TRANSITION
+   └→ Clean up temporary data
+   └→ Update related entities
 ```
 
----
+## Database State During Transition
 
-## Phase 1: Backend Exam Creation & Initiation
+### PostgreSQL (Prisma - ExamAttempt Table)
 
-### Endpoint Details
+**Initial State (Step 1):**
+```
+exam_id:        "abc123"
+user_id:        "user456"
+cert_id:        1
+exam_status:    QUESTIONS_GENERATING  ← Initial
+total_questions: null                  ← Not set until complete
+started_at:     null
+completed_at:   null
+```
 
-**File:** `certifai-api/functions/src/endpoints/api/users/exams/createExam.ts`  
-**Route:** `POST /api/users/{user_id}/certifications/{cert_id}/exams`  
-**Handler Function:** `createExam(req, res)`
+**After Transition (Step 4):**
+```
+exam_id:        "abc123"
+user_id:        "user456"
+cert_id:        1
+exam_status:    READY                 ← Updated
+total_questions: 50                    ← Now set
+started_at:     null
+completed_at:   null
+```
 
-### Initial Creation Steps
+### RTDB (exam_plans/{exam_id})
 
-#### Step 1.1: Request Validation (Lines ~50-80)
+**During Generation (Step 2):**
+```
+├─ exam_id: "abc123"
+├─ topics: [
+│   { exam_topic: "IAM", question_id: null, status: "pending" },
+│   { exam_topic: "VPC", question_id: "q_001", status: "completed" },
+│   { exam_topic: "Compute", question_id: null, status: "pending" }
+│ ]
+├─ progress:
+│   ├─ completed_count: 1
+│   ├─ total_topics: 3
+│   └─ progress_percentage: 33%
+└─ created_at: 1719172800000
+```
 
-- Validate user authentication via `authCheck` middleware
-- Check rate limits: **Maximum 3 exams per 24 hours**
-- Extract `certification_id`, `exam_level`, and `difficulty` from request
+**After Completion (Step 4):**
+```
+[DELETED - temporary data no longer needed]
+```
 
-#### Step 1.2: Create ExamAttempt Record (Lines ~120-145)
+### Firestore (exams/{exam_id}/questions)
 
-**Prisma Table:** `ExamAttempt`  
-**Operation:** `prismaInstance.examAttempt.create()`
+**During Generation:**
+```
+Document: q_001
+├─ exam_topic: "VPC"
+├─ question_text: "What is a security group?"
+├─ options: [...]
+├─ correct_answer: "A firewall for EC2 instances"
+└─ generated_at: timestamp
 
-**Data Created:**
+Document: q_002
+├─ exam_topic: "IAM"
+├─ question_text: "..."
+├─ options: [...]
+├─ correct_answer: "..."
+└─ generated_at: timestamp
 
-```typescript
-{
-  exam_id: UUID (auto-generated),
-  user_id: string (from auth),
-  certification_id: string,
-  exam_level: string,
-  difficulty: string,
-  exam_status: ExamStatus.QUESTIONS_GENERATING,  // ← INITIAL STATUS
-  total_questions: null,                          // ← Set later when questions assigned
-  started_at: new Date(),
-  submitted_at: null,
-  created_at: new Date(),
-  updated_at: new Date()
+... (all questions stored)
+```
+
+### LinkageRecords (ExamUserAnswer)
+
+**Purpose:** Associate questions with exam + user
+
+**Records Created:**
+```
+exam_id:        "abc123"
+user_id:        "user456"
+question_id:    "q_001"
+user_answer:    null        (filled after user answers)
+correct_answer: "..."
+is_correct:     null        (filled after user submits)
+
+... (one record per question)
+```
+
+## Transition Triggers
+
+### Condition 1: Last Batch Completes
+```
+if (batch_number === total_batches) {
+  trigger_transition()
 }
 ```
 
-**ExamStatus Enum Values:**
-
-```typescript
-enum ExamStatus {
-  QUESTIONS_GENERATING = "QUESTIONS_GENERATING", // Initial state
-  READY = "READY", // Transition target
-  STARTED = "STARTED",
-  COMPLETED = "COMPLETED",
-  QUESTION_GENERATION_FAILED = "QUESTION_GENERATION_FAILED",
+### Condition 2: All Topics Have Questions
+```
+if (completed_question_count >= total_topics) {
+  trigger_transition()
 }
 ```
 
-#### Step 1.3: Generate Exam Topics via AI (Lines ~150-180)
-
-**Service:** `examPlanner` (AI-powered topic generation)
-
-- Generates list of topics/concepts for the exam based on:
-  - Certification selected
-  - Exam level
-  - Difficulty setting
-- Returns array of topics to cover
-
-#### Step 1.4: Write Exam Plan to RTDB (Lines ~185-200)
-
-**RTDB Location:** `exam_plans/{exam_id}`
-
-**Structure Written:**
-
-```json
-{
-  "exam_id": "550e8400-e29b-41d4-a716-446655440000",
-  "topics": [
-    {
-      "exam_topic": "Cloud Architecture Basics",
-      "question_id": null,
-      "status": "pending"
-    },
-    {
-      "exam_topic": "Security Fundamentals",
-      "question_id": null,
-      "status": "pending"
-    }
-    // ... more topics
-  ],
-  "created_at": 1719172800000,
-  "total_topics": 15,
-  "questions_per_topic": 10
+### Condition 3: Target Questions Reached
+```
+if (completed_question_count >= target_questions) {
+  trigger_transition()
 }
 ```
 
-#### Step 1.5: Calculate Batch Execution (Lines ~205-220)
+When ANY condition is true → execute transition
 
-- **Batch Size:** 10 questions per Cloud Task
-- **Total Batches:** `ceil(total_topics / 10)`
-- Example: 15 topics → 2 batches (10 + 5)
+## Transition Process
 
-#### Step 1.6: Create First Cloud Task (Lines ~225-250)
-
-**Service:** `ExamGenerationTaskService`  
-**File:** `certifai-api/functions/src/services/cloudTasks/examGenerationTaskService.ts`
-
-**Cloud Task Created:**
-
-```typescript
-{
-  exam_id: "550e8400-e29b-41d4-a716-446655440000",
-  batch_number: 1,
-  batch_start_index: 0,
-  batch_size: 10,
-  queue_name: "exam-generation-queue",
-  task_payload: {
-    exam_id,
-    batch_number: 1
-  }
-}
+### Step 1: Verify Questions Exist
+```
+SELECT COUNT(*) FROM ExamUserAnswer 
+WHERE exam_id = 'abc123'
+→ Must be > 0
 ```
 
-**Task Endpoint:** `POST /api/internal/cloud-tasks/batch-generate-questions`
-
-### Phase 1 Summary - Data State After Initiation
-
-| Component                | Location           | Status                                                                  |
-| ------------------------ | ------------------ | ----------------------------------------------------------------------- |
-| **Prisma - ExamAttempt** | PostgreSQL         | Created with `exam_status=QUESTIONS_GENERATING`, `total_questions=null` |
-| **RTDB - exam_plans**    | Firebase RTDB      | Written with 15 topics, all `question_id=null`, `status=pending`        |
-| **Cloud Task - Queue**   | Google Cloud Tasks | First batch task queued for immediate processing                        |
-
----
-
-## Phase 2: Cloud Task Batch Processing
-
-### Cloud Task Execution Loop
-
-**Service:** `ExamGenerationTaskService`  
-**File:** `certifai-api/functions/src/services/cloudTasks/examGenerationTaskService.ts`
-
-#### Step 2.1: Process Batch Questions (Lines ~80-150)
-
-**Handler Called:** `/api/internal/cloud-tasks/batch-generate-questions`
-
-**For Each Topic in Batch:**
-
-1. Take next 10 topics from the exam_plans list
-2. Call Genkit AI model to generate question for topic
-3. Store generated question in Prisma `Question` table
-4. Create association in `ExamUserAnswer` table
-5. Update RTDB exam_plans[index].question_id with generated question
-
-**Code Pattern:**
-
-```typescript
-// Process 10 topics per batch
-for (
-  let i = batchStartIndex;
-  i < Math.min(batchStartIndex + 10, totalTopics);
-  i++
-) {
-  const topic = topics[i];
-
-  // Generate question via Genkit
-  const generatedQuestion = await questionGenerationModel.generate({
-    exam_topic: topic.exam_topic,
-    exam_level,
-    difficulty,
-  });
-
-  // Create ExamUserAnswer association
-  await prismaInstance.examUserAnswer.create({
-    exam_id,
-    question_id: generatedQuestion.id,
-    user_answer: null,
-    correct_answer: generatedQuestion.correctAnswer,
-    is_correct: null,
-  });
-
-  // Update RTDB with question_id
-  await rtdb.ref(`exam_plans/${exam_id}/topics/${i}`).update({
-    question_id: generatedQuestion.id,
-    status: "completed",
-  });
-}
+### Step 2: Count Associated Questions
+```
+Questions to associate = count from step 1
+Success = count > 0
 ```
 
-#### Step 2.2: Update RTDB During Processing (Lines ~155-175)
-
-**Location:** `exam_plans/{exam_id}/topics/[index]`
-
-**RTDB Update Pattern:**
-
-```json
-// BEFORE
-{
-  "exam_topic": "Cloud Architecture Basics",
-  "question_id": null,
-  "status": "pending"
-}
-
-// AFTER (each topic gets question_id)
-{
-  "exam_topic": "Cloud Architecture Basics",
-  "question_id": "q_550e8400-e29b-41d4-a716-446655440000_1",
-  "status": "completed"
-}
+### Step 3: Update ExamAttempt Status
+```
+UPDATE ExamAttempt 
+SET 
+  exam_status = 'READY',
+  total_questions = count,
+  updated_at = NOW()
+WHERE exam_id = 'abc123'
 ```
 
-**RTDB Complete State After Batch 1 (Topics 0-9):**
-
-```json
-{
-  "exam_id": "550e8400-e29b-41d4-a716-446655440000",
-  "topics": [
-    // Topics 0-9 have question_id filled in, status=completed
-    // Topics 10-14 still have question_id=null, status=pending
-  ],
-  "progress": {
-    "completed_count": 10,
-    "total_topics": 15,
-    "progress_percentage": 66.67
-  }
-}
+### Step 4: Update UserCertification Status
+```
+If first exam for user:
+  UPDATE UserCertification
+  SET status = 'IN_PROGRESS'
+  
+If not first exam:
+  No change
 ```
 
-### Phase 2.3: Determine Next Action (Lines ~180-210)
-
-**Check in `examCompletion.ts`** (called after batch completes):
-
-```typescript
-const isExamComplete = completedQuestions >= totalTopics;
-
-if (isExamComplete) {
-  // All topics have questions → Proceed to Phase 3 (Status Transition)
-  return triggerUpdateExamAfterQuestionAssociation(exam_id);
-} else {
-  // More topics remain → Queue next batch
-  batch_number = currentBatch + 1;
-  batch_start_index = (batchNumber - 1) * 10;
-  createNextBatchCloudTask(exam_id, batch_number, batch_start_index);
-}
+### Step 5: Cleanup Temporary Data
+```
+DELETE FROM RTDB: exam_plans/{exam_id}
+  → No longer needed
+  → Reduces storage
+  → Question of truth moves to Firestore
 ```
 
-**File:** `certifai-api/functions/src/delegators/tasks/buildExam/examCompletion.ts` (Lines ~100-120)
+## Error Recovery
 
-### Phase 2 Summary - Batch Processing State
+| Error | Detection | Recovery |
+|-------|-----------|----------|
+| No questions generated | Count = 0 in step 2 | Status = QUESTION_GENERATION_FAILED |
+| Partial generation | Count < expected | Status = READY (partial exam OK) |
+| Database error | Transaction fails | Retry transition or manual intervention |
+| Data inconsistency | Mismatch between stores | Log error, manual review needed |
 
-| Step                      | Prisma Status                      | RTDB Status                    | Queue Status         |
-| ------------------------- | ---------------------------------- | ------------------------------ | -------------------- |
-| **After Batch 1**         | `exam_status=QUESTIONS_GENERATING` | 10 topics with question_id     | Next batch queued    |
-| **After Batch 2 (Final)** | `exam_status=QUESTIONS_GENERATING` | All 15 topics with question_id | Completion triggered |
+## Key Design Points
 
----
+1. **PostgreSQL is source of truth** for exam metadata
+2. **Firestore stores questions** (distributed storage)
+3. **RTDB is temporary** progress tracker (deleted after completion)
+4. **ExamUserAnswer links** questions to exams (audit trail)
+5. **Status only changes** when ALL prerequisites satisfied
 
-## Phase 3: Status Transition Mechanism (The Critical Transition)
+## Monitoring
 
-### The Transition Function
+Track these transitions:
+- Time taken (creation → READY)
+- Success rate
+- Failure reasons
+- Database operation timing
+- Number of questions generated per exam
 
-**File:** `certifai-api/functions/src/utils/examQuestionAssociation.ts`  
-**Function:** `updateExamAfterQuestionAssociation(exam_id, certification_id)`  
-**Called from:** `examCompletion.ts` after final batch completion
-
-### Step 3.1: Verify All Questions Associated (Lines ~300-320)
-
-```typescript
-const associationResult = await verifyExamQuestionsAssociated(exam_id);
-
-// associationResult contains:
-{
-  success: boolean,                    // true if all topics have questions
-  associatedQuestionCount: number,     // count of ExamUserAnswer records
-  failureReason?: string              // If success=false
-}
-```
 
 ### Step 3.2: Determine Status (Lines ~323-335)
 
