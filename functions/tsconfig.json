@@ -6,7 +6,6 @@
     "noImplicitReturns": true,
     "noUnusedLocals": true,
     "outDir": "lib",
-    "rootDir": "src",
     "sourceMap": true,
     "strict": true,
     "resolveJsonModule": true,
@@ -15,5 +14,6 @@
     "lib": ["es2020"]
   },
   "compileOnSave": true,
-  "include": ["src/**/*", "../scripts/seed.ts"]
+  "include": ["src/**/*", "__tests__/**/*", "../scripts/seed.ts"],
+  "exclude": ["node_modules", "lib", "coverage"]
 }
