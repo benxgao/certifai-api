@@ -2,7 +2,7 @@ import { Response } from 'express';
 import logger from '../../../../services/firebase/logger';
 import { CustomRequest } from '../../../../types';
 import { getRtdbValueWithTimeout } from '../../../../services/firebase/rtdb';
-import prismaInstance from '../../../../services/prisma';
+import prismaInstance, { ExamStatus } from '../../../../services/prisma';
 
 /**
  * Get exam live status with real-time progress from Firestore + RTDB
@@ -94,16 +94,16 @@ const handler = async (req: any | CustomRequest, res: Response) => {
     let topicsWithQuestions = 0;
     let totalTopics = 0;
 
-    if (exam.exam_status === 'READY') {
+    if (exam.exam_status === ExamStatus.READY) {
       // Exam is complete
       progressPercentage = 100;
       topicsWithQuestions = exam.total_questions || 0;
       totalTopics = exam.total_questions || 0;
-    } else if (exam.exam_status === 'QUESTIONS_GENERATING') {
+    } else if (exam.exam_status === ExamStatus.QUESTIONS_GENERATING) {
       // Get progress from exam_plans (current state - source of truth for progress)
       // exam_progress RTDB path is deprecated and NOT read here (migration in progress)
       const examPlanPath = `exam_plans/${exam_id}`;
-      
+
       try {
         const examPlan = await getRtdbValueWithTimeout(examPlanPath, 5000);
 
@@ -128,7 +128,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
           progressPercentage = 10;
           totalTopics = exam.total_questions || 0;
           topicsWithQuestions = Math.max(1, Math.round((exam.total_questions || 0) * 0.1));
-          
+
           logger.warn('Fallback progress calculation: exam_plans missing during QUESTIONS_GENERATING', {
             exam_id,
             total_questions: exam.total_questions,
@@ -140,7 +140,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
         progressPercentage = 10;
         totalTopics = exam.total_questions || 0;
         topicsWithQuestions = Math.max(1, Math.round((exam.total_questions || 0) * 0.1));
-        
+
         logger.warn('Exam plans fetch error, using fallback calculation', {
           exam_id,
           error: error instanceof Error ? error.message : 'Unknown error',
@@ -152,7 +152,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
     // Calculate estimated time remaining based on progress rate
     let estimatedSecondsRemaining = 0;
     if (
-      exam.exam_status === 'QUESTIONS_GENERATING' &&
+      exam.exam_status === ExamStatus.QUESTIONS_GENERATING &&
       progressPercentage > 0 &&
       progressPercentage < 100 &&
       exam.started_at
@@ -190,7 +190,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
         total_questions: exam.total_questions,
         estimated_seconds_remaining:
           estimatedSecondsRemaining > 0 ? estimatedSecondsRemaining : 0,
-        is_complete: exam.exam_status === 'READY',
+        is_complete: exam.exam_status === ExamStatus.READY,
         query_duration_ms: queryDurationMs,
         timestamp_ms: Date.now(),
       },

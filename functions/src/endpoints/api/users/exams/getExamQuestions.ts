@@ -1,7 +1,7 @@
 import { Response } from 'express';
 import logger from '../../../../services/firebase/logger';
 import { CustomRequest } from '../../../../types';
-import prismaInstance from '../../../../services/prisma';
+import prismaInstance, { ExamStatus } from '../../../../services/prisma';
 import {
   associateQuestionsWithExam,
   updateExamAfterQuestionAssociation,
@@ -98,7 +98,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
     }
 
     // Check if exam questions are ready - block access if questions are still generating
-    if (exam.exam_status === 'QUESTIONS_GENERATING') {
+    if (exam.exam_status === ExamStatus.QUESTIONS_GENERATING) {
       res.status(423).json({
         success: false,
         error:
@@ -114,7 +114,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       return;
     }
 
-    if (exam.exam_status === 'QUESTION_GENERATION_FAILED') {
+    if (exam.exam_status === ExamStatus.QUESTION_GENERATION_FAILED) {
       logger.error(`EXAM_GENERATION_FAILED: exam_id=${exam_id}, user_id=${user_id}`, {
         exam_id,
         user_id,

@@ -1,7 +1,7 @@
 import logger from './firebase/logger';
 import { ExamGenerationLogger } from './exam-generation-logger';
 import { ExamGenerationMetrics } from './exam-generation-metrics';
-import prismaInstance from './prisma';
+import prismaInstance, { ExamStatus } from './prisma';
 
 /**
  * System health monitoring utilities for exam generation
@@ -146,7 +146,7 @@ export class ExamGenerationHealthCheck {
       // Perform a simple database query to check connectivity and performance
       await prismaInstance.examAttempt.findFirst({
         where: {
-          exam_status: 'QUESTIONS_GENERATING',
+          exam_status: ExamStatus.QUESTIONS_GENERATING,
         },
         select: {
           exam_id: true,
@@ -222,7 +222,7 @@ export class ExamGenerationHealthCheck {
     try {
       const activeExams = await prismaInstance.examAttempt.count({
         where: {
-          exam_status: 'QUESTIONS_GENERATING',
+          exam_status: ExamStatus.QUESTIONS_GENERATING,
         },
       });
 
@@ -333,7 +333,7 @@ export class ExamGenerationHealthCheck {
       await prismaInstance.examAttempt.update({
         where: { exam_id: examId },
         data: {
-          exam_status: 'READY',
+          exam_status: ExamStatus.READY,
           // Note: You may need to add these fields to your schema
           // force_completed: true,
           // force_complete_reason: reason,
@@ -403,7 +403,7 @@ export class ExamGenerationHealthCheck {
 
       const stuckExams = await prismaInstance.examAttempt.findMany({
         where: {
-          exam_status: 'QUESTIONS_GENERATING',
+          exam_status: ExamStatus.QUESTIONS_GENERATING,
           started_at: {
             lt: thresholdTime,
           },
@@ -496,7 +496,7 @@ export class ExamGenerationHealthCheck {
           await prismaInstance.examAttempt.update({
             where: { exam_id: exam.exam_id },
             data: {
-              exam_status: 'QUESTION_GENERATION_FAILED',
+              exam_status: ExamStatus.QUESTION_GENERATION_FAILED,
             },
           });
 
@@ -520,7 +520,7 @@ export class ExamGenerationHealthCheck {
           ExamGenerationLogger.logExamFailure({
             exam_id: exam.exam_id,
             reason: 'Auto-failed due to stuck generation',
-            error: `Exam was stuck in QUESTIONS_GENERATING state for ${exam.minutes_stuck} minutes, exceeding ${thresholdMinutes} minute threshold`,
+            error: `Exam was stuck in ${ExamStatus.QUESTIONS_GENERATING} state for ${exam.minutes_stuck} minutes, exceeding ${thresholdMinutes} minute threshold`,
             batch_number: 0, // Unknown batch since it was stuck
             questions_generated_so_far: 0, // No questions generated for stuck exam
           });

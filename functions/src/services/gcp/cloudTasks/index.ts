@@ -72,7 +72,6 @@ async function createQueue(queueName: string): Promise<void> {
     logger.info(`Successfully created Cloud Tasks queue: ${queueName}`);
   } catch (error: any) {
     if (error.code === 6) {
-      // ALREADY_EXISTS
       logger.info(`Queue ${queueName} already exists, continuing...`);
       return;
     }

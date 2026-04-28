@@ -252,7 +252,7 @@ export async function updateCertificationStatusOnFirstExam(
       },
     });
 
-    // If this is the first READY exam (count should be 1, which is the current exam we just updated)
+    // If this is the first ready exam (count should be 1, which is the current exam we just updated)
     if (existingReadyExamsCount === 1) {
       // Check current certification status
       const userCertification =
@@ -285,7 +285,7 @@ export async function updateCertificationStatusOnFirstExam(
         });
 
         logger.info(
-          `updateCertificationStatusOnFirstExam: Updated certification status to IN_PROGRESS for user ${user_id}, cert_id ${cert_id} after first exam ${exam_id} became READY`,
+          `updateCertificationStatusOnFirstExam: Updated certification status to IN_PROGRESS for user ${user_id}, cert_id ${cert_id} after first exam ${exam_id} became ready`,
         );
 
         // Invalidate user certification cache since status changed
@@ -362,7 +362,7 @@ export async function updateExamAfterQuestionAssociation(
       );
     }
 
-    // Invalidate user exam cache when exam generation completes (status changes to READY or FAILED)
+    // Invalidate user exam cache when exam generation completes (status changes to ready or failed)
     if (exam?.user_id) {
       // [CHECKPOINT-4] Cache Invalidation - Before
       const cacheInvalidationStart = Date.now();

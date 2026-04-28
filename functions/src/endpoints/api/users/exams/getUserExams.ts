@@ -1,7 +1,7 @@
 import { Response } from 'express';
 import logger from '../../../../services/firebase/logger';
 import { CustomRequest } from '../../../../types';
-import prismaInstance from '../../../../services/prisma';
+import prismaInstance, { ExamStatus } from '../../../../services/prisma';
 import {
   extractPaginationParams,
   createPaginatedResponse,
@@ -199,10 +199,10 @@ const handler = async (req: any | CustomRequest, res: Response) => {
 
       // Override status based on submission
       if (exam.submitted_at) {
-        computedStatus = 'COMPLETED';
-      } else if (exam.exam_status === 'READY' && exam.started_at) {
+        computedStatus = ExamStatus.COMPLETED;
+      } else if (exam.exam_status === ExamStatus.READY && exam.started_at) {
         // If exam is ready and has been started, it's in progress
-        computedStatus = 'IN_PROGRESS';
+        computedStatus = ExamStatus.IN_PROGRESS;
       }
 
       return {

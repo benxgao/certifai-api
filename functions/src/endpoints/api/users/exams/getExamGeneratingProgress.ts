@@ -2,7 +2,7 @@ import { Response } from 'express';
 import logger from '../../../../services/firebase/logger';
 import { CustomRequest } from '../../../../types';
 import { getRtdbValue } from '../../../../services/firebase/rtdb';
-import prismaInstance from '../../../../services/prisma';
+import prismaInstance, { ExamStatus } from '../../../../services/prisma';
 
 /**
  * DEPRECATED: Use `/api/users/{user_id}/exams/{exam_id}/live-status` instead
@@ -12,7 +12,7 @@ import prismaInstance from '../../../../services/prisma';
  *
  * Get exam generation progress by counting topics with question_id in RTDB
  * This provides a simple, accurate way to track progress percentage
- * Works for exams in QUESTIONS_GENERATING state, and returns completed progress for READY exams
+ * Works for exams in QUESTIONS_GENERATING state, and returns completed progress for ready exams
  *
  * @deprecated Use /api/users/{user_id}/exams/{exam_id}/live-status instead
  */
@@ -67,7 +67,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
     }
 
     // Handle different exam statuses appropriately
-    if (exam.exam_status === 'READY') {
+    if (exam.exam_status === ExamStatus.READY) {
       // Exam is ready - return completed progress
       logger.info(
         `EXAM_PROGRESS_READY: Returning completed progress for exam ${exam_id} with status ${exam.exam_status}`,
@@ -97,7 +97,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
         data: progressData,
       });
       return;
-    } else if (exam.exam_status !== 'QUESTIONS_GENERATING') {
+    } else if (exam.exam_status !== ExamStatus.QUESTIONS_GENERATING) {
       logger.warn(
         `EXAM_PROGRESS_INVALID_STATUS: Rejected progress request for exam ${exam_id} with status ${exam.exam_status}`,
         {

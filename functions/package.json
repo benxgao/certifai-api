@@ -45,7 +45,7 @@
     "compression": "^1.8.0",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
-    "express-rate-limit": "^7.5.0",
+    "express-rate-limit": "^8.4.1",
     "firebase-admin": "^13.8.0",
     "firebase-functions": "^7.2.5",
     "genkit": "^1.33.0",
@@ -58,7 +58,7 @@
     "stripe": "^18.4.0"
   },
   "devDependencies": {
-    "@eslint/compat": "^1.2.9",
+    "@eslint/compat": "^2.0.5",
     "@eslint/eslintrc": "^3.3.5",
     "@eslint/js": "^9.26.0",
     "@prisma/client": "^6.8.2",
@@ -78,7 +78,7 @@
     "prisma": "^6.8.2",
     "ts-jest": "^29.4.9",
     "ts-node": "^10.9.2",
-    "typescript": "^5.8.2"
+    "typescript": "^6.0.3"
   },
   "license": "MPL-2.0"
 }
