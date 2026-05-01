@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 import logger from '../firebase/logger';
 import { PerformanceMonitor } from '../performance';
 import { QueryCacheService, QueryType } from '../cache/queryCache';
@@ -20,14 +20,14 @@ export class DatabaseQueryOptimizer {
 
     try {
       // Split queries into batches to avoid overwhelming the database
-      const batches: Array<Array<() => Promise<any>>> = [];
+      const batches: Array<Array<() => Promise<unknown>>> = [];
       for (let i = 0; i < queries.length; i += batchSize) {
         batches.push(
-          queries.slice(i, i + batchSize) as Array<() => Promise<any>>,
+          queries.slice(i, i + batchSize) as Array<() => Promise<unknown>>,
         );
       }
 
-      const results: any[] = [];
+      const results: unknown[] = [];
 
       // Execute batches sequentially, queries within each batch in parallel
       for (const batch of batches) {
@@ -51,7 +51,7 @@ export class DatabaseQueryOptimizer {
       return results as unknown as T;
     } catch (error) {
       logger.error('Error in parallel query execution:', {
-        error: error as any,
+        error: error instanceof Error ? error.message : String(error),
       });
       throw error;
     }
@@ -106,7 +106,7 @@ export class DatabaseQueryOptimizer {
 
       return result;
     } catch (error) {
-      logger.error('Error in findManyWithCount:', { error: error as any });
+      logger.error('Error in findManyWithCount:', { error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -164,7 +164,7 @@ export class DatabaseQueryOptimizer {
       return result;
     } catch (error) {
       logger.error('Error in optimized query:', {
-        error: error as any,
+        error: error instanceof Error ? error.message : String(error),
         options,
       });
       throw error;
@@ -188,7 +188,7 @@ export class DatabaseQueryOptimizer {
 
     try {
       if (useTransaction) {
-        return await prisma.$transaction(async (tx: any) => {
+        return await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
           return this.executeBatchOperations(tx, operations, batchSize);
         });
       } else {
@@ -198,7 +198,7 @@ export class DatabaseQueryOptimizer {
       const duration = Date.now() - startTime;
 
       logger.error('Batch operations failed:', {
-        error: error as any,
+        error: error instanceof Error ? error.message : String(error),
         operation_count: operations.length,
         duration_ms: duration,
         use_transaction: useTransaction,
@@ -242,7 +242,7 @@ export class DatabaseQueryOptimizer {
       return result;
     } catch (error) {
       logger.error('Error in aggregation:', {
-        error: error as any,
+        error: error instanceof Error ? error.message : String(error),
         type: aggregationType,
       });
       throw error;
@@ -255,7 +255,7 @@ export class DatabaseQueryOptimizer {
   static async executeRawQuery<T>(
     prisma: PrismaClient,
     query: string,
-    params: any[] = [],
+    params: unknown[] = [],
     options: RawQueryOptions = {},
   ): Promise<T> {
     const { cacheKey, ttl = 300, enableOptimization = true } = options;
@@ -281,10 +281,10 @@ export class DatabaseQueryOptimizer {
       }
 
       // Execute raw query
-      const result = (await (prisma as any).$queryRawUnsafe(
+      const result = (await (prisma as PrismaClient & { $queryRawUnsafe: (query: string, ...params: unknown[]) => Promise<T> }).$queryRawUnsafe(
         query,
         ...params,
-      )) as T;
+      ));
       const duration = Date.now() - startTime;
 
       PerformanceMonitor.trackDatabaseQuery('raw_query', duration, {
@@ -305,7 +305,7 @@ export class DatabaseQueryOptimizer {
       return result;
     } catch (error) {
       logger.error('Raw query execution failed:', {
-        error: error as any,
+        error: error instanceof Error ? error.message : String(error),
         query: query.substring(0, 100),
       });
       throw error;
@@ -316,7 +316,7 @@ export class DatabaseQueryOptimizer {
    * Execute batch operations (internal helper)
    */
   private static async executeBatchOperations<T>(
-    prismaOrTx: PrismaClient | any,
+    prismaOrTx: PrismaClient | Prisma.TransactionClient,
     operations: BatchOperation<T>[],
     batchSize: number,
   ): Promise<T[]> {
@@ -368,7 +368,7 @@ export interface OptimizedQueryOptions {
  * Batch operation definition
  */
 export interface BatchOperation<T> {
-  operation: (prismaOrTx: PrismaClient | any) => Promise<T>;
+  operation: (prismaOrTx: PrismaClient | Prisma.TransactionClient) => Promise<T>;
   description?: string;
 }
 
@@ -395,13 +395,13 @@ export interface RawQueryOptions {
  */
 export function OptimizeQuery(options: OptimizedQueryOptions = {}) {
   return function (
-    target: any,
+    target: object,
     propertyName: string,
     descriptor: PropertyDescriptor,
-  ) {
-    const method = descriptor.value;
+  ): PropertyDescriptor {
+    const method = descriptor.value as (...args: unknown[]) => Promise<unknown>;
 
-    descriptor.value = async function (...args: any[]) {
+    descriptor.value = async function (...args: unknown[]) {
       const cacheKey =
         options.cacheKey ||
         QueryCacheService.generateQueryFingerprint(

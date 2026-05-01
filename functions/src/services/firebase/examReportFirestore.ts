@@ -195,7 +195,7 @@ export class ExamReportFirestoreService {
 
       // Since documents are nested under users/{userId}/certs/{certId}/exam_reports,
       // we don't need to filter by user_id - it's already scoped to the user
-      const whereFilters: Array<{ field: string; operator: any; value: any }> =
+      const whereFilters: Array<{ field: string; operator: FirebaseFirestore.WhereFilterOp; value: unknown }> =
         [];
 
       // Add certification name filter if provided
@@ -207,7 +207,7 @@ export class ExamReportFirestoreService {
         });
       }
 
-      const queryOptions: any = {
+      const queryOptions: Parameters<typeof firestoreService.list>[1] = {
         orderBy: [{ field: 'generated_at', direction: 'desc' }],
         limit: 1,
       };
@@ -243,8 +243,8 @@ export class ExamReportFirestoreService {
     } catch (error) {
       // Try a simpler query without ordering if the complex one fails (index error)
       if (
-        (error as any).code === 9 ||
-        (error as any).message?.includes('index')
+        (error as { code?: number }).code === 9 ||
+        (error as { message?: string }).message?.includes('index')
       ) {
         logger.warn(
           `FIRESTORE_LAST_EXAM_REPORT_INDEX_ERROR: user_id=${userId}, certification=${certificationName}, trying simple query`,
@@ -255,7 +255,7 @@ export class ExamReportFirestoreService {
           const collectionPath = this.buildExamReportsPath(userId, certId);
 
           // Query without ordering to avoid index requirements
-          const queryOptions: any = {
+          const queryOptions: Parameters<typeof firestoreService.list>[1] = {
             limit: 50, // Get more documents to sort manually
           };
 
@@ -403,8 +403,8 @@ export class ExamReportFirestoreService {
     } catch (error) {
       // Try a simpler query without ordering if the complex one fails
       if (
-        (error as any).code === 9 ||
-        (error as any).message?.includes('index')
+        (error as { code?: number }).code === 9 ||
+        (error as { message?: string }).message?.includes('index')
       ) {
         logger.warn(
           `FIRESTORE_USER_EXAM_REPORTS_INDEX_ERROR: user_id=${userId}, cert_id=${certId}, trying simple query`,

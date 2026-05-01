@@ -38,11 +38,41 @@ const ExamReportSchema = z.object({
     ),
 });
 
+export interface ExamReportGeneratorInput {
+  user_id: string;
+  exam_id: string;
+  certification_name: string;
+  performance_data: Array<{
+    topic: string;
+    correct_answers: number;
+    total_attempts: number;
+    accuracy_rate: number;
+    current_difficulty_level: number;
+    average_difficulty_attempted: number;
+  }>;
+  overall_score: number;
+  total_questions: number;
+  correct_answers: number;
+}
+
+export type ExamReportGeneratorOutput = {
+  report: string;
+  difficulty_adjustments: {
+    increase_difficulty: string[];
+    maintain_difficulty: string[];
+    decrease_difficulty: string[];
+  };
+};
+
+export type ExamReportGeneratorFlow = (
+  input: ExamReportGeneratorInput,
+) => Promise<ExamReportGeneratorOutput>;
+
 /**
  * Exam Report Generator Flow
  * Analyzes user performance data and generates personalized learning recommendations
  */
-export const createExamReportGeneratorFlow = async (): Promise<any> => {
+export const createExamReportGeneratorFlow = async (): Promise<ExamReportGeneratorFlow> => {
   try {
     const ai = await createAiInstancePromise();
 
@@ -228,9 +258,11 @@ Keep it exactly around 150 words, be specific about topic names, and emphasize h
       },
     );
 
-    return examReportGeneratorFlow;
+    return examReportGeneratorFlow as ExamReportGeneratorFlow;
   } catch (error) {
-    logger.error('Failed to create exam report generator flow:', error as any);
+    logger.error('Failed to create exam report generator flow:', {
+      error: error instanceof Error ? error.message : String(error),
+    });
     throw error;
   }
 };
@@ -238,12 +270,12 @@ Keep it exactly around 150 words, be specific about topic names, and emphasize h
 /**
  * Singleton promise for the exam report generator flow
  */
-let examReportGeneratorPromise: Promise<any> | null = null;
+let examReportGeneratorPromise: Promise<ExamReportGeneratorFlow> | null = null;
 
 /**
  * Get or create the exam report generator flow
  */
-export const getExamReportGeneratorFlow = (): Promise<any> => {
+export const getExamReportGeneratorFlow = (): Promise<ExamReportGeneratorFlow> => {
   if (!examReportGeneratorPromise) {
     examReportGeneratorPromise = createExamReportGeneratorFlow();
   }

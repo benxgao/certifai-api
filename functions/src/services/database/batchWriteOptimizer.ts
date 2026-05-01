@@ -22,7 +22,7 @@ export class BatchWriteOptimizer {
    * Execute batch operations with intelligent batching and error handling
    */
   static async batchOperations<T>(
-    prisma: PrismaClient | any, // Support both client and transaction
+    prisma: PrismaClient, // Support both client and transaction
     operations: BatchOperation<T>[],
     options: BatchOperationOptions = {},
   ): Promise<T[]> {
@@ -40,7 +40,7 @@ export class BatchWriteOptimizer {
         if (useTransaction && 'prisma' in prisma) {
           // We're using the main client, need to wrap in transaction
           return await prisma.$transaction(
-            async (tx: any) => {
+            async (tx) => {
               return this.executeBatchOperations(tx, operations, batchSize);
             },
             {
@@ -56,15 +56,15 @@ export class BatchWriteOptimizer {
             batchSize,
           );
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
         attempt++;
 
         if (!this.isRetryableError(error) || attempt >= maxRetries) {
           logger.error('Batch operation failed after retries', {
             attempt,
             maxRetries,
-            error: error.message,
-            errorCode: error.code,
+            error: error instanceof Error ? error.message : String(error),
+            errorCode: (error as { code?: unknown }).code,
             operationCount: operations.length,
             structuredData: true,
           });
@@ -76,7 +76,7 @@ export class BatchWriteOptimizer {
           attempt,
           maxRetries,
           delay,
-          error: error.message,
+          error: error instanceof Error ? error.message : String(error),
           structuredData: true,
         });
 
@@ -91,7 +91,7 @@ export class BatchWriteOptimizer {
    * Execute operations in optimal batch sizes with parallel processing
    */
   private static async executeBatchOperations<T>(
-    prismaOrTx: any,
+    prismaOrTx: Parameters<Parameters<PrismaClient['$transaction']>[0]>[0] | PrismaClient,
     operations: BatchOperation<T>[],
     batchSize: number,
   ): Promise<T[]> {
@@ -109,7 +109,7 @@ export class BatchWriteOptimizer {
             return op.operation(prismaOrTx);
           } catch (error) {
             logger.error(`Batch operation ${i + index} failed`, {
-              error: error as any,
+              error: error instanceof Error ? error.message : String(error),
               operationDescription: op.description,
               structuredData: true,
             });
@@ -144,7 +144,8 @@ export class BatchWriteOptimizer {
   /**
    * Check if error is retryable (deadlock, connection timeout, etc.)
    */
-  private static isRetryableError(error: any): boolean {
+  private static isRetryableError(error: unknown): boolean {
+    const err = error as { code?: string; message?: string };
     const retryableErrors = [
       'P2034', // Transaction failed due to write conflict
       'P2024', // Timed out fetching a new connection
@@ -154,11 +155,12 @@ export class BatchWriteOptimizer {
     ];
 
     return (
-      retryableErrors.includes(error.code) ||
-      error.message?.includes('deadlock') ||
-      error.message?.includes('timeout') ||
-      error.message?.includes('connection reset') ||
-      error.message?.includes('connection terminated')
+      retryableErrors.includes(err.code ?? '') ||
+      err.message?.includes('deadlock') ||
+      err.message?.includes('timeout') ||
+      err.message?.includes('connection reset') ||
+      err.message?.includes('connection terminated') ||
+      false
     );
   }
 
@@ -181,7 +183,7 @@ export class BatchWriteOptimizer {
   /**
    * Optimize data for batch creation - helper method
    */
-  static prepareForBatchCreate<T extends Record<string, any>>(
+  static prepareForBatchCreate<T extends Record<string, unknown>>(
     items: T[],
     transformer?: (item: T, index: number) => T,
   ): T[] {
@@ -192,10 +194,10 @@ export class BatchWriteOptimizer {
 
       // Add timestamps if not present (common optimization)
       if (!('created_at' in transformed) || !transformed.created_at) {
-        (transformed as any).created_at = now;
+        (transformed as Record<string, unknown>).created_at = now;
       }
       if ('updated_at' in transformed && !transformed.updated_at) {
-        (transformed as any).updated_at = now;
+        (transformed as Record<string, unknown>).updated_at = now;
       }
 
       return transformed;
@@ -207,7 +209,7 @@ export class BatchWriteOptimizer {
  * Interface for batch operations
  */
 export interface BatchOperation<T> {
-  operation: (prismaOrTx: any) => Promise<T>;
+  operation: (prismaOrTx: Parameters<Parameters<PrismaClient['$transaction']>[0]>[0] | PrismaClient) => Promise<T>;
   description?: string;
 }
 
@@ -221,6 +223,36 @@ export interface BatchOperationOptions {
   maxRetries?: number;
 }
 
+interface RawQuestion {
+  question: string;
+  explanation?: string;
+  examTopic: string;
+  difficulty?: DifficultyLevel;
+  choices?: string[];
+  answerIndex?: number;
+}
+
+interface CreatedQuestion {
+  quiz_question_id: string;
+}
+
+interface PreparedQuestionData {
+  cert_id: number;
+  question_text: string;
+  explanations: string;
+  exam_topic: string;
+  generated_from: string;
+  difficulty: DifficultyLevel;
+  created_at: Date;
+}
+
+interface PreparedOptionData {
+  quiz_question_id: string;
+  option_text: string;
+  is_correct: boolean;
+  created_at: Date;
+}
+
 /**
  * Helper for creating question batch operations
  */
@@ -229,12 +261,12 @@ export class QuestionBatchHelper {
    * Create optimized batch data for questions and options
    */
   static prepareBatchData(
-    questions: any[],
+    questions: RawQuestion[],
     cert_id: number,
     exam_id: string,
   ): {
-    questionsData: any[];
-    getOptionsData: (createdQuestions: any[]) => any[];
+    questionsData: PreparedQuestionData[];
+    getOptionsData: (createdQuestions: CreatedQuestion[]) => PreparedOptionData[];
   } {
     const now = new Date();
 
@@ -244,13 +276,12 @@ export class QuestionBatchHelper {
       explanations: question.explanation || '',
       exam_topic: question.examTopic.trim().toLowerCase(),
       generated_from: exam_id,
-      difficulty: question.difficulty || DifficultyLevel.EASY, // Default to EASY if no difficulty specified
+      difficulty: question.difficulty || DifficultyLevel.EASY,
       created_at: now,
-      // updated_at: now,
     }));
 
-    const getOptionsData = (createdQuestions: any[]) => {
-      const optionsData: any[] = [];
+    const getOptionsData = (createdQuestions: CreatedQuestion[]): PreparedOptionData[] => {
+      const optionsData: PreparedOptionData[] = [];
 
       createdQuestions.forEach((createdQuestion, index) => {
         const originalQuestion = questions[index];
@@ -259,7 +290,7 @@ export class QuestionBatchHelper {
           !originalQuestion.choices ||
           !Array.isArray(originalQuestion.choices)
         ) {
-          return; // Skip invalid questions
+          return;
         }
 
         originalQuestion.choices.forEach(
@@ -269,7 +300,6 @@ export class QuestionBatchHelper {
               option_text: choice.trim(),
               is_correct: choiceIndex === originalQuestion.answerIndex,
               created_at: now,
-              // updated_at: now,
             });
           },
         );

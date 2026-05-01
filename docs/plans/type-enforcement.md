@@ -444,7 +444,7 @@ if (exam.status === 'ready') { ... }  // Silent bug!
 **Validation**:
 - ✅ No TypeScript errors in all touched Phase 3 files (`get_errors` clean on 6/6 files).
 - ✅ Scoped `any` audit clean for middleware and production utils.
-- ⚠️ Full `npx tsc --noEmit` still reports pre-existing non-Phase-3 typing errors in public/route typing flow (to be addressed in upcoming phases).
+- ✅ Integration blockers discovered later (Express middleware typing + RTDB generics) were resolved during Phase 4 review, and full `npx tsc --noEmit` now passes.
 
 ---
 
@@ -500,10 +500,34 @@ if (exam.status === 'ready') { ... }  // Silent bug!
   - `functions/src/services/genkit/certSummaryGenerator.ts`
   - `functions/src/services/genkit/knowledgePoolingGnerator.ts`
 - ✅ `get_errors` clean on all touched files in this pass.
+- ✅ Latest commit review completed on commit `b1866d1` (May 2, 2026):
+  - Fixed Express middleware request typing compatibility for router composition.
+  - Resolved JWT public route request type/export mismatch.
+  - Reworked RTDB helper typing to restore safe call-site compatibility across endpoints/delegators.
+  - Fixed Cloud Task payload typing compatibility and Genkit flow callable typing.
+  - Resolved root type export collision in `types/index.ts`.
+  - Added Jest types to `functions/tsconfig.json` for test file compilation.
+  - Full compile check now passes: `npx tsc --noEmit` ✅.
 - ⚠️ Remaining service-layer hotspots with loose typing are concentrated in:
   - `functions/src/services/cache/cacheHierarchy.ts`
   - `functions/src/services/firebase/examReportFirestore.ts`
   - `functions/src/services/firebase/firestore.ts`
+  - `functions/src/services/database/batchWriteOptimizer.ts`
+  - `functions/src/services/database/queryOptimizer.ts`
+
+**Phase 4 Final Completion (May 2, 2026)**:
+- ✅ All remaining service-layer `any` hotspots eliminated:
+  - `functions/src/services/cache/cacheHierarchy.ts` — `SimpleRedisClient.set` generic, `WarmupDataEntry.data: unknown`, error casts
+  - `functions/src/services/database/queryOptimizer.ts` — parallel batch internals `unknown[]`, `tx: Prisma.TransactionClient`, `BatchOperation` interface, decorator typing
+  - `functions/src/services/database/batchWriteOptimizer.ts` — transaction callback, `executeBatchOperations` param, `isRetryableError(unknown)`, `prepareForBatchCreate<T extends Record<string,unknown>>`, `QuestionBatchHelper` full typed interfaces
+  - `functions/src/services/firebase/firestore.ts` — `create/update<T extends object>`, `list/read/count` where `value: unknown`, `batch data: Record<string,unknown>`
+  - `functions/src/services/firebase/examReportFirestore.ts` — `whereFilters` operator typed, `queryOptions` via `Parameters<>`, error code narrowing
+  - `functions/src/services/genkit/examReportGenerator.ts` — typed flow interfaces (`ExamReportGeneratorFlow/Input/Output`), typed promise
+  - `functions/src/services/genkit/utils.ts` — `stream: AsyncIterable<{text?}>`, `model: ReturnType<typeof googleAI.model>`, typed `generateParams`, `context/params/result/metadata` signatures
+  - `functions/src/services/redis/index.ts` — `set<T>` generic, all `error as any` → `String(error)`
+  - `functions/src/services/gcp/cloudTasks/index.ts` — `catch(error: unknown)` with code narrowing
+- ✅ Zero `any` in `src/services/` (confirmed via grep)
+- ✅ `npx tsc --noEmit` passes with EXIT:0
 
 **Validation per Domain**:
 

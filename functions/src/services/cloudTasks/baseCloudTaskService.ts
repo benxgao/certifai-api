@@ -1,11 +1,6 @@
 import logger from '../firebase/logger';
 import { createCloudTask } from '../gcp/cloudTasks';
 
-type CloudTaskPayload = Record<
-  string,
-  string | number | boolean | undefined | object | unknown[]
->;
-
 /**
  * Base Cloud Task Service
  * Provides reusable methods for creating and managing cloud tasks
@@ -20,8 +15,8 @@ export abstract class BaseCloudTaskService {
    * @param scheduleTimeInSeconds - Optional delay in seconds
    * @returns Task name if successful, undefined otherwise
    */
-  protected async createTask(
-    payload: CloudTaskPayload,
+  protected async createTask<TPayload extends object>(
+    payload: TPayload,
     scheduleTimeInSeconds?: number,
   ): Promise<string | undefined> {
     const queueName = this.getQueueName();
@@ -39,7 +34,7 @@ export abstract class BaseCloudTaskService {
       const taskName = await createCloudTask(
         queueName,
         endpoint,
-        payload,
+        payload as Record<string, unknown>,
         scheduleTimeInSeconds,
       );
 

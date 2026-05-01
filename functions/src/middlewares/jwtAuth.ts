@@ -1,16 +1,17 @@
-import { Response, NextFunction } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import { jwtService } from '../services/jwt';
-import { AuthenticatedRequest } from '../types/express';
 
 /**
  * Extended request type for JWT-authenticated public API routes
  */
-export interface JWTAuthenticatedRequest extends AuthenticatedRequest {
+export interface JWTAuthenticatedRequest extends Request {
   user?: {
     sub: string;
     scope: string;
   };
 }
+
+export type AuthenticatedRequest = JWTAuthenticatedRequest;
 
 /**
  * Middleware to verify JWT token for public API routes

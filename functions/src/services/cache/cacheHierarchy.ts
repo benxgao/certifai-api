@@ -60,7 +60,7 @@ class SimpleRedisClient {
    * @param data - Data to cache (will be JSON serialized)
    * @param ttl - Time to live in seconds
    */
-  static async set(key: string, data: any, ttl: number): Promise<void> {
+  static async set<T>(key: string, data: T, ttl: number): Promise<void> {
     try {
       const redis = this.getClient();
       // Use setex for atomic set with expiration in one operation
@@ -447,7 +447,7 @@ export class CacheHierarchyService {
     } catch (error) {
       // Graceful degradation: log error but don't fail the request
       logger.warn('Redis cache operation failed, continuing without cache', {
-        error: error as any,
+        error: error instanceof Error ? error.message : String(error),
         key: key.substring(0, 50), // Limit key length in logs for security
       });
     }
@@ -511,7 +511,7 @@ export class CacheHierarchyService {
       );
     } catch (error) {
       logger.error('Error in cache hierarchy set:', {
-        error: error as any,
+        error: error instanceof Error ? error.message : String(error),
         key,
       });
       // Don't throw - cache failures shouldn't break the application
@@ -629,7 +629,7 @@ export class CacheHierarchyService {
         }
       } catch (error) {
         logger.warn('Batch Redis operation failed', {
-          error: error as any,
+          error: error instanceof Error ? error.message : String(error),
           missed_keys: memoryMisses.length,
         });
       }
@@ -688,7 +688,7 @@ export class CacheHierarchyService {
       logger.info(`Batch cache set: ${entries.length} items in ${duration}ms`);
     } catch (error) {
       logger.error('Batch cache set failed:', {
-        error: error as any,
+        error: error instanceof Error ? error.message : String(error),
         entry_count: entries.length,
       });
     }
@@ -712,7 +712,7 @@ export class CacheHierarchyService {
       logger.info('Cache invalidated at all levels', { key });
     } catch (error) {
       logger.error('Error invalidating cache hierarchy:', {
-        error: error as any,
+        error: error instanceof Error ? error.message : String(error),
         key,
       });
     }
@@ -769,7 +769,7 @@ export class CacheHierarchyService {
       });
     } catch (error) {
       logger.error('Error invalidating cache pattern:', {
-        error: error as any,
+        error: error instanceof Error ? error.message : String(error),
         pattern,
       });
     }
@@ -904,7 +904,7 @@ export class CacheHierarchyService {
       });
     } catch (error) {
       logger.error('Error optimizing cache hierarchy:', {
-        error: error as any,
+        error: error instanceof Error ? error.message : String(error),
       });
     }
   }
@@ -945,7 +945,7 @@ export class CacheHierarchyService {
         duration_ms: duration,
       });
     } catch (error) {
-      logger.error('Error warming up cache:', { error: error as any });
+      logger.error('Error warming up cache:', { error: error instanceof Error ? error.message : String(error) });
     }
   }
 
@@ -1073,7 +1073,7 @@ export interface CacheHierarchyStats {
  */
 export interface WarmupDataEntry {
   key: string;
-  data: any;
+  data: unknown;
   ttl: number;
   forceMemoryCache?: boolean;
 }

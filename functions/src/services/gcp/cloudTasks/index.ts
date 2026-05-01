@@ -18,7 +18,7 @@ const QUEUE_CONFIG = {
 };
 
 interface CreateCloudTaskPayload {
-  [key: string]: string | number | boolean | undefined | object | any[];
+  [key: string]: unknown;
 }
 
 /**
@@ -34,8 +34,8 @@ async function queueExists(queueName: string): Promise<boolean> {
 
     await cloudTasksClient.getQueue({ name: queuePath });
     return true;
-  } catch (error: any) {
-    if (error.code === 5) {
+  } catch (error: unknown) {
+    if ((error as { code?: number }).code === 5) {
       // NOT_FOUND
       return false;
     }
@@ -70,8 +70,8 @@ async function createQueue(queueName: string): Promise<void> {
       queue,
     });
     logger.info(`Successfully created Cloud Tasks queue: ${queueName}`);
-  } catch (error: any) {
-    if (error.code === 6) {
+  } catch (error: unknown) {
+    if ((error as { code?: number }).code === 6) {
       logger.info(`Queue ${queueName} already exists, continuing...`);
       return;
     }

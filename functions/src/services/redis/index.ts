@@ -87,7 +87,7 @@ class RedisConnectionPool {
       const result = await connection.ping();
       return result === 'PONG';
     } catch (error) {
-      logger.error('Redis pool health check failed:', error as any);
+      logger.error('Redis pool health check failed:', { error: error instanceof Error ? error.message : String(error) });
       return false;
     }
   }
@@ -249,7 +249,7 @@ export class RedisService {
    * @param data - Data to cache (will be JSON serialized)
    * @param ttl - Time to live in seconds
    */
-  static async set(key: string, data: any, ttl: number): Promise<void> {
+  static async set<T>(key: string, data: T, ttl: number): Promise<void> {
     const startTime = Date.now();
     try {
       const redis = this.getConnection();
@@ -467,7 +467,7 @@ export class RedisService {
       memoryCache.clear();
       logger.info('Cleared all rate limiting cache data');
     } catch (error) {
-      logger.error(`Error clearing rate limit cache: ${error as any}`);
+      logger.error(`Error clearing rate limit cache: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -482,7 +482,7 @@ export class RedisService {
         `Redis ZADD for key: ${key}, score: ${score}, member: ${member}`,
       );
     } catch (error) {
-      logger.error(`Redis ZADD error for key ${key}: ${error as any}`);
+      logger.error(`Redis ZADD error for key ${key}: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -500,7 +500,7 @@ export class RedisService {
       logger.info(`Redis ZRANGE for key: ${key}, range: ${min}-${max}`);
       return Array.isArray(result) ? result.map((item) => String(item)) : [];
     } catch (error) {
-      logger.error(`Redis ZRANGE error for key ${key}: ${error as any}`);
+      logger.error(`Redis ZRANGE error for key ${key}: ${error instanceof Error ? error.message : String(error)}`);
       return [];
     }
   }
@@ -536,7 +536,7 @@ export class RedisService {
       return membersWithScores;
     } catch (error) {
       logger.error(
-        `Redis ZRANGE WITH SCORES error for key ${key}: ${error as any}`,
+        `Redis ZRANGE WITH SCORES error for key ${key}: ${error instanceof Error ? error.message : String(error)}`,
       );
       return [];
     }
@@ -558,7 +558,7 @@ export class RedisService {
       );
     } catch (error) {
       logger.error(
-        `Redis ZREMRANGEBYSCORE error for key ${key}: ${error as any}`,
+        `Redis ZREMRANGEBYSCORE error for key ${key}: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }
@@ -572,7 +572,7 @@ export class RedisService {
       await redis.expire(key, seconds);
       logger.info(`Redis EXPIRE for key: ${key}, seconds: ${seconds}`);
     } catch (error) {
-      logger.error(`Redis EXPIRE error for key ${key}: ${error as any}`);
+      logger.error(`Redis EXPIRE error for key ${key}: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 }

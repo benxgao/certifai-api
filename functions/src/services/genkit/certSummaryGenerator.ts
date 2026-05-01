@@ -45,11 +45,44 @@ const CertSummarySchema = z.object({
     ),
 });
 
+export interface CertSummaryGeneratorInput {
+  user_id: string;
+  cert_id: string;
+  certification_name: string;
+  total_exams_taken: number;
+  average_score: number;
+  best_score: number;
+  worst_score: number;
+  performance_trend: 'improving' | 'declining' | 'stable';
+  topic_mastery: Array<{
+    topic: string;
+    exams_covered: number;
+    average_accuracy: number;
+    mastery_level:
+      | 'novice'
+      | 'developing'
+      | 'proficient'
+      | 'advanced'
+      | 'expert';
+    total_questions: number;
+    total_correct: number;
+  }>;
+  strong_topics: string[];
+  weak_topics: string[];
+  overall_accuracy_rate: number;
+}
+
+export type CertSummaryGeneratorOutput = z.infer<typeof CertSummarySchema>;
+
+export type CertSummaryGeneratorFlow = (
+  input: CertSummaryGeneratorInput,
+) => Promise<CertSummaryGeneratorOutput>;
+
 /**
  * Certification Summary Generator Flow
  * Analyzes multiple exam performance data and generates comprehensive learning journey summaries
  */
-export const createCertSummaryGeneratorFlow = async (): Promise<unknown> => {
+export const createCertSummaryGeneratorFlow = async (): Promise<CertSummaryGeneratorFlow> => {
   try {
     const ai = await createAiInstancePromise();
 
@@ -262,7 +295,7 @@ Keep the summary between 200-300 words, be specific about topic names and perfor
       },
     );
 
-    return certSummaryGeneratorFlow;
+    return certSummaryGeneratorFlow as CertSummaryGeneratorFlow;
   } catch (error) {
     logger.error('Failed to create cert summary generator flow:', {
       error: error instanceof Error ? error.message : String(error),
@@ -274,12 +307,12 @@ Keep the summary between 200-300 words, be specific about topic names and perfor
 /**
  * Singleton promise for the cert summary generator flow
  */
-let certSummaryGeneratorPromise: Promise<unknown> | null = null;
+let certSummaryGeneratorPromise: Promise<CertSummaryGeneratorFlow> | null = null;
 
 /**
  * Get or create the cert summary generator flow
  */
-export const getCertSummaryGeneratorFlow = (): Promise<unknown> => {
+export const getCertSummaryGeneratorFlow = (): Promise<CertSummaryGeneratorFlow> => {
   if (!certSummaryGeneratorPromise) {
     certSummaryGeneratorPromise = createCertSummaryGeneratorFlow();
   }

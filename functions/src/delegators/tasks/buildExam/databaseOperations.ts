@@ -61,8 +61,8 @@ export const storeQuestionsInDatabase = async (
             exam_id,
             batch_number,
             prepared_questions_count: questionsData.length,
-            first_question_has_text: !!questionsData[0]?.question,
-            first_question_has_options: !!questionsData[0]?.first_answer_index,
+            first_question_has_text: !!questionsData[0]?.question_text,
+            first_question_has_options: !!questionsData[0]?.difficulty,
             structuredData: true,
           });
 

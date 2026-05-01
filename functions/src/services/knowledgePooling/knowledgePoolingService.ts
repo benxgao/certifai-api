@@ -122,6 +122,10 @@ export class KnowledgePoolingService {
       });
 
       const knowledgePoolingGenerator = await knowledgePoolingGeneratorPromise;
+      if (!knowledgePoolingGenerator) {
+        throw new Error('Knowledge pooling generator flow is not initialized');
+      }
+
       const result = await knowledgePoolingGenerator({
         user_id: api_user_id,
         exam_id,

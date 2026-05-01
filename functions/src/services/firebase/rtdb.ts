@@ -48,7 +48,9 @@ export function withTimeout<T>(
  * @param path - The database path to read from (e.g., 'users/123' or 'config/settings')
  * @returns Promise resolving to the data at the specified path, or null if not found
  */
-export async function getRtdbValue(path: string): Promise<RtdbValue | null> {
+export async function getRtdbValue<T = any>(
+  path: string,
+): Promise<T | null> {
   try {
     const snapshot = await firebaseDatabase.ref(path).once('value');
     const data = snapshot.val();
@@ -59,7 +61,7 @@ export async function getRtdbValue(path: string): Promise<RtdbValue | null> {
       dataType: typeof data,
     });
 
-    return data;
+    return data as T | null;
   } catch (error) {
     logger.error('RTDB getRtdbValue error', {
       path,
@@ -77,13 +79,13 @@ export async function getRtdbValue(path: string): Promise<RtdbValue | null> {
  * @returns Promise resolving to the data at the specified path, or null if not found
  * @throws Error if timeout exceeded or database error occurs
  */
-export async function getRtdbValueWithTimeout(
+export async function getRtdbValueWithTimeout<T = any>(
   path: string,
   timeoutMs: number = 5000,
-): Promise<RtdbValue | null> {
+): Promise<T | null> {
   try {
     const data = await withTimeout(
-      getRtdbValue(path),
+      getRtdbValue<T>(path),
       timeoutMs,
       `RTDB read from ${path}`
     );
@@ -118,6 +120,15 @@ function removeUndefinedValues(obj: RtdbValue | undefined): RtdbValue {
     );
   }
   return obj ?? null;
+}
+
+function removeUndefinedObjectValues(obj: RtdbObject): RtdbObject {
+  return Object.entries(obj).reduce<RtdbObject>((acc, [key, value]) => {
+    if (value !== undefined) {
+      acc[key] = removeUndefinedValues(value);
+    }
+    return acc;
+  }, {});
 }
 
 /**
@@ -162,7 +173,7 @@ export async function updateRtdbValue(
 ): Promise<void> {
   try {
     // Remove undefined values to prevent Firebase errors
-    const cleanedUpdates = removeUndefinedValues(updates);
+    const cleanedUpdates = removeUndefinedObjectValues(updates);
     await firebaseDatabase.ref(path).update(cleanedUpdates);
 
     logger.info('RTDB updateRtdbValue', {

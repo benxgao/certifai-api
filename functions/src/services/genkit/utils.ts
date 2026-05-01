@@ -83,7 +83,7 @@ export const initializeAiInstance = async (): Promise<Genkit> => {
  * @param sendChunk - Function to send chunks to client
  */
 export const processAiStream = async (
-  stream: any,
+  stream: AsyncIterable<{ text?: string }>,
   sendChunk: (chunk: string) => void,
 ): Promise<void> => {
   try {
@@ -152,9 +152,20 @@ export const generateWithValidation = async <T>(
   schema: z.ZodSchema<T>,
   sendChunk: (chunk: string) => void,
   config: GenerationConfig = DEFAULT_GENERATION_CONFIG,
-  model?: any,
+  model?: ReturnType<typeof googleAI.model>,
 ): Promise<T> => {
-  const generateParams: any = {
+  type GenerateStreamParams = {
+    prompt: string;
+    config: {
+      maxOutputTokens?: number;
+      temperature?: number;
+      topP?: number;
+      topK?: number;
+    };
+    output: { schema: z.ZodSchema<T> };
+    model?: ReturnType<typeof googleAI.model>;
+  };
+  const generateParams: GenerateStreamParams = {
     prompt,
     config: {
       maxOutputTokens: config.maxOutputTokens,
@@ -258,10 +269,10 @@ export const createAiInstancePromise = (): Promise<Genkit> => {
  */
 export const handleGenerationError = (
   error: unknown,
-  context: Record<string, any>,
+  context: Record<string, unknown>,
   operation: string,
 ): never => {
-  logger.error(`Error in ${operation}:`, { ...context, error: error as any });
+  logger.error(`Error in ${operation}:`, { ...context, error: error instanceof Error ? error.message : String(error) });
   throw new Error(
     `Failed to ${operation}: ${
       error instanceof Error ? error.message : String(error)
@@ -276,7 +287,7 @@ export const handleGenerationError = (
  */
 export const logGenerationStart = (
   operation: string,
-  params: Record<string, any>,
+  params: Record<string, unknown>,
 ): void => {
   const logMessage = Object.entries(params)
     .map(([key, value]) => `${key}: ${value}`)
@@ -293,8 +304,8 @@ export const logGenerationStart = (
  */
 export const logGenerationComplete = (
   operation: string,
-  result: any,
-  metadata: Record<string, any> = {},
+  result: unknown,
+  metadata: Record<string, unknown> = {},
 ): void => {
   logger.info(
     `Generated ${operation} result: ${JSON.stringify(result, null, 2)}`,

@@ -12,7 +12,7 @@
     "target": "es6",
     "skipLibCheck": true,
     "lib": ["es2020"],
-    "types": ["node"]
+    "types": ["node", "jest"]
   },
   "compileOnSave": true,
   "include": ["src/**/*", "__tests__/**/*", "../scripts/seed.ts"],

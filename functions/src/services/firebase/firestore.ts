@@ -27,7 +27,7 @@ class FirestoreService {
    * @param options - Additional options for document creation
    * @returns Promise<DocumentReference>
    */
-  async create<T extends Record<string, any>>(
+  async create<T extends object>(
     collectionPath: string,
     data: T,
     docId?: string,
@@ -68,7 +68,7 @@ class FirestoreService {
    * @param docId - Document ID
    * @returns Promise<T | null>
    */
-  async read<T = Record<string, any>>(
+  async read<T = Record<string, unknown>>(
     collectionPath: string,
     docId: string,
   ): Promise<T | null> {
@@ -97,7 +97,7 @@ class FirestoreService {
    * @param options - Additional options for document update
    * @returns Promise<void>
    */
-  async update<T extends Record<string, any>>(
+  async update<T extends object>(
     collectionPath: string,
     docId: string,
     data: Partial<T>,
@@ -148,13 +148,13 @@ class FirestoreService {
    * @param options - Query options
    * @returns Promise<T[]>
    */
-  async list<T = Record<string, any>>(
+  async list<T = Record<string, unknown>>(
     collectionPath: string,
     options: {
       where?: Array<{
         field: string;
         operator: FirebaseFirestore.WhereFilterOp;
-        value: any;
+        value: unknown;
       }>;
       orderBy?: Array<{ field: string; direction?: 'asc' | 'desc' }>;
       limit?: number;
@@ -208,7 +208,7 @@ class FirestoreService {
     where?: Array<{
       field: string;
       operator: FirebaseFirestore.WhereFilterOp;
-      value: any;
+      value: unknown;
     }>,
   ): Promise<number> {
     try {
@@ -259,7 +259,7 @@ class FirestoreService {
       type: 'create' | 'update' | 'delete';
       collectionPath: string;
       docId?: string;
-      data?: any;
+      data?: Record<string, unknown>;
     }>,
     options?: { skipAutoTimestamps?: boolean },
   ): Promise<void> {
@@ -292,6 +292,8 @@ class FirestoreService {
           case 'update': {
             if (!docId)
               throw new Error('Document ID is required for update operations');
+            if (!data)
+              throw new Error('Data is required for update operations');
             const updateDocRef = collection.doc(docId);
             const updateData = options?.skipAutoTimestamps
               ? data

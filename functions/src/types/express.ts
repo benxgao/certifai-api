@@ -22,7 +22,7 @@ export interface VerifiedUser {
  * - `verified_user`      – DB user record   (set by verifyUserAccess)
  */
 export interface AuthenticatedRequest extends Request {
-  firebase_user_info: FirebaseJwtToken;
+  firebase_user_info?: FirebaseJwtToken;
   verified_user?: VerifiedUser;
 }
 

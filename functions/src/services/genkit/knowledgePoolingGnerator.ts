@@ -37,12 +37,37 @@ const KnowledgePoolingSchema = z.object({
     ),
 });
 
+export interface KnowledgePoolingGeneratorInput {
+  user_id: string;
+  exam_id: string;
+  cert_id: number;
+  certification_name: string;
+  exam_guide_url: string | null;
+  incorrect_answers_data: Array<{
+    exam_id: string;
+    question_id: string;
+    topic: string | null;
+    question_text: string;
+    correct_answer: string;
+    user_selected_answer: string;
+    explanation: string | null;
+  }>;
+}
+
+export type KnowledgePoolingGeneratorOutput = z.infer<
+  typeof KnowledgePoolingSchema
+>;
+
+export type KnowledgePoolingGeneratorFlow = (
+  input: KnowledgePoolingGeneratorInput,
+) => Promise<KnowledgePoolingGeneratorOutput>;
+
 /**
  * Knowledge Pooling Generator Flow
  * Analyzes incorrect answers from all user exams under a certification
  * and generates knowledge insights and tips for better understanding
  */
-export const createKnowledgePoolingGeneratorFlow = async (): Promise<unknown> => {
+export const createKnowledgePoolingGeneratorFlow = async (): Promise<KnowledgePoolingGeneratorFlow> => {
   try {
     const ai = await createAiInstancePromise();
 
@@ -185,7 +210,7 @@ Generate knowledge insights which should be covered by the official exam guide.
       },
     );
 
-    return knowledgePoolingGeneratorFlow;
+    return knowledgePoolingGeneratorFlow as KnowledgePoolingGeneratorFlow;
   } catch (error) {
     logger.error(
       'Failed to create knowledge pooling generator flow:',
@@ -198,12 +223,12 @@ Generate knowledge insights which should be covered by the official exam guide.
 /**
  * Singleton promise for the knowledge pooling generator flow
  */
-let knowledgePoolingGeneratorPromise: Promise<unknown> | null = null;
+let knowledgePoolingGeneratorPromise: Promise<KnowledgePoolingGeneratorFlow> | null = null;
 
 /**
  * Get or create the knowledge pooling generator flow
  */
-export const getKnowledgePoolingGeneratorFlow = (): Promise<unknown> => {
+export const getKnowledgePoolingGeneratorFlow = (): Promise<KnowledgePoolingGeneratorFlow> => {
   if (!knowledgePoolingGeneratorPromise) {
     knowledgePoolingGeneratorPromise = createKnowledgePoolingGeneratorFlow();
   }
