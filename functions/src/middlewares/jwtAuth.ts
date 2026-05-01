@@ -1,7 +1,11 @@
-import { Request, Response, NextFunction } from 'express';
+import { Response, NextFunction } from 'express';
 import { jwtService } from '../services/jwt';
+import { AuthenticatedRequest } from '../types/express';
 
-export interface AuthenticatedRequest extends Request {
+/**
+ * Extended request type for JWT-authenticated public API routes
+ */
+export interface JWTAuthenticatedRequest extends AuthenticatedRequest {
   user?: {
     sub: string;
     scope: string;
@@ -12,7 +16,7 @@ export interface AuthenticatedRequest extends Request {
  * Middleware to verify JWT token for public API routes
  */
 export const verifyJWTToken = async (
-  req: AuthenticatedRequest,
+  req: JWTAuthenticatedRequest,
   res: Response,
   next: NextFunction,
 ): Promise<void> => {

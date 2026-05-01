@@ -61,7 +61,7 @@ export async function validateQuestionExamConstraint(
   } catch (error) {
     logger.error(
       `Error validating question-exam constraint for question ${questionId} and exam ${examId}:`,
-      error as any,
+      error,
     );
     return {
       isValid: false,

@@ -97,7 +97,7 @@ export function calculateRateLimitFromExams(
 
     return result;
   } catch (error) {
-    logger.error('Error calculating rate limit from exam data:', error as any);
+    logger.error('Error calculating rate limit from exam data:', error);
 
     return {
       maxExamsAllowed: MAX_EXAMS_PER_24_HOURS,
@@ -165,7 +165,9 @@ export function formatRateLimitResponse(
  * @param exam - Raw exam data from database
  * @returns ExamData formatted for rate limit calculations
  */
-export function transformToExamData(exam: any): ExamData {
+export function transformToExamData(
+  exam: Pick<ExamData, 'exam_id' | 'started_at' | 'exam_status' | 'submitted_at'>,
+): ExamData {
   return {
     exam_id: exam.exam_id,
     started_at: exam.started_at,

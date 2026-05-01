@@ -351,184 +351,46 @@ if (exam.status === 'ready') { ... }  // Silent bug!
 
 ## 📋 Implementation Phases
 
-### Phase 1a: Type Audit & Planning (30 min) ✅ COMPLETE
+### Phase 1a: Type Audit & Planning ✅ COMPLETE
 
 **Completed**: May 1, 2026 (commit 9588cc1)
 
-**Goals**: Understand current type situation + plan implementation
-
-**Completed Tasks**:
-
-1. ✅ Ran type audit commands to identify:
-   - `Promise<any>` patterns in services
-   - `[key: string]: any` patterns in types
-   - Fixed-value fields needing enums (ExamStatus, CertificationStatus, DifficultyLevel)
-
-2. ✅ Documented findings:
-   - Identified all fixed-value fields in Prisma schema
-   - Created enum definitions for database consistency
-   - Planned core type infrastructure
-
-3. ✅ Type infrastructure checklist created
-
-**Validation**: ✅ All criteria met - see Phase 1b/1c for implementation details
+**Summary**: Completed initial audit identifying loose types (`Promise<any>`, `[key: string]: any`) and enum candidates. Planned infrastructure.
 
 ---
 
-### Phase 1b: Core Type Infrastructure (45 min) ✅ COMPLETE
+### Phase 1b: Core Type Infrastructure ✅ COMPLETE
 
 **Completed**: May 1, 2026 (commit 9588cc1)
 
-**Goals**: Create foundational type files needed by all other phases
-
-**Completed Tasks**:
-
-1. ✅ Created `functions/src/types/errors.ts`:
-   - `APIError` base class with code/message/statusCode
-   - Domain-specific error classes (AuthenticationError, ValidationError, etc.)
-   - Exam-specific errors (ExamGenerationError, ExamSubmissionError)
-   - Lines added: 152
-
-2. ✅ Created `functions/src/types/express.ts`:
-   - `AuthenticatedRequest` interface extending Express Request
-   - `TypedRequestHandler<Body, Params, Query, Response>` type
-   - `TypedResponse<T>` type wrapper
-   - Request/response locals typing
-   - Lines added: 93
-
-3. ✅ Updated `functions/src/types/index.ts`:
-   - Exported all error classes
-   - Exported all Express types
-   - Prepared for Phase 2 API types
-
-**Validation**: ✅ All criteria met
-
-- Error classes compile without errors: `npx tsc --noEmit ✓`
-- Custom Error types extend Error correctly
-- Express types don't conflict with existing code
-- Builds cleanly
+**Created**: 
+- `functions/src/types/errors.ts` (152 lines) - APIError base class + domain-specific errors
+- `functions/src/types/express.ts` (93 lines) - AuthenticatedRequest, TypedRequestHandler, TypedResponse
+- Updated `functions/src/types/index.ts` with exports
 
 ---
 
-### Phase 1c: Enumeration Definitions (45 min) ✅ COMPLETE
+### Phase 1c: Enumeration Definitions ✅ COMPLETE
 
 **Completed**: May 1, 2026 (commit 9588cc1)
 
-**Goals**: Create all enums from Prisma schema and API contracts
-
-**Completed Tasks**:
-
-1. ✅ Created `functions/src/types/enums.ts` with:
-   - `CertificationStatus` (7 values: PASSED, IN_PROGRESS, INTERESTED, DELETING, NOT_STARTED, EXPIRED, SUSPENDED)
-   - `ExamStatus` (6 values: PENDING_QUESTIONS, QUESTIONS_GENERATING, READY, IN_PROGRESS, COMPLETED, QUESTION_GENERATION_FAILED)
-   - `DifficultyLevel` (3 values: EASY, ADVANCED, EXPERT)
-   - JSDoc comments explaining each value
-   - Lines added: 65
-
-2. ✅ Updated `functions/src/types/index.ts`:
-   - Exported all enum types
-   - Ready for consumption by Phase 2 API types
-
-**Validation**: ✅ All criteria met
-
-- All Prisma enums converted to TypeScript: `npm tsc --noEmit ✓`
-- Enums use string literal values matching Prisma schema
-- Compiles without errors
-- JSDoc comments document each value
+**Created**: `functions/src/types/enums.ts` (65 lines) - CertificationStatus, ExamStatus, DifficultyLevel with JSDoc references
 
 ---
 
-### Phase 2: API Request/Response Type Definitions (2 hours) 📋 COMPLETE
+### Phase 2: API Request/Response Type Definitions 📋 COMPLETE
 
-**Completed**: May 1, 2026 | **Dependencies**: ✅ Phase 1 foundation (enums.ts, errors.ts, express.ts)
+**Completed**: May 1, 2026 | **Total**: 1,087 lines across 6 files, 100+ types
 
-**Goals**: Define complete request/response interfaces for all endpoints ✅
+**Created**: 
+- `functions/src/types/api/common.ts` (109 lines) - Common response wrappers, pagination, rate limiting
+- `functions/src/types/api/users.ts` (224 lines) - Auth, profile, rate limiting types
+- `functions/src/types/api/exams.ts` (220 lines) - Exam CRUD, submission, report types
+- `functions/src/types/api/certifications.ts` (158 lines) - Certification registration, listing types
+- `functions/src/types/api/questions.ts` (220 lines) - Question submission, generation, hints
+- `functions/src/types/api/index.ts` (31 lines) - Central export hub
 
-**Completed Tasks**:
-
-1. ✅ Created `functions/src/types/api/` directory structure
-
-2. ✅ Created `functions/src/types/api/common.ts`:
-   - `PaginationMetadata` interface for list responses
-   - `ListResponse<T>` generic paginated list response
-   - `DataResponse<T>` single-item response wrapper
-   - `EmptyResponse` for DELETE/empty operations
-   - `PaginationQuery` common pagination parameters
-   - `RateLimitInfo` struct for rate limiting context
-   - `ListResponseWithRateLimit<T>` - list responses with rate limit
-   - `ApiErrorCode` enum for standardized error codes
-   - Lines added: 109
-
-3. ✅ Created `functions/src/types/api/users.ts`:
-   - Auth: `LoginRequest`, `LoginResponse`, `LoginData`
-   - Auth: `RegisterRequest`, `RegisterResponse`, `RegisterData`
-   - Auth: `GenerateTokenRequest`, `GenerateTokenResponse`, `TokenData`
-   - User: `GetUserProfileRequest`, `GetUserProfileResponse`, `UserProfileData`
-   - User: `DeleteUserRequest`, `DeleteUserResponse`
-   - User: `GetUserExamsQuery`, `ExamSummary`, `CertificationInfo`
-   - User: `GetRateLimitRequest`, `GetRateLimitResponse`, `RateLimitStatus`
-   - User: `EnsureAccountRequest`, `EnsureAccountResponse`, `AccountData`
-   - Lines added: 224
-
-4. ✅ Created `functions/src/types/api/exams.ts`:
-   - Exam: `GetExamRequest`, `GetExamResponse`, `ExamDetailData`
-   - Exam: `CertificationDetail`, `ExamAnswer`, `AnswerOption`, `GeneratedQuestion`
-   - Exam: `GetExamQuestionsRequest`, `GetExamQuestionsResponse`, `ExamQuestion`
-   - Exam: `SubmitExamRequest`, `AnswerSubmission`, `SubmitExamResponse`, `ExamSubmitResult`
-   - Exam: `GetExamReportRequest`, `GetExamReportResponse`, `ExamReport`
-   - Exam: `TopicPerformance`, `DifficultyPerformance`
-   - Exam: `GetExamStatusRequest`, `GetExamStatusResponse`
-   - Exam: `CreateExamRequest`, `CreateExamResponse`, `NewExamData`
-   - Lines added: 220
-
-5. ✅ Created `functions/src/types/api/certifications.ts`:
-   - Cert: `GetCertificationsRequest`, `GetCertificationsResponse`, `CertificationListItem`
-   - Cert: `GetCertificationDetailRequest`, `GetCertificationDetailResponse`, `CertificationDetail`, `FirmInfo`
-   - Cert: `GetUserCertificationsRequest`, `GetUserCertificationsResponse`, `UserRegisteredCertification`
-   - Cert: `RegisterCertificationRequest`, `RegisterCertificationResponse`, `CertificationRegistration`
-   - Cert: `UnregisterCertificationRequest`, `UnregisterCertificationResponse`
-   - Cert: `GetFirmsRequest`, `GetFirmsResponse`, `FirmSummary`
-   - Lines added: 158
-
-6. ✅ Created `functions/src/types/api/questions.ts`:
-   - Question: `SubmitAnswerRequest`, `SubmitAnswerResponse`, `AnswerResult`
-   - Question: `SubmitAnswersBatchRequest`, `BatchAnswerSubmission`, `SubmitAnswersBatchResponse`, `BatchAnswerResult`
-   - Question: `GetQuestionRequest`, `GetQuestionResponse`, `QuestionDetail`, `QuestionOption`
-   - Question: `GetQuestionHintRequest`, `GetQuestionHintResponse`, `HintData`
-   - Question: `ClearAnswerRequest`, `ClearAnswerResponse`
-   - Question: `GenerateQuestionsRequest`, `GenerateQuestionsResponse`, `GeneratedQuestionSet`, `GeneratedQuestionDetail`
-   - Question: `AnswerSubmissionError` interface for error context
-   - Lines added: 220
-
-7. ✅ Created `functions/src/types/api/index.ts`:
-   - Central export hub for all API types
-   - Re-exports from common, users, exams, certifications, questions
-   - Lines added: 31
-
-8. ✅ Updated `functions/src/types/index.ts`:
-   - Added `export * from './api'` to surface all API types
-   - API types now available directly from `@src/types`
-
-**Validation**: ✅ All criteria met
-- ✅ Every major endpoint has explicit request/response type pair
-- ✅ No `any` types in request/response interfaces (100% validated)
-- ✅ All response types documented with JSDoc `@guaranteed`/`@optional` markers
-- ✅ Enums used for all fixed values (ExamStatus, CertificationStatus, DifficultyLevel)
-- ✅ All types have valid TypeScript syntax (verified)
-- ✅ Common response structures consistent across all files
-
-**Statistics**:
-- **Total types exported**: 100+
-- **Total lines of code**: 1,087
-- **Type categories**: 5 (common, users, exams, certifications, questions)
-- **Files created**: 6
-
-**Key Patterns Established**:
-1. All response interfaces extend from Phase 1's `DataResponse<T>` or `ListResponse<T>`
-2. JSDoc `@guaranteed` and `@optional` markers document field availability
-3. Domain-specific types grouped by endpoint category
-4. Error types support context (e.g., `AnswerSubmissionError` knows which question failed)
-5. Backward compatibility fields marked with `@deprecated`
+**Validation**: ✅ All criteria met - 100+ types, 0 loose `any`, consistent patterns
 
 ---
 
@@ -797,43 +659,6 @@ As you type each handler, if you discover:
 
 ## 🏗️ Build & Test Workflow Per Phase
 
-Each phase is designed to maintain a buildable, testable codebase. After completing each phase, validate:
-
-### Phase 1a-1c: Foundation Phases Build Workflow
-
-```bash
-cd functions
-
-# After Phase 1b (Core Infrastructure)
-npx tsc --noEmit functions/src/types/errors.ts functions/src/types/express.ts
-# Expected: ✅ No errors
-
-# After Phase 1c (Enumerations)
-npx tsc --noEmit functions/src/types/enums.ts
-# Expected: ✅ No errors
-
-# Note: No need to run tests yet - no code uses these types
-```
-
-**Note**: These phases create new types that won't be used until Phase 2+, so you won't import them yet. This is intentional - the infrastructure is in place but not integrated.
-
-### Phase 2: API Types Build Workflow
-
-```bash
-cd functions
-
-# Verify API types compile
-npx tsc --noEmit functions/src/types/api/
-# Expected: ✅ No errors
-
-# Quick lint check
-npx eslint functions/src/types/api/**/*.ts --max-warnings 0
-# Expected: ✅ Passed
-
-# Note: Endpoints won't compile yet because handlers don't use these types
-# That's expected - handlers are updated in Phase 5
-```
-
 ### Phase 3: Middleware Build Workflow
 
 ```bash
@@ -936,9 +761,6 @@ Phase 4b: [ ] Core services typed, compiles
 Phase 4c: [ ] Domain services typed, compiles
 Phase 5a: [ ] User endpoints typed, category compiles
 Phase 5b: [ ] Exam endpoints typed, category compiles
-Phase 5c: [ ] Cert endpoints typed, category compiles
-Phase 5d: [ ] Other endpoints typed, all compile
-Phase 6a: [ ] npx tsc --noEmit returns 0 errors
 Phase 5c: [ ] Cert endpoints typed, category compiles
 Phase 5d: [ ] Other endpoints typed, all compile
 Phase 6a: [ ] npx tsc --noEmit returns 0 errors
@@ -1748,37 +1570,6 @@ throw new ExamGenerationError("Question generation failed", examId, "timeout");
 
 ## 🔍 Verification Checklist by Phase
 
-### After Phase 1c (Foundation Types Complete)
-
-```bash
-# Verify foundation compiles
-npx tsc --noEmit functions/src/types/
-
-# Check errors are exported
-grep -r "export.*Error" functions/src/types/errors.ts | wc -l
-# Should have 5+ custom error classes
-```
-
-- ✅ Error classes compile and extend Error
-- ✅ Express types don't conflict with existing code
-- ✅ Enums match Prisma schema definitions
-
-### After Phase 2 (API Types Complete)
-
-```bash
-# Verify all API types compile
-npx tsc --noEmit functions/src/types/api/
-
-# Ensure no loose any in APIs
-grep -rn ": any\|Promise<any>" functions/src/types/api/ | wc -l
-# Should output: 0
-```
-
-- ✅ Every endpoint has request/response type pair
-- ✅ No `any` types in API interfaces
-- ✅ Enums used for all fixed values
-- ✅ Common response structures consistent
-
 ### After Phase 3 (Middleware Complete)
 
 ```bash
@@ -2114,152 +1905,7 @@ grep -r "case.*:" functions/src/endpoints/ | head -20
 
 ---
 
-## 🚀 Getting Started: Phase 1a Execution
-
-Ready to begin? Start with Phase 1a (Type Audit & Planning):
-
-### Step 1: Run Audit Commands (15 min)
-
-```bash
-cd functions
-
-# Audit 1: Find all Promise<any>
-echo "=== Promise<any> occurrences ==="
-grep -rn "Promise<any>" src/ --include="*.ts" | grep -v ".test.ts" | tee /tmp/promise-any.txt
-echo "Count: $(cat /tmp/promise-any.txt | wc -l)"
-
-# Audit 2: Find all [key: string]: any
-echo -e "\n=== [key: string]: any patterns ==="
-grep -rn "\[key: string\]: any" src/ --include="*.ts" | tee /tmp/key-any.txt
-echo "Count: $(cat /tmp/key-any.txt | wc -l)"
-
-# Audit 3: Check for duplicate interfaces
-echo -e "\n=== Potential duplicate interface definitions ==="
-grep -rn "^interface " src/types/ --include="*.ts" | cut -d: -f2- | sort | uniq -c | sort -rn
-```
-
-### Step 2: Catalog Endpoints (15 min)
-
-```bash
-# Count endpoints by category
-echo "=== Endpoint inventory ==="
-for dir in users exams certifications questions; do
-  count=$(find src/endpoints/api/$dir -name "*.ts" -type f 2>/dev/null | wc -l)
-  echo "$dir: $count endpoints"
-  find src/endpoints/api/$dir -name "*.ts" -type f 2>/dev/null | sort
-done
-```
-
-### Step 2b: Map Prisma Schema (10 min)
-
-Create reference mapping before typing begins:
-
-```bash
-# Generate list of enums from Prisma schema
-echo "=== Enums in Prisma schema ==="
-grep -n "^enum " prisma/schema.prisma | head -20
-
-# Generate list of models from Prisma schema
-echo -e "\n=== Models in Prisma schema ==="
-grep -n "^model " prisma/schema.prisma | head -20
-
-# Create reference mapping skeleton (save to AUDIT_RESULTS.md)
-```
-
-Save output to `AUDIT_RESULTS.md` (see Step 3) with Prisma schema line numbers noted.
-
-### Step 3: Document Findings (0 min - add to this document)
-
-Create a new section below this one (or in a separate `AUDIT_RESULTS.md`):
-
-```markdown
-## Phase 1a Audit Results
-
-**Date Executed**: [Today's date]
-**Executor**: [Your name]
-
-### Current State Findings
-
-**Promise<any> Count**: [X] locations
-
-- [List file paths found]
-
-**[key: string]: any Count**: [X] locations
-
-- [List files/types]
-
-**Duplicate Interfaces**: [Yes/No - X duplicates]
-
-- [List duplicates and their locations]
-
-### Prisma Schema Mapping (for reference during Phase 1c)
-
-**Enums to Create** (from `prisma/schema.prisma`):
-
-- ExamStatus (line ~XX)
-- UserRole (line ~XX)
-- [add others]
-
-**Models to Re-export** (from `prisma/schema.prisma`):
-
-- User (line ~XX, ~N fields)
-- Exam (line ~XX, ~N fields)
-- [add others]
-
-### Endpoint Inventory for Phase 5
-
-**User Endpoints**: X files
-
-- [List any complex ones that need special attention]
-
-**Exam Endpoints**: X files
-
-- [Flag any with multiple service calls]
-
-**Certification Endpoints**: X files
-
-- [Note any special patterns]
-
-**Other Endpoints**: X files
-
-- [List categories]
-
-### Type Infrastructure Status
-
-**Current Enums**:
-
-- Check: `grep -rn "^enum " src/types/`
-- [List what already exists]
-
-**Current Error Classes**:
-
-- Check: `grep -rn "extends Error" src/types/`
-- [List what already exists]
-
-### Immediate Blockers/Issues
-
-- [Any blockers discovered?]
-- [Any special considerations?]
-
-### Recommended Phase 1 Start Date
-
-[Date when ready to begin]
-```
-
-### What's Next
-
-After completing Phase 1a:
-
-1. ✅ **You'll have**: Clear picture of type enforcement scope
-2. ✅ **You'll know**: Exactly what types need to be created
-3. ✅ **Ready to start**: Phase 1b (Core Infrastructure) immediately
-
-### Tips for Phase 1a
-
-- Don't fix anything yet, just document findings
-- Use the commands above to create a baseline report
-- Share findings with team before proceeding to Phase 1b
-- If you find blocking issues, note them in the audit results
+## 🚀 Next Steps: Phase 3 (Middleware & Utilities)
 
 ---
 

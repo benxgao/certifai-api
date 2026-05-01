@@ -2,10 +2,10 @@ import { Response, NextFunction } from 'express';
 
 import { firebaseAdmin as admin } from '../services/firebase/admin';
 import logger from '../services/firebase/logger';
-import { FirebaseJwtToken } from '../types';
+import { AuthenticatedRequest } from '../types/express';
 
 export const verifyFirebaseToken = async (
-  req: any,
+  req: AuthenticatedRequest,
   res: Response,
   next: NextFunction,
 ): Promise<void> => {
