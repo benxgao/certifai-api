@@ -62,3 +62,6 @@ export {
 
 // Re-export enumerations
 export { CertificationStatus, ExamStatus, DifficultyLevel } from './enums';
+
+// Re-export API request/response types
+export * from './api';
