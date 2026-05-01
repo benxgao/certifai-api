@@ -1,11 +1,11 @@
-import { Response, NextFunction } from 'express';
+import { Request, Response, NextFunction } from 'express';
 
 import { firebaseAdmin as admin } from '../services/firebase/admin';
 import logger from '../services/firebase/logger';
-import { FirebaseJwtToken } from '../types';
+import { AuthenticatedRequest, FirebaseJwtToken } from '../types';
 
 export const verifyFirebaseToken = async (
-  req: any,
+  req: Request,
   res: Response,
   next: NextFunction,
 ): Promise<void> => {
@@ -40,7 +40,7 @@ export const verifyFirebaseToken = async (
       return;
     }
 
-    req.firebase_user_info = decodedToken;
+    (req as AuthenticatedRequest).firebase_user_info = decodedToken;
 
     next();
     return;

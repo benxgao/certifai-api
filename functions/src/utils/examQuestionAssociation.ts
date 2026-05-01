@@ -2,6 +2,7 @@ import logger from '../services/firebase/logger';
 import prismaInstance, {
   ExamStatus,
   CertificationStatus,
+  PrismaClient,
 } from '../services/prisma';
 import { validateMultipleQuestionsExamConstraint } from './questionExamConstraint';
 import { BatchWriteOptimizer } from '../services/database/batchWriteOptimizer';
@@ -191,7 +192,7 @@ export async function associateQuestionsWithExam(
       prismaInstance,
       [
         {
-          operation: async (tx: any) => {
+          operation: async (tx: PrismaClient) => {
             return tx.examUserAnswer.createMany({
               data: examUserAnswers,
               skipDuplicates: true,
@@ -221,7 +222,7 @@ export async function associateQuestionsWithExam(
   } catch (error) {
     logger.error(
       `associateQuestionsWithExam: Error associating questions with exam ${exam_id}:`,
-      error as any,
+      error,
     );
 
     return {
@@ -296,7 +297,7 @@ export async function updateCertificationStatusOnFirstExam(
     // Don't fail the operation if certification status update fails
     logger.error(
       `updateCertificationStatusOnFirstExam: Failed to update certification status for user ${user_id}, cert_id ${cert_id}:`,
-      error as any,
+      error,
     );
   }
 }
@@ -404,7 +405,7 @@ export async function updateExamAfterQuestionAssociation(
   } catch (error) {
     logger.error(
       `updateExamAfterQuestionAssociation: Error updating exam ${exam_id}:`,
-      error as any,
+      error,
     );
     throw error;
   }

@@ -2,7 +2,7 @@ import { Response, NextFunction } from 'express';
 
 import prismaInstance from '../services/prisma';
 import logger from '../services/firebase/logger';
-import { CustomRequest } from '../types';
+import { AuthenticatedRequest } from '../types';
 
 /**
  * Middleware to verify that the requesting Firebase user has access to the specified user_id
@@ -17,14 +17,13 @@ import { CustomRequest } from '../types';
  * router.get('/users/:user_id/profile', verifyFirebaseToken, verifyUserAccess, getUserProfile);
  */
 export const verifyUserAccess = async (
-  req: any,
+  req: AuthenticatedRequest,
   res: Response,
   next: NextFunction,
 ): Promise<void> => {
   try {
     const { user_id } = req.params;
-    const firebaseUserIdFromToken = (req as CustomRequest).firebase_user_info
-      ?.uid;
+    const firebaseUserIdFromToken = req.firebase_user_info?.uid;
 
     // Check if Firebase token was verified in previous middleware
     if (!firebaseUserIdFromToken) {
@@ -78,14 +77,14 @@ export const verifyUserAccess = async (
     }
 
     // Add the verified user to the request object for downstream handlers
-    (req as any).verified_user = user;
+    req.verified_user = user;
 
     // logger.info(
     //   `VERIFY_USER_ACCESS: Access granted for user_id=${user_id}, firebase_user=${firebaseUserIdFromToken}`,
     // );
 
     next();
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('VERIFY_USER_ACCESS_ERROR:', error);
     res.status(500).json({
       success: false,
