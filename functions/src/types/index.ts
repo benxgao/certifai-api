@@ -11,7 +11,7 @@ export type FirebaseJwtToken = {
   email?: string; // '@gmail.com';
   email_verified?: boolean;
   firebase: {
-    identities: { [key: string]: any }; // { email: string[] };
+    identities: { [key: string]: string[] };
     sign_in_provider: string; // 'password';
   };
   uid: string; // 'uid';
@@ -33,3 +33,32 @@ export {
   PaginationOptions,
   PrismaFindManyWithCount,
 } from '../utils/pagination';
+
+// Re-export error classes
+export {
+  APIError,
+  AuthenticationError,
+  AuthorizationError,
+  ValidationError,
+  NotFoundError,
+  ConflictError,
+  RateLimitError,
+  InternalServerError,
+  ExamGenerationError,
+  ExamSubmissionError,
+  InsufficientTokensError,
+} from './errors';
+
+// Re-export Express type extensions
+export {
+  AuthenticatedRequest,
+  AuthenticatedRequestHandler,
+  TypedRequestHandler,
+  VerifiedUser,
+  ApiSuccessResponse,
+  ApiErrorResponse,
+  ApiResponse,
+} from './express';
+
+// Re-export enumerations
+export { CertificationStatus, ExamStatus, DifficultyLevel } from './enums';
