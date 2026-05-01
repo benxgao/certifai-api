@@ -1,19 +1,19 @@
-import { Response } from 'express';
 import logger from '../../../services/firebase/logger';
-import { CustomRequest } from '../../../types';
 import prismaInstance from '../../../services/prisma';
 import { RedisService, CACHE_CONFIG } from '../../../services/redis';
 import { CacheHierarchyService } from '../../../services/cache/cacheHierarchy';
+import { AuthenticatedRequestHandler, ApiResponse } from '../../../types/express';
+import { UserProfileData } from '../../../types/api/users';
 
-const handler = async (
-  req: any | CustomRequest,
-  res: Response,
-): Promise<void> => {
+const handler: AuthenticatedRequestHandler<
+  unknown,
+  ApiResponse<UserProfileData>,
+  { user_id: string }
+> = async (req, res): Promise<void> => {
   try {
     const { user_id } = req.params;
-    const firebaseUserIdFromToken = (req as CustomRequest).firebase_user_info
-      ?.uid;
-    const verifiedUser = (req as any).verified_user; // Added by verifyUserAccess middleware
+    const firebaseUserIdFromToken = req.firebase_user_info?.uid;
+    const verifiedUser = req.verified_user; // Added by verifyUserAccess middleware
 
     if (!user_id) {
       res.status(400).json({
@@ -90,17 +90,17 @@ const handler = async (
       success: true,
       data: {
         api_user_id: user.user_id, // Our internal UUID for API operations
-        firebase_user_id: user.firebase_user_id, // Firebase UID for reference
+        firebase_user_id: user.firebase_user_id ?? '', // Firebase UID for reference
         credit_tokens: user.credit_tokens,
         energy_tokens: user.energy_tokens,
-        created_at: user.created_at,
-        updated_at: user.updated_at,
+        created_at: new Date(user.created_at).toISOString(),
+        updated_at: new Date(user.updated_at).toISOString(),
         // Deprecated: keeping for backward compatibility only
         user_id: user.user_id, // @deprecated Use api_user_id instead
       },
     });
   } catch (error) {
-    logger.error('Error in getUserProfile handler:', error as any);
+    logger.error('Error in getUserProfile handler:', { error: error instanceof Error ? error.message : String(error) });
     res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error occurred',

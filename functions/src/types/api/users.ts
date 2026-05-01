@@ -103,6 +103,8 @@ export interface UserProfileData {
   created_at: string;
   /** Last account update timestamp @guaranteed */
   updated_at: string;
+  /** @deprecated Use api_user_id instead */
+  user_id?: string;
 }
 
 /**

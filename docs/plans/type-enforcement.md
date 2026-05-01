@@ -1,21 +1,21 @@
 # CertifAI API - TypeScript Type Enforcement Guide
 
-**Status**: Phase 1 ✅ Complete | Phase 2 ✅ Complete | Phase 3 ✅ Complete | Phase 4 → In Progress
+**Status**: Phase 1 ✅ Complete | Phase 2 ✅ Complete | Phase 3 ✅ Complete | Phase 4 ✅ Complete | Phase 5 → In Progress | Phase 6 ⏳ Pending
 **Based on**: Learnings from certifai-app SWR type enforcement project (17/17 files completed)
 
 ### Phase 1-2 Completion Summary
 
-| Phase | Sub-Phase                         | Status      | Files/Types | Lines |
-|-------|-----------------------------------|-------------|------------|-------|
-| 1     | Audit & Planning                  | ✅ Complete | N/A        | 0     |
-| 1     | Error Classes & Express Types     | ✅ Complete | 2 files    | 245   |
-| 1     | Enum Definitions                  | ✅ Complete | 1 file     | 65    |
-| 2     | Common API Types                  | ✅ Complete | common.ts  | 109   |
-| 2     | User/Auth Types                   | ✅ Complete | users.ts   | 224   |
-| 2     | Exam Types                        | ✅ Complete | exams.ts   | 220   |
-| 2     | Certification Types               | ✅ Complete | certifications.ts | 158 |
-| 2     | Question/Answer Types             | ✅ Complete | questions.ts | 220 |
-| 2     | API Index & Main Export           | ✅ Complete | api/index.ts + types/index.ts | 31 + 1 |
+| Phase | Sub-Phase                     | Status      | Files/Types                   | Lines  |
+| ----- | ----------------------------- | ----------- | ----------------------------- | ------ |
+| 1     | Audit & Planning              | ✅ Complete | N/A                           | 0      |
+| 1     | Error Classes & Express Types | ✅ Complete | 2 files                       | 245    |
+| 1     | Enum Definitions              | ✅ Complete | 1 file                        | 65     |
+| 2     | Common API Types              | ✅ Complete | common.ts                     | 109    |
+| 2     | User/Auth Types               | ✅ Complete | users.ts                      | 224    |
+| 2     | Exam Types                    | ✅ Complete | exams.ts                      | 220    |
+| 2     | Certification Types           | ✅ Complete | certifications.ts             | 158    |
+| 2     | Question/Answer Types         | ✅ Complete | questions.ts                  | 220    |
+| 2     | API Index & Main Export       | ✅ Complete | api/index.ts + types/index.ts | 31 + 1 |
 
 **Phase 1**: 310 lines infrastructure | **Phase 2**: 1,087 lines (100+ types) | **Total**: 1,397 lines
 
@@ -23,18 +23,34 @@
 
 ---
 
-## 🚀 Next Phase: Phase 4 - Service Layer Typing
+## 🚀 Current Phase: Phase 5 - Endpoint Handler Typing
 
-Now that middleware and utility typing are complete, Phase 4 will:
+Now that service-layer typing is complete, Phase 5 will:
 
-1. **Type Prisma service layer** - `functions/src/services/prisma/index.ts`
-2. **Type core services** - auth, validation, and shared services
-3. **Type domain services** - users, exams, and certifications
+1. **Type user endpoints** - `functions/src/endpoints/api/users/`
+2. **Type exam endpoints** - `functions/src/endpoints/api/exams/`
+3. **Type certification + remaining endpoints** - `functions/src/endpoints/api/certifications/` + special cases
 
 **Foundation Ready**:
+
 - ✅ Phase 1 types: Enums, errors, Express extensions
 - ✅ Phase 2 types: 100+ request/response types across 5 domains
 - ✅ Phase 3 middleware/utils typing complete with scoped validation
+- ✅ Phase 4 service-layer typing complete with `npx tsc --noEmit` passing
+
+### Phase 5 Kickoff Checklist (Ready-to-Execute)
+
+- [ ] Lock endpoint typing order: `users` → `exams` → `certifications` → `other`
+- [ ] For each category: enforce typed handler signatures and typed params/query/body
+- [ ] For each category: validate response payloads against Phase 2 type contracts
+- [ ] Track response contract mismatches immediately in `certifai-app/docs/plans/type-enforce.md`
+- [ ] Run category-level typecheck after each category before moving on
+
+### Phase 6 Prep Checklist (Queued)
+
+- [ ] Prepare final verification pass (`tsc`, `eslint`, `any` audit)
+- [ ] Prepare breaking-change consolidation template for frontend sync
+- [ ] Prepare endpoint-by-endpoint migration notes for certifai-app consumers
 
 ---
 
@@ -363,7 +379,8 @@ if (exam.status === 'ready') { ... }  // Silent bug!
 
 **Completed**: May 1, 2026 (commit 9588cc1)
 
-**Created**: 
+**Created**:
+
 - `functions/src/types/errors.ts` (152 lines) - APIError base class + domain-specific errors
 - `functions/src/types/express.ts` (93 lines) - AuthenticatedRequest, TypedRequestHandler, TypedResponse
 - Updated `functions/src/types/index.ts` with exports
@@ -382,7 +399,8 @@ if (exam.status === 'ready') { ... }  // Silent bug!
 
 **Completed**: May 1, 2026 | **Total**: 1,087 lines across 6 files, 100+ types
 
-**Created**: 
+**Created**:
+
 - `functions/src/types/api/common.ts` (109 lines) - Common response wrappers, pagination, rate limiting
 - `functions/src/types/api/users.ts` (224 lines) - Auth, profile, rate limiting types
 - `functions/src/types/api/exams.ts` (220 lines) - Exam CRUD, submission, report types
@@ -428,6 +446,7 @@ if (exam.status === 'ready') { ... }  // Silent bug!
 **Completed**: May 2, 2026
 
 **Updated Files**:
+
 - `functions/src/middlewares/authCheck.ts`
 - `functions/src/middlewares/verifyUserAccess.ts`
 - `functions/src/endpoints/stripe/middlewares.ts`
@@ -436,12 +455,14 @@ if (exam.status === 'ready') { ... }  // Silent bug!
 - `functions/src/utils/questionExamConstraint.ts`
 
 **Completion Notes**:
+
 - Removed remaining production `any` usage in middleware/util signatures and casts (test-only `as any` remains in `utils/pagination.test.ts`).
 - Added missing middleware type import (`FirebaseJwtToken`) and tightened token parsing in auth middleware.
 - Normalized route param typing in `verifyUserAccess` to satisfy strict Prisma input expectations.
 - Standardized logger error payloads to structured metadata to satisfy logger type contracts.
 
 **Validation**:
+
 - ✅ No TypeScript errors in all touched Phase 3 files (`get_errors` clean on 6/6 files).
 - ✅ Scoped `any` audit clean for middleware and production utils.
 - ✅ Integration blockers discovered later (Express middleware typing + RTDB generics) were resolved during Phase 4 review, and full `npx tsc --noEmit` now passes.
@@ -466,6 +487,7 @@ if (exam.status === 'ready') { ... }  // Silent bug!
 - **Update `functions/src/types/PRISMA_REFERENCES.md`**: Document all model mappings with line numbers and field counts
 
 **4a Progress (May 2, 2026)**:
+
 - ✅ Added `functions/src/types/prisma.ts` with Prisma model type re-exports and schema-linked JSDoc references.
 - ✅ Added `functions/src/types/PRISMA_REFERENCES.md` with enum/model line mappings and drift-check checklist.
 - ✅ Updated `functions/src/types/index.ts` to export new Prisma type aliases.
@@ -484,6 +506,7 @@ if (exam.status === 'ready') { ... }  // Silent bug!
 - Return types using domain-specific types from Phase 2
 
 **4b/4c Progress (May 2, 2026)**:
+
 - ✅ Removed explicit `any` usage and unsafe error casts in:
   - `functions/src/services/data/knowledgePoolingDataService.ts`
   - `functions/src/services/data/examKnowledgePoolingDataService.ts`
@@ -516,6 +539,7 @@ if (exam.status === 'ready') { ... }  // Silent bug!
   - `functions/src/services/database/queryOptimizer.ts`
 
 **Phase 4 Final Completion (May 2, 2026)**:
+
 - ✅ All remaining service-layer `any` hotspots eliminated:
   - `functions/src/services/cache/cacheHierarchy.ts` — `SimpleRedisClient.set` generic, `WarmupDataEntry.data: unknown`, error casts
   - `functions/src/services/database/queryOptimizer.ts` — parallel batch internals `unknown[]`, `tx: Prisma.TransactionClient`, `BatchOperation` interface, decorator typing
@@ -558,13 +582,17 @@ grep -rn ": any\|Promise<any>" functions/src/services/
 
 **Process**: Complete one category at a time (can parallelize)
 
-**5a: User Endpoints (40 min)**
+**5a: User Endpoints (40 min)** ✅ COMPLETE (May 2, 2026)
 
 - Files: `functions/src/endpoints/api/users/*.ts`
-- Type handler signatures using Phase 2 user types
-- Type route parameters
-- Use error handling from Phase 1b
-- Validate: `npx tsc --noEmit`
+- ✅ Replaced `req: any | CustomRequest` with `AuthenticatedRequestHandler<>` in all 4 files
+- ✅ Removed all `as any` / `as CustomRequest` casts from handler signatures and logger calls
+- ✅ Typed `getUserProfile.ts` with `ApiResponse<UserProfileData>` — coerced Prisma `Date` → ISO string, `string | null` → `string`
+- ✅ Typed `getRateLimit.ts` with `ApiResponse<ExamRateLimitInfo>` (actual service return type)
+- ✅ Typed `deleteUser.ts` with `AuthenticatedRequestHandler<unknown, Record<string, unknown>>` (extended response shape)
+- ✅ Typed `ensure-account.ts` with `AuthenticatedRequestHandler<{...}, unknown>`
+- ✅ Added `user_id?: string` deprecated field to `UserProfileData` in `types/api/users.ts`
+- ✅ `npx tsc --noEmit` — 0 errors
 
 **5b: Exam Endpoints (50 min)**
 
@@ -821,17 +849,17 @@ npm test 2>&1 | tail -30
 
 ## 📋 Quick Checklist: Phase Completion Workflow
 
-Use this checklist after completing each phase:
+Use this checklist after completing each phase (update this doc whenever you finish a phase):
 
 ```
-Phase 1a: [ ] Audit complete, findings documented
-Phase 1b: [ ] Core types compile, no errors
-Phase 1c: [ ] Enums defined, match Prisma schema
-Phase 2:  [ ] API types compile, no any types
-Phase 3:  [ ] Middleware types, utils typed
-Phase 4a: [ ] Prisma service typed, compiles
-Phase 4b: [ ] Core services typed, compiles
-Phase 4c: [ ] Domain services typed, compiles
+Phase 1a: [x] Audit complete, findings documented
+Phase 1b: [x] Core types compile, no errors
+Phase 1c: [x] Enums defined, match Prisma schema
+Phase 2:  [x] API types compile, no any types
+Phase 3:  [x] Middleware types, utils typed
+Phase 4a: [x] Prisma service typed, compiles
+Phase 4b: [x] Core services typed, compiles
+Phase 4c: [x] Domain services typed, compiles
 Phase 5a: [ ] User endpoints typed, category compiles
 Phase 5b: [ ] Exam endpoints typed, category compiles
 Phase 5c: [ ] Cert endpoints typed, category compiles
@@ -1978,7 +2006,7 @@ grep -r "case.*:" functions/src/endpoints/ | head -20
 
 ---
 
-## 🚀 Next Steps: Phase 4 (Service Layer Typing)
+## 🚀 Next Steps: Phase 5 Execution + Phase 6 Readiness
 
 ---
 

@@ -1,6 +1,5 @@
-import { Response } from 'express';
 import logger from '../../../services/firebase/logger';
-import { CustomRequest } from '../../../types';
+import { AuthenticatedRequestHandler } from '../../../types/express';
 import prismaInstance from '../../../services/prisma';
 import { firebaseAdmin } from '../../../services/firebase/admin';
 import { CacheManager } from '../../../services/cache';
@@ -63,7 +62,7 @@ async function executeWithRetry<T>(
   maxRetries: number = 3,
   baseDelay: number = 100,
 ): Promise<T> {
-  let lastError: any;
+  let lastError: unknown;
 
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
@@ -140,7 +139,7 @@ async function deleteUserFirestoreCertData(
       } catch (reportsError) {
         logger.warn(
           `deleteUser: Failed to delete exam reports for cert ${cert_id}:`,
-          reportsError as any,
+          { error: reportsError instanceof Error ? reportsError.message : String(reportsError) },
         );
         // Continue to summary deletion even if reports fail
       }
@@ -156,7 +155,7 @@ async function deleteUserFirestoreCertData(
       } catch (summaryError) {
         logger.warn(
           `deleteUser: Failed to delete cert summary for cert ${cert_id}:`,
-          summaryError as any,
+          { error: summaryError instanceof Error ? summaryError.message : String(summaryError) },
         );
         // Continue even if summary deletion fails
       }
@@ -246,8 +245,8 @@ async function deleteUserRtdbExamPlans(user_id: string): Promise<{
 
     // Step 2: Filter exam plans that belong to this user
     const userExamPlanIds = Object.entries(allExamPlans)
-      .filter(([, planData]: any) => {
-        const plan = planData as any;
+      .filter(([, planData]) => {
+        const plan = planData as Record<string, unknown>;
         return plan && plan.user_id === user_id;
       })
       .map(([examId]) => examId);
@@ -280,7 +279,7 @@ async function deleteUserRtdbExamPlans(user_id: string): Promise<{
             examPlanErrors++;
             logger.warn(
               `deleteUser: Failed to delete exam_plan ${examId}:`,
-              error as any,
+              { error: error instanceof Error ? error.message : String(error) },
             );
             return null;
           }),
@@ -326,7 +325,7 @@ async function deleteUserRtdbExamPlans(user_id: string): Promise<{
  * 5. Firebase user account
  * 6. Cache invalidation
  */
-const handler = async (req: any | CustomRequest, res: Response) => {
+const handler: AuthenticatedRequestHandler<unknown, Record<string, unknown>, { user_id: string }> = async (req, res) => {
   try {
     const { user_id } = req.params;
     const firebaseUserIdFromToken = req.firebase_user_info?.user_id;
@@ -541,7 +540,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
         } catch (firebaseError) {
           logger.warn(
             `deleteUser: Failed to delete Firebase user ${user.firebase_user_id}:`,
-            firebaseError as any,
+            { error: firebaseError instanceof Error ? firebaseError.message : String(firebaseError) },
           );
         }
       })(),
@@ -553,7 +552,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
         } catch (cacheError) {
           logger.warn(
             `deleteUser: Failed to invalidate caches for user ${user_id}:`,
-            cacheError as any,
+            { error: cacheError instanceof Error ? cacheError.message : String(cacheError) },
           );
         }
       })(),
@@ -628,7 +627,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       },
     });
   } catch (error) {
-    logger.error('deleteUser: Error deleting user:', error as any);
+    logger.error('deleteUser: Error deleting user:', { error: error instanceof Error ? error.message : String(error) });
     res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error occurred',

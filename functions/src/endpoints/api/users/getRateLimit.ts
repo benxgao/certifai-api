@@ -1,7 +1,7 @@
-import { Response } from 'express';
 import logger from '../../../services/firebase/logger';
-import { CustomRequest } from '../../../types';
 import { getExamRateLimitInfo } from '../../../services/examRateLimit';
+import { ExamRateLimitInfo } from '../../../utils/examRateLimit';
+import { AuthenticatedRequestHandler, ApiResponse } from '../../../types/express';
 
 /**
  * Gets the current rate limit information for a user
@@ -19,10 +19,11 @@ import { getExamRateLimitInfo } from '../../../services/examRateLimit';
  *   }
  * }
  */
-const handler = async (
-  req: any | CustomRequest,
-  res: Response,
-): Promise<void> => {
+const handler: AuthenticatedRequestHandler<
+  unknown,
+  ApiResponse<ExamRateLimitInfo>,
+  { user_id: string }
+> = async (req, res): Promise<void> => {
   try {
     const { user_id } = req.params;
     const firebaseUserIdFromToken = req.firebase_user_info?.user_id;
@@ -58,7 +59,7 @@ const handler = async (
       data: rateLimitInfo,
     });
   } catch (error) {
-    logger.error('Error getting rate limit info:', error as any);
+    logger.error('Error getting rate limit info:', { error: error instanceof Error ? error.message : String(error) });
 
     res.status(500).json({
       success: false,

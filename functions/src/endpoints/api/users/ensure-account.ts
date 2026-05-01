@@ -1,13 +1,16 @@
-import { Response } from 'express';
 import logger from '../../../services/firebase/logger';
-import { CustomRequest, FirebaseJwtToken } from '../../../types';
+import { FirebaseJwtToken } from '../../../types';
+import { AuthenticatedRequestHandler } from '../../../types/express';
 import { StripeFirestoreService } from '../../stripe/db';
 import { StripeService } from '../../stripe/service';
 import { firebaseAuth } from '../../../services/firebase/admin';
 
-const handler = async (req: any | CustomRequest, res: Response) => {
+const handler: AuthenticatedRequestHandler<
+  { api_user_id?: string; email?: string },
+  unknown
+> = async (req, res) => {
   try {
-    const firebaseUser: FirebaseJwtToken = req.firebase_user_info;
+    const firebaseUser: FirebaseJwtToken | undefined = req.firebase_user_info;
 
     if (!firebaseUser) {
       res.status(401).json({
@@ -273,7 +276,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
         : undefined,
     });
   } catch (error) {
-    logger.error('Error in firestore ensure-account endpoint:', error as any);
+    logger.error('Error in firestore ensure-account endpoint:', { error: error instanceof Error ? error.message : String(error) });
 
     res.status(500).json({
       success: false,
