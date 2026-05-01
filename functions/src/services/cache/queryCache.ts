@@ -43,7 +43,9 @@ export class QueryCacheService {
         size_bytes: JSON.stringify(result).length,
       });
     } catch (error) {
-      logger.error('Error caching query result:', { error: error as any });
+      logger.error('Error caching query result:', {
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 
@@ -77,7 +79,7 @@ export class QueryCacheService {
       return result;
     } catch (error) {
       logger.error('Error retrieving cached query result:', {
-        error: error as any,
+        error: error instanceof Error ? error.message : String(error),
       });
       return null;
     }
@@ -124,7 +126,7 @@ export class QueryCacheService {
    */
   static generateQueryFingerprint(
     operation: string,
-    parameters: Record<string, any>,
+    parameters: Record<string, unknown>,
     userId?: string,
   ): string {
     const paramString = JSON.stringify(
@@ -145,7 +147,9 @@ export class QueryCacheService {
 
       logger.info(`Query cache invalidated: ${pattern}`);
     } catch (error) {
-      logger.error('Error invalidating query cache:', { error: error as any });
+      logger.error('Error invalidating query cache:', {
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 
@@ -219,15 +223,15 @@ export type QueryType =
  */
 export function CacheQuery(queryType: QueryType = 'default', ttl?: number) {
   return function (
-    target: any,
+    target: object,
     propertyName: string,
     descriptor: PropertyDescriptor,
-  ) {
-    const method = descriptor.value;
+  ): PropertyDescriptor {
+    const method = descriptor.value as (...args: unknown[]) => Promise<unknown>;
 
-    descriptor.value = async function (...args: any[]) {
+    descriptor.value = async function (...args: unknown[]) {
       const queryFingerprint = QueryCacheService.generateQueryFingerprint(
-        `${target.constructor.name}.${propertyName}`,
+        `${(target as { constructor?: { name?: string } }).constructor?.name ?? 'UnknownTarget'}.${propertyName}`,
         { args },
       );
 

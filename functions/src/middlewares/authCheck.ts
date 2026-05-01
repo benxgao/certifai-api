@@ -3,6 +3,7 @@ import { Response, NextFunction } from 'express';
 import { firebaseAdmin as admin } from '../services/firebase/admin';
 import logger from '../services/firebase/logger';
 import { AuthenticatedRequest } from '../types/express';
+import { FirebaseJwtToken } from '../types';
 
 export const verifyFirebaseToken = async (
   req: AuthenticatedRequest,
@@ -10,7 +11,7 @@ export const verifyFirebaseToken = async (
   next: NextFunction,
 ): Promise<void> => {
   const authHeader = req.headers['authorization'];
-  const token: string = authHeader && authHeader.split(' ')[1];
+  const token = authHeader?.split(' ')[1];
 
   // logger.info(`jwt_token received: ${token}`);
 

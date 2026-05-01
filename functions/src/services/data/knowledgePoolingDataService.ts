@@ -81,10 +81,10 @@ export const getIncorrectAnswersForCertification = async (
 
     // Transform the data into the required format
     const incorrectAnswerData: IncorrectAnswerData[] = incorrectAnswers.map(
-      (answer: any) => {
+      (answer) => {
         // Find the correct answer option
         const correctOption = answer.quizQuestion.answerOptions.find(
-          (option: any) => option.is_correct === true,
+          (option) => option.is_correct === true,
         );
 
         return {
@@ -118,7 +118,7 @@ export const getIncorrectAnswersForCertification = async (
   } catch (error) {
     logger.error(
       `Error fetching incorrect answers for user_id: ${userId}, cert_id: ${certId}:`,
-      error as any,
+      { error: error instanceof Error ? error.message : String(error) },
     );
     throw error;
   }
@@ -160,7 +160,7 @@ export const getIncorrectAnswersStats = async (
   } catch (error) {
     logger.error(
       `Error getting incorrect answers stats for user_id: ${userId}, cert_id: ${certId}:`,
-      error as any,
+      { error: error instanceof Error ? error.message : String(error) },
     );
     throw error;
   }

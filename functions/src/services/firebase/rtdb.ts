@@ -1,6 +1,12 @@
 import { firebaseDatabase } from './admin';
 import logger from './logger';
 
+export type RtdbPrimitive = string | number | boolean | null;
+export type RtdbValue = RtdbPrimitive | RtdbObject | RtdbValue[];
+export interface RtdbObject {
+  [key: string]: RtdbValue | undefined;
+}
+
 /**
  * import { getRtdbValue, setRtdbValue } from '../services/firebase/rtdb';
 
@@ -42,7 +48,7 @@ export function withTimeout<T>(
  * @param path - The database path to read from (e.g., 'users/123' or 'config/settings')
  * @returns Promise resolving to the data at the specified path, or null if not found
  */
-export async function getRtdbValue(path: string): Promise<any> {
+export async function getRtdbValue(path: string): Promise<RtdbValue | null> {
   try {
     const snapshot = await firebaseDatabase.ref(path).once('value');
     const data = snapshot.val();
@@ -71,7 +77,10 @@ export async function getRtdbValue(path: string): Promise<any> {
  * @returns Promise resolving to the data at the specified path, or null if not found
  * @throws Error if timeout exceeded or database error occurs
  */
-export async function getRtdbValueWithTimeout(path: string, timeoutMs: number = 5000): Promise<any> {
+export async function getRtdbValueWithTimeout(
+  path: string,
+  timeoutMs: number = 5000,
+): Promise<RtdbValue | null> {
   try {
     const data = await withTimeout(
       getRtdbValue(path),
@@ -94,18 +103,21 @@ export async function getRtdbValueWithTimeout(path: string, timeoutMs: number = 
  * Remove undefined values from an object recursively
  * Firebase doesn't accept undefined values
  */
-function removeUndefinedValues(obj: any): any {
+function removeUndefinedValues(obj: RtdbValue | undefined): RtdbValue {
   if (Array.isArray(obj)) {
-    return obj.map(removeUndefinedValues);
+    return obj.map((item) => removeUndefinedValues(item));
   } else if (obj && typeof obj === 'object') {
-    return Object.entries(obj).reduce((acc, [key, value]) => {
+    return Object.entries(obj as RtdbObject).reduce<RtdbObject>(
+      (acc, [key, value]) => {
       if (value !== undefined) {
         acc[key] = removeUndefinedValues(value);
       }
       return acc;
-    }, {} as any);
+      },
+      {},
+    );
   }
-  return obj;
+  return obj ?? null;
 }
 
 /**
@@ -114,7 +126,10 @@ function removeUndefinedValues(obj: any): any {
  * @param payload - The data to store at the specified path
  * @returns Promise resolving when the data is successfully written
  */
-export async function setRtdbValue(path: string, payload: any): Promise<void> {
+export async function setRtdbValue(
+  path: string,
+  payload: RtdbValue,
+): Promise<void> {
   try {
     // Remove undefined values to prevent Firebase errors
     const cleanedPayload = removeUndefinedValues(payload);
@@ -143,7 +158,7 @@ export async function setRtdbValue(path: string, payload: any): Promise<void> {
  */
 export async function updateRtdbValue(
   path: string,
-  updates: Record<string, any>,
+  updates: RtdbObject,
 ): Promise<void> {
   try {
     // Remove undefined values to prevent Firebase errors
@@ -194,7 +209,7 @@ export async function deleteRtdbValue(path: string): Promise<void> {
  */
 export async function pushRtdbValue(
   path: string,
-  payload: any,
+  payload: RtdbValue,
 ): Promise<string> {
   try {
     const ref = await firebaseDatabase.ref(path).push(payload);

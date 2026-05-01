@@ -109,7 +109,7 @@ export class OptimizedRateLimitService {
 
       logger.error(
         `Error checking rate limit for user ${userId}:`,
-        error as any,
+        { error: error instanceof Error ? error.message : String(error) },
       );
 
       // Fallback to allowing the request if Redis fails
@@ -151,7 +151,7 @@ export class OptimizedRateLimitService {
     } catch (error) {
       logger.error(
         `Error recording exam creation for user ${userId}:`,
-        error as any,
+        { error: error instanceof Error ? error.message : String(error) },
       );
       // Don't throw here - exam creation should succeed even if tracking fails
     }
@@ -195,7 +195,7 @@ export class OptimizedRateLimitService {
       } catch (error) {
         logger.error(
           `Error getting detailed rate limit info for user ${userId}:`,
-          error as any,
+          { error: error instanceof Error ? error.message : String(error) },
         );
       }
     }
@@ -215,7 +215,7 @@ export class OptimizedRateLimitService {
     } catch (error) {
       logger.error(
         `Error clearing rate limit for user ${userId}:`,
-        error as any,
+        { error: error instanceof Error ? error.message : String(error) },
       );
       throw error;
     }
@@ -229,7 +229,9 @@ export class OptimizedRateLimitService {
       await RedisService.delPattern(`${this.RATE_LIMIT_PREFIX}*`);
       logger.info('Cleared all rate limit data');
     } catch (error) {
-      logger.error('Error clearing all rate limits:', error as any);
+      logger.error('Error clearing all rate limits:', {
+        error: error instanceof Error ? error.message : String(error),
+      });
       throw error;
     }
   }
@@ -273,7 +275,7 @@ export class OptimizedRateLimitService {
     } catch (error) {
       logger.error(
         `Error getting debug info for user ${userId}:`,
-        error as any,
+        { error: error instanceof Error ? error.message : String(error) },
       );
       throw error;
     }

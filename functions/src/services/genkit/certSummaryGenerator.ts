@@ -49,7 +49,7 @@ const CertSummarySchema = z.object({
  * Certification Summary Generator Flow
  * Analyzes multiple exam performance data and generates comprehensive learning journey summaries
  */
-export const createCertSummaryGeneratorFlow = async (): Promise<any> => {
+export const createCertSummaryGeneratorFlow = async (): Promise<unknown> => {
   try {
     const ai = await createAiInstancePromise();
 
@@ -264,7 +264,9 @@ Keep the summary between 200-300 words, be specific about topic names and perfor
 
     return certSummaryGeneratorFlow;
   } catch (error) {
-    logger.error('Failed to create cert summary generator flow:', error as any);
+    logger.error('Failed to create cert summary generator flow:', {
+      error: error instanceof Error ? error.message : String(error),
+    });
     throw error;
   }
 };
@@ -272,12 +274,12 @@ Keep the summary between 200-300 words, be specific about topic names and perfor
 /**
  * Singleton promise for the cert summary generator flow
  */
-let certSummaryGeneratorPromise: Promise<any> | null = null;
+let certSummaryGeneratorPromise: Promise<unknown> | null = null;
 
 /**
  * Get or create the cert summary generator flow
  */
-export const getCertSummaryGeneratorFlow = (): Promise<any> => {
+export const getCertSummaryGeneratorFlow = (): Promise<unknown> => {
   if (!certSummaryGeneratorPromise) {
     certSummaryGeneratorPromise = createCertSummaryGeneratorFlow();
   }

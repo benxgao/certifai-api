@@ -156,7 +156,7 @@ export const saveExamKnowledgePoolingToFirestore = async (
   } catch (error) {
     logger.error(
       `Error saving exam knowledge pooling data for user ${apiUserId}, cert ${examData.cert_id}, exam ${examData.exam_id}:`,
-      error as any,
+      { error: error instanceof Error ? error.message : String(error) },
     );
     throw error;
   }
@@ -205,7 +205,7 @@ export const getConsolidatedKnowledgePoolingFromFirestore = async (
   } catch (error) {
     logger.error(
       `Error retrieving consolidated knowledge pooling data for user ${apiUserId}, cert ${certId}:`,
-      error as any,
+      { error: error instanceof Error ? error.message : String(error) },
     );
     throw error;
   }
@@ -267,7 +267,7 @@ export const hasRecentExamKnowledgePooling = async (
   } catch (error) {
     logger.error(
       `Error checking exam knowledge pooling age for user ${apiUserId}, cert ${certId}, exam ${examId}:`,
-      error as any,
+      { error: error instanceof Error ? error.message : String(error) },
     );
     return false;
   }
@@ -306,7 +306,7 @@ export const getFlattenedInsightsByExamId = async (
   } catch (error) {
     logger.error(
       `Error retrieving insights for exam ${examId} from user ${apiUserId}, cert ${certId}:`,
-      error as any,
+      { error: error instanceof Error ? error.message : String(error) },
     );
     throw error;
   }
@@ -377,7 +377,7 @@ export const deleteExamKnowledgePoolingFromFirestore = async (
   } catch (error) {
     logger.error(
       `Error deleting exam knowledge pooling data for user ${apiUserId}, cert ${certId}, exam ${examId}:`,
-      error as any,
+      { error: error instanceof Error ? error.message : String(error) },
     );
     throw error;
   }

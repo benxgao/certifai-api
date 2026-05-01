@@ -97,7 +97,9 @@ export function calculateRateLimitFromExams(
 
     return result;
   } catch (error) {
-    logger.error('Error calculating rate limit from exam data:', error);
+    logger.error('Error calculating rate limit from exam data:', {
+      error: error instanceof Error ? error.message : String(error),
+    });
 
     return {
       maxExamsAllowed: MAX_EXAMS_PER_24_HOURS,

@@ -228,10 +228,30 @@ export class ExamGenerationMetrics {
   static generateMetricsReport(timeWindowMinutes: number = 60): {
     timestamp: string;
     timeWindow: number;
-    batchMetrics: any;
-    examMetrics: any;
-    aiServiceMetrics: any;
-    performanceMetrics: any;
+    batchMetrics: {
+      total: number;
+      successful: number;
+      rate: number;
+      errorRate: number;
+    };
+    examMetrics: {
+      total: number;
+      successful: number;
+      rate: number;
+      errorRate: number;
+    };
+    aiServiceMetrics: {
+      total: number;
+      successful: number;
+      rate: number;
+      errorRate: number;
+    };
+    performanceMetrics: {
+      avgBatchDuration: number;
+      avgMemoryUsage: number;
+      avgCostPerBatch: number;
+      avgTokensPerBatch: number;
+    };
     activeAlerts: string[];
   } {
     const batchMetrics = this.calculateSuccessRate(timeWindowMinutes, 'batch');

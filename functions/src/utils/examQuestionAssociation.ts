@@ -221,7 +221,7 @@ export async function associateQuestionsWithExam(
   } catch (error) {
     logger.error(
       `associateQuestionsWithExam: Error associating questions with exam ${exam_id}:`,
-      error,
+      { error: error instanceof Error ? error.message : String(error) },
     );
 
     return {
@@ -296,7 +296,7 @@ export async function updateCertificationStatusOnFirstExam(
     // Don't fail the operation if certification status update fails
     logger.error(
       `updateCertificationStatusOnFirstExam: Failed to update certification status for user ${user_id}, cert_id ${cert_id}:`,
-      error,
+      { error: error instanceof Error ? error.message : String(error) },
     );
   }
 }
@@ -404,7 +404,7 @@ export async function updateExamAfterQuestionAssociation(
   } catch (error) {
     logger.error(
       `updateExamAfterQuestionAssociation: Error updating exam ${exam_id}:`,
-      error,
+      { error: error instanceof Error ? error.message : String(error) },
     );
     throw error;
   }

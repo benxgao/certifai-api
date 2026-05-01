@@ -96,10 +96,10 @@ export const getIncorrectAnswersForExam = async (
 
     // Transform the data into the required format
     const incorrectAnswerData: IncorrectAnswerData[] = incorrectAnswers.map(
-      (answer: any) => {
+      (answer) => {
         // Find the correct answer option
         const correctOption = answer.quizQuestion.answerOptions.find(
-          (option: any) => option.is_correct === true,
+          (option) => option.is_correct === true,
         );
 
         return {
@@ -145,7 +145,7 @@ export const getIncorrectAnswersForExam = async (
   } catch (error) {
     logger.error(
       `Error fetching incorrect answers for exam_id: ${examId}, user_id: ${userId}:`,
-      error as any,
+      { error: error instanceof Error ? error.message : String(error) },
     );
     throw error;
   }
@@ -191,7 +191,7 @@ export const getIncorrectAnswersStatsForExam = async (
   } catch (error) {
     logger.error(
       `Error getting incorrect answers stats for exam_id: ${examId}, user_id: ${userId}:`,
-      error as any,
+      { error: error instanceof Error ? error.message : String(error) },
     );
     throw error;
   }

@@ -42,7 +42,7 @@ const KnowledgePoolingSchema = z.object({
  * Analyzes incorrect answers from all user exams under a certification
  * and generates knowledge insights and tips for better understanding
  */
-export const createKnowledgePoolingGeneratorFlow = async (): Promise<any> => {
+export const createKnowledgePoolingGeneratorFlow = async (): Promise<unknown> => {
   try {
     const ai = await createAiInstancePromise();
 
@@ -189,7 +189,7 @@ Generate knowledge insights which should be covered by the official exam guide.
   } catch (error) {
     logger.error(
       'Failed to create knowledge pooling generator flow:',
-      error as any,
+      { error: error instanceof Error ? error.message : String(error) },
     );
     throw error;
   }
@@ -198,12 +198,12 @@ Generate knowledge insights which should be covered by the official exam guide.
 /**
  * Singleton promise for the knowledge pooling generator flow
  */
-let knowledgePoolingGeneratorPromise: Promise<any> | null = null;
+let knowledgePoolingGeneratorPromise: Promise<unknown> | null = null;
 
 /**
  * Get or create the knowledge pooling generator flow
  */
-export const getKnowledgePoolingGeneratorFlow = (): Promise<any> => {
+export const getKnowledgePoolingGeneratorFlow = (): Promise<unknown> => {
   if (!knowledgePoolingGeneratorPromise) {
     knowledgePoolingGeneratorPromise = createKnowledgePoolingGeneratorFlow();
   }

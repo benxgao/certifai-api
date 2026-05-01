@@ -63,5 +63,8 @@ export {
 // Re-export enumerations
 export { CertificationStatus, ExamStatus, DifficultyLevel } from './enums';
 
+// Re-export Prisma model/type aliases
+export * from './prisma';
+
 // Re-export API request/response types
 export * from './api';

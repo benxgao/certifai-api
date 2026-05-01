@@ -3,6 +3,42 @@ import { ExamGenerationLogger } from './exam-generation-logger';
 import { ExamGenerationMetrics } from './exam-generation-metrics';
 import prismaInstance, { ExamStatus } from './prisma';
 
+type GenerationPerformanceMetrics = ReturnType<
+  typeof ExamGenerationMetrics.calculatePerformanceMetrics
+>;
+
+type GenerationMetricsReport = ReturnType<
+  typeof ExamGenerationMetrics.generateMetricsReport
+>;
+
+interface StuckExamSummary {
+  exam_id: string;
+  user_id: string;
+  cert_id: number;
+  started_at: Date;
+  minutes_stuck: number;
+}
+
+interface HealthCheckResult {
+  timestamp: string;
+  overall_status: string;
+  queue_status: string;
+  database_status: string;
+  ai_service_status: string;
+  active_generations: number;
+  error_rate_percent: number;
+  performance_metrics: GenerationPerformanceMetrics;
+  alerts: string[];
+}
+
+interface ComprehensiveMetricsReport {
+  timestamp: string;
+  system_health: HealthCheckResult;
+  metrics: GenerationMetricsReport;
+  stuck_exams: StuckExamSummary[];
+  recommendations: string[];
+}
+
 /**
  * System health monitoring utilities for exam generation
  * Implements health checks for queue, database, and AI services
@@ -19,7 +55,7 @@ export class ExamGenerationHealthCheck {
     ai_service_status: string;
     active_generations: number;
     error_rate_percent: number;
-    performance_metrics: any;
+    performance_metrics: GenerationPerformanceMetrics;
     alerts: string[];
   }> {
     const timestamp = new Date().toISOString();
@@ -91,7 +127,12 @@ export class ExamGenerationHealthCheck {
         ai_service_status: 'unknown',
         active_generations: 0,
         error_rate_percent: 100,
-        performance_metrics: {},
+        performance_metrics: {
+          avgBatchDuration: 0,
+          avgMemoryUsage: 0,
+          avgCostPerBatch: 0,
+          avgTokensPerBatch: 0,
+        },
         alerts: [`Health check failed: ${errorMessage}`],
       };
     }
@@ -574,7 +615,7 @@ export class ExamGenerationHealthCheck {
   /**
    * Generate comprehensive metrics report
    */
-  static async generateMetricsReport(): Promise<any> {
+  static async generateMetricsReport(): Promise<ComprehensiveMetricsReport | null> {
     try {
       const metricsReport = ExamGenerationMetrics.generateMetricsReport(60);
       const healthReport = await this.performHealthCheck();
@@ -606,9 +647,9 @@ export class ExamGenerationHealthCheck {
    * Generate recommendations based on current system state
    */
   private static generateRecommendations(
-    healthReport: any,
-    metricsReport: any,
-    stuckExams: any[],
+    healthReport: HealthCheckResult,
+    metricsReport: GenerationMetricsReport,
+    stuckExams: StuckExamSummary[],
   ): string[] {
     const recommendations: string[] = [];
 

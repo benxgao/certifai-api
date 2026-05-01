@@ -28,7 +28,7 @@ interface CacheItem<T> {
  */
 export class MemoryCache {
   private static instance: MemoryCache;
-  private cache: Map<string, CacheItem<any>> = new Map(); // Main cache storage
+  private cache: Map<string, CacheItem<unknown>> = new Map(); // Main cache storage
   private readonly maxSize: number = 1000; // Maximum number of items (prevents memory bloat)
   private readonly defaultTtl: number = 300; // 5 minutes default TTL in seconds
 

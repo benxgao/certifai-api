@@ -9,7 +9,10 @@
 
 import logger from '../firebase/logger';
 import { knowledgePoolingGeneratorPromise } from '../genkit/knowledgePoolingGnerator';
-import { getIncorrectAnswersForExam } from '../data/examKnowledgePoolingDataService';
+import {
+  getIncorrectAnswersForExam,
+  type IncorrectAnswerData,
+} from '../data/examKnowledgePoolingDataService';
 import {
   saveExamKnowledgePoolingToFirestore,
   hasRecentExamKnowledgePooling,
@@ -38,6 +41,16 @@ export interface KnowledgePoolingResult {
   };
   error?: string;
   details?: string;
+}
+
+interface GeneratedKnowledgeInsight {
+  insight: string;
+  topic: string;
+}
+
+interface KnowledgePoolingGenerationOutput {
+  knowledge_insights: GeneratedKnowledgeInsight[];
+  summary: string;
 }
 
 export class KnowledgePoolingService {
@@ -95,8 +108,8 @@ export class KnowledgePoolingService {
     cert_id: number,
     certification_name: string,
     exam_guide_url: string | null,
-    incorrectAnswers: any[],
-  ): Promise<any> {
+    incorrectAnswers: IncorrectAnswerData[],
+  ): Promise<KnowledgePoolingGenerationOutput> {
     try {
       logger.info('Generating knowledge pooling with AI', {
         api_user_id,
@@ -257,7 +270,7 @@ export class KnowledgePoolingService {
 
       const currentTimestamp = new Date().toISOString();
       const transformedInsights = aiResult.knowledge_insights.map(
-        (insight: any) => ({
+        (insight: GeneratedKnowledgeInsight) => ({
           insight_id: '',
           insight: insight.insight,
           topic: insight.topic,

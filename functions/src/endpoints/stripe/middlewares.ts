@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import logger from '../../services/firebase/logger';
+import { AuthenticatedRequest } from '../../types/express';
 
 /**
  * Rate limiting middleware for Stripe endpoints
@@ -8,7 +9,7 @@ export const stripeRateLimit = (
   req: Request,
   res: Response,
   next: NextFunction,
-) => {
+): void => {
   // Implement custom rate limiting if needed
   // For now, pass through
   next();
@@ -18,13 +19,13 @@ export const stripeRateLimit = (
  * Validation middleware for subscription operations
  */
 export const validateSubscriptionOperation = (
-  req: Request,
+  req: AuthenticatedRequest,
   res: Response,
   next: NextFunction,
-) => {
-  const { user_id } = (req as any).firebase_user_info || {};
+): void => {
+  const firebaseUserId = req.firebase_user_info?.uid;
 
-  if (!user_id) {
+  if (!firebaseUserId) {
     logger.warn('STRIPE_VALIDATION_NO_USER_ID', {
       endpoint: req.originalUrl,
       method: req.method,

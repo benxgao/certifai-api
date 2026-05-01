@@ -1,6 +1,6 @@
 # CertifAI API - TypeScript Type Enforcement Guide
 
-**Status**: Phase 1 ✅ Complete | Phase 2 ✅ Complete | Phase 3 → In Progress
+**Status**: Phase 1 ✅ Complete | Phase 2 ✅ Complete | Phase 3 ✅ Complete | Phase 4 → In Progress
 **Based on**: Learnings from certifai-app SWR type enforcement project (17/17 files completed)
 
 ### Phase 1-2 Completion Summary
@@ -23,18 +23,18 @@
 
 ---
 
-## 🚀 Next Phase: Phase 3 - Middleware & Utility Typing
+## 🚀 Next Phase: Phase 4 - Service Layer Typing
 
-Now that both infrastructure and API types are complete, Phase 3 will:
+Now that middleware and utility typing are complete, Phase 4 will:
 
-1. **Type middleware layer** - `authMiddleware`, `errorHandler`, `validationMiddleware`
-2. **Type utility functions** - Remove `any` return types from all utils
-3. **Type request/response flow** - Use Phase 2 types in middleware/app setup
+1. **Type Prisma service layer** - `functions/src/services/prisma/index.ts`
+2. **Type core services** - auth, validation, and shared services
+3. **Type domain services** - users, exams, and certifications
 
 **Foundation Ready**:
 - ✅ Phase 1 types: Enums, errors, Express extensions
 - ✅ Phase 2 types: 100+ request/response types across 5 domains
-- ✅ Buildable: All new types have valid TypeScript syntax
+- ✅ Phase 3 middleware/utils typing complete with scoped validation
 
 ---
 
@@ -425,6 +425,27 @@ if (exam.status === 'ready') { ... }  // Silent bug!
 
 **Buildable**: ✅ Yes - Middleware now properly typed for handlers
 
+**Completed**: May 2, 2026
+
+**Updated Files**:
+- `functions/src/middlewares/authCheck.ts`
+- `functions/src/middlewares/verifyUserAccess.ts`
+- `functions/src/endpoints/stripe/middlewares.ts`
+- `functions/src/utils/examRateLimit.ts`
+- `functions/src/utils/examQuestionAssociation.ts`
+- `functions/src/utils/questionExamConstraint.ts`
+
+**Completion Notes**:
+- Removed remaining production `any` usage in middleware/util signatures and casts (test-only `as any` remains in `utils/pagination.test.ts`).
+- Added missing middleware type import (`FirebaseJwtToken`) and tightened token parsing in auth middleware.
+- Normalized route param typing in `verifyUserAccess` to satisfy strict Prisma input expectations.
+- Standardized logger error payloads to structured metadata to satisfy logger type contracts.
+
+**Validation**:
+- ✅ No TypeScript errors in all touched Phase 3 files (`get_errors` clean on 6/6 files).
+- ✅ Scoped `any` audit clean for middleware and production utils.
+- ⚠️ Full `npx tsc --noEmit` still reports pre-existing non-Phase-3 typing errors in public/route typing flow (to be addressed in upcoming phases).
+
 ---
 
 ### Phase 4: Service Layer Typing by Domain (1.5 hours)
@@ -444,6 +465,12 @@ if (exam.status === 'ready') { ... }  // Silent bug!
 - **Update `functions/src/types/prisma.ts`**: Re-export User, Exam, etc. with JSDoc references (`@see functions/prisma/schema.prisma`, `@prismaModel ModelName`)
 - **Update `functions/src/types/PRISMA_REFERENCES.md`**: Document all model mappings with line numbers and field counts
 
+**4a Progress (May 2, 2026)**:
+- ✅ Added `functions/src/types/prisma.ts` with Prisma model type re-exports and schema-linked JSDoc references.
+- ✅ Added `functions/src/types/PRISMA_REFERENCES.md` with enum/model line mappings and drift-check checklist.
+- ✅ Updated `functions/src/types/index.ts` to export new Prisma type aliases.
+- ⚠️ Remaining 4a follow-up: migrate direct model type imports in service/domain code to `@/src/types` wrappers where applicable.
+
 **4b: Core Services (30 min)**
 
 - Type methods in `functions/src/services/` (auth, validation, etc.)
@@ -455,6 +482,28 @@ if (exam.status === 'ready') { ... }  // Silent bug!
 - For each service, type all public methods
 - Parameter types from Phase 2
 - Return types using domain-specific types from Phase 2
+
+**4b/4c Progress (May 2, 2026)**:
+- ✅ Removed explicit `any` usage and unsafe error casts in:
+  - `functions/src/services/data/knowledgePoolingDataService.ts`
+  - `functions/src/services/data/examKnowledgePoolingDataService.ts`
+  - `functions/src/services/performance/index.ts`
+  - `functions/src/services/monitoring/advancedMonitoring.ts`
+  - `functions/src/services/optimizedRateLimit/index.ts`
+  - `functions/src/services/examRateLimit/index.ts`
+  - `functions/src/services/firebase/rtdb.ts`
+  - `functions/src/services/exam-generation-metrics.ts`
+  - `functions/src/services/exam-generation-health-check.ts`
+  - `functions/src/services/knowledgePooling/knowledgePoolingService.ts`
+  - `functions/src/services/firestore/examKnowledgePoolingFirestoreService.ts`
+  - `functions/src/services/cloudTasks/baseCloudTaskService.ts`
+  - `functions/src/services/genkit/certSummaryGenerator.ts`
+  - `functions/src/services/genkit/knowledgePoolingGnerator.ts`
+- ✅ `get_errors` clean on all touched files in this pass.
+- ⚠️ Remaining service-layer hotspots with loose typing are concentrated in:
+  - `functions/src/services/cache/cacheHierarchy.ts`
+  - `functions/src/services/firebase/examReportFirestore.ts`
+  - `functions/src/services/firebase/firestore.ts`
 
 **Validation per Domain**:
 
@@ -1905,7 +1954,7 @@ grep -r "case.*:" functions/src/endpoints/ | head -20
 
 ---
 
-## 🚀 Next Steps: Phase 3 (Middleware & Utilities)
+## 🚀 Next Steps: Phase 4 (Service Layer Typing)
 
 ---
 

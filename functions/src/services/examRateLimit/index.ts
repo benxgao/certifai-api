@@ -133,7 +133,9 @@ export async function checkExamRateLimit(
 
     return rateLimitResult;
   } catch (error) {
-    logger.error('Error checking exam rate limit:', error as any);
+    logger.error('Error checking exam rate limit:', {
+      error: error instanceof Error ? error.message : String(error),
+    });
 
     return {
       isAllowed: false,

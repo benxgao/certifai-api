@@ -22,7 +22,9 @@ export const verifyUserAccess = async (
   next: NextFunction,
 ): Promise<void> => {
   try {
-    const { user_id } = req.params;
+    const user_id = Array.isArray(req.params.user_id)
+      ? req.params.user_id[0]
+      : req.params.user_id;
     const firebaseUserIdFromToken = req.firebase_user_info?.uid;
 
     // Check if Firebase token was verified in previous middleware
@@ -85,7 +87,9 @@ export const verifyUserAccess = async (
 
     next();
   } catch (error) {
-    logger.error('VERIFY_USER_ACCESS_ERROR:', error);
+    logger.error('VERIFY_USER_ACCESS_ERROR:', {
+      error: error instanceof Error ? error.message : String(error),
+    });
     res.status(500).json({
       success: false,
       error: 'Failed to verify user access',

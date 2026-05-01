@@ -49,7 +49,7 @@ export class AdvancedMonitoringService {
   static recordMetric(
     metricName: string,
     value: number,
-    metadata?: Record<string, any>,
+    metadata?: Record<string, unknown>,
   ): void {
     const timestamp = Date.now();
     const entry: MetricEntry = {
@@ -133,7 +133,9 @@ export class AdvancedMonitoringService {
       // Check system health
       await this.checkSystemAlerts();
     } catch (error) {
-      logger.error('Error checking alert conditions:', { error: error as any });
+      logger.error('Error checking alert conditions:', {
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 
@@ -144,7 +146,7 @@ export class AdvancedMonitoringService {
     alertType: string,
     message: string,
     severity: AlertSeverity,
-    metadata?: Record<string, any>,
+    metadata?: Record<string, unknown>,
   ): void {
     const cooldownKey = `${alertType}_${severity}`;
     const now = Date.now();
@@ -178,7 +180,7 @@ export class AdvancedMonitoringService {
     operation: string,
     duration: number,
     threshold: number,
-    metadata?: Record<string, any>,
+    metadata?: Record<string, unknown>,
   ): void {
     if (duration > threshold) {
       this.sendAlert(
@@ -207,7 +209,7 @@ export class AdvancedMonitoringService {
   static trackErrorRate(
     operation: string,
     isError: boolean,
-    metadata?: Record<string, any>,
+    metadata?: Record<string, unknown>,
   ): void {
     this.recordMetric(`${operation}_result`, isError ? 1 : 0, metadata);
 
@@ -255,7 +257,9 @@ export class AdvancedMonitoringService {
       // Record timestamp for system health
       this.recordMetric('system_health_check', 1);
     } catch (error) {
-      logger.error('Error collecting system metrics:', { error: error as any });
+      logger.error('Error collecting system metrics:', {
+        error: error instanceof Error ? error.message : String(error),
+      });
       this.recordMetric('system_health_check', 0);
     }
   }
@@ -535,7 +539,7 @@ export class AdvancedMonitoringService {
 export interface MetricEntry {
   value: number;
   timestamp: number;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
 }
 
 export interface PerformanceSummary {
@@ -590,7 +594,7 @@ export interface Alert {
   message: string;
   severity: AlertSeverity;
   timestamp: string;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
 }
 
 export type AlertSeverity = 'info' | 'warning' | 'critical';

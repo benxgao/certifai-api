@@ -27,7 +27,7 @@ export class PerformanceMonitor {
   static endTimer(
     operationId: string,
     operation: string,
-    metadata?: Record<string, any>,
+    metadata?: Record<string, unknown>,
   ): number {
     const startTime = this.startTimes.get(operationId);
     if (!startTime) {
@@ -62,7 +62,7 @@ export class PerformanceMonitor {
   static trackDatabaseQuery(
     operation: string,
     duration: number,
-    metadata?: Record<string, any>,
+    metadata?: Record<string, unknown>,
   ): void {
     const logData = {
       type: 'database_query',
@@ -94,7 +94,7 @@ export class PerformanceMonitor {
     operation: string,
     itemCount: number,
     duration: number,
-    metadata?: Record<string, any>,
+    metadata?: Record<string, unknown>,
   ): void {
     const avgTimePerItem = itemCount > 0 ? duration / itemCount : 0;
 
@@ -184,7 +184,7 @@ export class PerformanceMonitor {
     method: string,
     duration: number,
     statusCode: number,
-    metadata?: Record<string, any>,
+    metadata?: Record<string, unknown>,
   ): void {
     const logData = {
       type: 'api_response',
@@ -258,7 +258,7 @@ export class PerformanceMonitor {
    * @param fn - The async function to wrap
    * @returns Wrapped function that tracks performance
    */
-  static wrapAsync<T extends any[], R>(
+  static wrapAsync<T extends unknown[], R>(
     operation: string,
     fn: (...args: T) => Promise<R>,
   ): (...args: T) => Promise<R> {
