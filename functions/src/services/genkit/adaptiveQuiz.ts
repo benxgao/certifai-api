@@ -9,6 +9,7 @@ import {
   parseStructuredReport,
   TopicPerformance,
 } from '../../types/examReport';
+import { AdaptiveQuizMetrics } from '../../types/genkit';
 
 /**
  * Builds adaptive difficulty instructions from structured Firestore exam report data.
@@ -226,12 +227,7 @@ export const validateQuizItemTopic = (
  */
 export const getAdaptiveQuizMetrics = (
   examTopicList: string[],
-): {
-  totalCount: number;
-  uniqueTopicsCount: number;
-  duplicateTopicsCount: number;
-  duplicateTopics: string[];
-} => {
+): AdaptiveQuizMetrics => {
   const uniqueTopics = [...new Set(examTopicList)];
   const duplicateTopics = examTopicList.filter(
     (topic, index) => examTopicList.indexOf(topic) !== index,

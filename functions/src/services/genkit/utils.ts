@@ -1,21 +1,12 @@
 import { genkit, z, Genkit } from 'genkit';
 import { googleAI } from '@genkit-ai/google-genai';
 import { enableFirebaseTelemetry } from '@genkit-ai/firebase';
+import { GenerationConfig } from '../../types/genkit';
 
 import logger from '../firebase/logger';
 import { getSecret } from '../gcp/secretManager';
 
 enableFirebaseTelemetry();
-
-/**
- * Configuration options for AI generation
- */
-export interface GenerationConfig {
-  maxOutputTokens?: number;
-  temperature?: number;
-  topP?: number;
-  topK?: number;
-}
 
 /**
  * Default generation configuration

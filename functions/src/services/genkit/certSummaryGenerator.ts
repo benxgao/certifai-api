@@ -5,6 +5,7 @@
 
 import { z } from 'genkit';
 import { enableFirebaseTelemetry } from '@genkit-ai/firebase';
+import type { CertSummaryGeneratorFlow } from '../../types/genkit';
 
 import logger from '../firebase/logger';
 import {
@@ -44,39 +45,6 @@ const CertSummarySchema = z.object({
       'Detailed insights about the learning journey and certification readiness',
     ),
 });
-
-export interface CertSummaryGeneratorInput {
-  user_id: string;
-  cert_id: string;
-  certification_name: string;
-  total_exams_taken: number;
-  average_score: number;
-  best_score: number;
-  worst_score: number;
-  performance_trend: 'improving' | 'declining' | 'stable';
-  topic_mastery: Array<{
-    topic: string;
-    exams_covered: number;
-    average_accuracy: number;
-    mastery_level:
-      | 'novice'
-      | 'developing'
-      | 'proficient'
-      | 'advanced'
-      | 'expert';
-    total_questions: number;
-    total_correct: number;
-  }>;
-  strong_topics: string[];
-  weak_topics: string[];
-  overall_accuracy_rate: number;
-}
-
-export type CertSummaryGeneratorOutput = z.infer<typeof CertSummarySchema>;
-
-export type CertSummaryGeneratorFlow = (
-  input: CertSummaryGeneratorInput,
-) => Promise<CertSummaryGeneratorOutput>;
 
 /**
  * Certification Summary Generator Flow

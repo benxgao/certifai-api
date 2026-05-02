@@ -1,5 +1,6 @@
 import { z, FlowSideChannel, Genkit } from 'genkit';
 import { enableFirebaseTelemetry } from '@genkit-ai/firebase';
+import type { QuizItem, QuizGeneratorInputData } from '../../types/genkit';
 
 import logger from '../firebase/logger';
 import {
@@ -28,8 +29,6 @@ const QuizSchema = z.object({
   examTopic: z.string(),
   exam_id: z.string(),
 });
-
-type QuizItem = z.infer<typeof QuizSchema>;
 
 const QuizGeneratorInput = z.object({
   subject: z
@@ -66,8 +65,6 @@ const QuizGeneratorInput = z.object({
 // Use the shared singleton AI instance
 const aiInstancePromise: Promise<Genkit> = createAiInstancePromise();
 
-type QuizGeneratorInputType = z.infer<typeof QuizGeneratorInput>;
-
 // MARKED pass in users prompt text
 export const quizGeneratorPromise = aiInstancePromise
   .then((ai) => {
@@ -79,7 +76,7 @@ export const quizGeneratorPromise = aiInstancePromise
         streamSchema: z.string(),
       },
       async (
-        input: QuizGeneratorInputType,
+        input: QuizGeneratorInputData,
         { sendChunk }: FlowSideChannel<string>,
       ): Promise<QuizItem[]> => {
         try {

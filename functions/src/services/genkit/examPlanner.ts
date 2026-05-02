@@ -1,8 +1,10 @@
 import { z, FlowSideChannel, Genkit } from 'genkit';
 import { enableFirebaseTelemetry } from '@genkit-ai/firebase';
+import type { ExamPlan, ExamPlannerInputData } from '../../types/genkit';
 
 import logger from '../firebase/logger';
 import { setRtdbValue } from '../firebase/rtdb';
+import type { RtdbValue } from '../firebase/rtdb';
 import { parseStructuredReport } from '../../types/examReport';
 import { buildAdaptiveTopicInstructions } from './adaptiveTopics';
 import {
@@ -43,8 +45,6 @@ const ExamPlanSchema = z.object({
       'Optional exam report from the last completed exam used for adaptive learning',
     ),
 });
-
-type ExamPlan = z.infer<typeof ExamPlanSchema>;
 
 const ExamPlannerInput = z.object({
   cert_name: z
@@ -128,8 +128,6 @@ const buildExamPlanPrompt = (
 // Use the shared singleton AI instance
 const aiInstancePromise: Promise<Genkit> = createAiInstancePromise();
 
-type ExamPlannerInputType = z.infer<typeof ExamPlannerInput>;
-
 export const examPlannerPromise = aiInstancePromise
   .then((ai) => {
     return ai.defineFlow(
@@ -140,7 +138,7 @@ export const examPlannerPromise = aiInstancePromise
         streamSchema: z.string(),
       },
       async (
-        input: ExamPlannerInputType,
+        input: ExamPlannerInputData,
         { sendChunk }: FlowSideChannel<string>,
       ): Promise<ExamPlan> => {
         try {
@@ -213,7 +211,7 @@ export const examPlannerPromise = aiInstancePromise
 
           // Store the exam plan in Firebase Realtime Database
           const rtdbPath = `exam_plans/${exam_id}`;
-          await setRtdbValue(rtdbPath, examPlan);
+          await setRtdbValue(rtdbPath, examPlan as unknown as RtdbValue);
 
           logger.info(
             `Exam plan stored successfully in RTDB at path: ${rtdbPath}`,

@@ -1,5 +1,6 @@
 import { z } from 'genkit';
 import { enableFirebaseTelemetry } from '@genkit-ai/firebase';
+import type { KnowledgePoolingGeneratorFlow } from '../../types/genkit';
 
 import logger from '../firebase/logger';
 import {
@@ -36,31 +37,6 @@ const KnowledgePoolingSchema = z.object({
       'A brief summary of the main areas where the user needs to focus their learning',
     ),
 });
-
-export interface KnowledgePoolingGeneratorInput {
-  user_id: string;
-  exam_id: string;
-  cert_id: number;
-  certification_name: string;
-  exam_guide_url: string | null;
-  incorrect_answers_data: Array<{
-    exam_id: string;
-    question_id: string;
-    topic: string | null;
-    question_text: string;
-    correct_answer: string;
-    user_selected_answer: string;
-    explanation: string | null;
-  }>;
-}
-
-export type KnowledgePoolingGeneratorOutput = z.infer<
-  typeof KnowledgePoolingSchema
->;
-
-export type KnowledgePoolingGeneratorFlow = (
-  input: KnowledgePoolingGeneratorInput,
-) => Promise<KnowledgePoolingGeneratorOutput>;
 
 /**
  * Knowledge Pooling Generator Flow

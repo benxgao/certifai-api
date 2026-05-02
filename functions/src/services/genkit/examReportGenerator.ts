@@ -1,5 +1,6 @@
 import { z } from 'genkit';
 import { enableFirebaseTelemetry } from '@genkit-ai/firebase';
+import type { ExamReportGeneratorFlow } from '../../types/genkit';
 
 import logger from '../firebase/logger';
 import {
@@ -37,36 +38,6 @@ const ExamReportSchema = z.object({
       'Difficulty level recommendations for adaptive future question generation',
     ),
 });
-
-export interface ExamReportGeneratorInput {
-  user_id: string;
-  exam_id: string;
-  certification_name: string;
-  performance_data: Array<{
-    topic: string;
-    correct_answers: number;
-    total_attempts: number;
-    accuracy_rate: number;
-    current_difficulty_level: number;
-    average_difficulty_attempted: number;
-  }>;
-  overall_score: number;
-  total_questions: number;
-  correct_answers: number;
-}
-
-export type ExamReportGeneratorOutput = {
-  report: string;
-  difficulty_adjustments: {
-    increase_difficulty: string[];
-    maintain_difficulty: string[];
-    decrease_difficulty: string[];
-  };
-};
-
-export type ExamReportGeneratorFlow = (
-  input: ExamReportGeneratorInput,
-) => Promise<ExamReportGeneratorOutput>;
 
 /**
  * Exam Report Generator Flow

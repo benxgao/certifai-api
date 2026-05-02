@@ -77,3 +77,6 @@ export type {
 
 // Re-export API request/response types
 export * from './api';
+
+// Re-export Genkit feature types
+export * from './genkit';
