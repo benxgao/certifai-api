@@ -1,6 +1,5 @@
-import { Response } from 'express';
 import logger from '../../../../services/firebase/logger';
-import { CustomRequest } from '../../../../types';
+import { AuthenticatedRequestHandler } from '../../../../types/express';
 import { getRtdbValueWithTimeout } from '../../../../services/firebase/rtdb';
 import prismaInstance, { ExamStatus } from '../../../../services/prisma';
 
@@ -20,7 +19,19 @@ import prismaInstance, { ExamStatus } from '../../../../services/prisma';
  * - Estimated time remaining based on progress rate
  * - is_complete flag: true when status === 'READY'
  */
-const handler = async (req: any | CustomRequest, res: Response) => {
+type RtdbExamPlanTopic = {
+  question_id?: string | null;
+};
+
+type RtdbExamPlan = {
+  questions?: RtdbExamPlanTopic[];
+};
+
+const handler: AuthenticatedRequestHandler<
+  unknown,
+  Record<string, unknown>,
+  { user_id: string; exam_id: string }
+> = async (req, res): Promise<void> => {
   try {
     const { user_id, exam_id } = req.params;
 
@@ -105,7 +116,10 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       const examPlanPath = `exam_plans/${exam_id}`;
 
       try {
-        const examPlan = await getRtdbValueWithTimeout(examPlanPath, 5000);
+        const examPlan = (await getRtdbValueWithTimeout(
+          examPlanPath,
+          5000,
+        )) as RtdbExamPlan | null;
 
         if (
           examPlan &&
@@ -114,7 +128,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
         ) {
           totalTopics = examPlan.questions.length;
           topicsWithQuestions = examPlan.questions.filter(
-            (topic: any) =>
+            (topic) =>
               topic.question_id !== null && topic.question_id !== undefined,
           ).length;
 

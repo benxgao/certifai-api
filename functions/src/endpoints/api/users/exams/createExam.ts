@@ -1,6 +1,5 @@
-import { Response } from 'express';
 import logger from '../../../../services/firebase/logger';
-import { CustomRequest } from '../../../../types';
+import { AuthenticatedRequestHandler } from '../../../../types/express';
 import prismaInstance, { ExamStatus } from '../../../../services/prisma';
 import { OptimizedRateLimitService } from '../../../../services/optimizedRateLimit';
 import { CacheManager } from '../../../../services/cache';
@@ -17,6 +16,16 @@ const DEFAULT_NUMBER_OF_QUESTIONS = 20;
 const MAX_NUMBER_OF_QUESTIONS = 100; // Set a reasonable max
 const QUESTIONS_PER_BATCH = 10; // Number of questions to generate per task
 export const MAX_EXAMS_PER_24_HOURS = 3; // Maximum number of exams allowed per user in 24 hours
+
+type TransactionClient = Parameters<
+  Parameters<typeof prismaInstance.$transaction>[0]
+>[0];
+
+type CreatedExam = {
+  exam_id: string;
+  user_id: string;
+  cert_id: number;
+};
 
 /**
  * Creates a new exam and queues questions for generation
@@ -45,10 +54,11 @@ export const MAX_EXAMS_PER_24_HOURS = 3; // Maximum number of exams allowed per 
  *   }
  * }
  */
-const handler = async (
-  req: any | CustomRequest,
-  res: Response,
-): Promise<void> => {
+const handler: AuthenticatedRequestHandler<
+  { numberOfQuestions?: number; customPromptText?: string },
+  Record<string, unknown>,
+  { user_id: string; cert_id: string }
+> = async (req, res): Promise<void> => {
   const operationStart = Date.now();
   const timingAudit = {
     total_operation: 0,
@@ -203,7 +213,7 @@ const handler = async (
     // Use BatchWriteOptimizer for atomic exam creation and related operations
     const examOperations = [
       {
-        operation: (tx: any) =>
+        operation: (tx: TransactionClient) =>
           tx.examAttempt.create({
             data: {
               user: { connect: { user_id: user.user_id } },
@@ -218,7 +228,7 @@ const handler = async (
       },
     ];
 
-    const examResults = await BatchWriteOptimizer.batchOperations(
+    const examResults = await BatchWriteOptimizer.batchOperations<CreatedExam>(
       prismaInstance,
       examOperations,
       {
@@ -227,7 +237,11 @@ const handler = async (
       },
     );
 
-    const newExam = examResults[0] as any; // Type assertion for exam object
+    const [newExam] = examResults;
+
+    if (!newExam) {
+      throw new Error('Failed to create exam attempt');
+    }
 
     const examCreateDuration = Date.now() - examCreateStart;
 
@@ -528,7 +542,7 @@ const handler = async (
 
         const failureOperations = [
           {
-            operation: (tx: any) =>
+            operation: (tx: TransactionClient) =>
               tx.examAttempt.update({
                 where: { exam_id: newExam.exam_id },
                 data: { exam_status: ExamStatus.QUESTION_GENERATION_FAILED },
@@ -538,7 +552,7 @@ const handler = async (
           },
         ];
 
-        await BatchWriteOptimizer.batchOperations(
+        await BatchWriteOptimizer.batchOperations<unknown>(
           prismaInstance,
           failureOperations,
           { useTransaction: true, batchSize: 1 },
@@ -646,7 +660,20 @@ const handler = async (
     } catch (topicGenerationError) {
       logger.error(
         `Failed to generate exam topics for exam ${newExam.exam_id}:`,
-        topicGenerationError as any,
+        {
+          error_message:
+            topicGenerationError instanceof Error
+              ? topicGenerationError.message
+              : String(topicGenerationError),
+          error_type:
+            topicGenerationError instanceof Error
+              ? topicGenerationError.constructor.name
+              : typeof topicGenerationError,
+          error_stack:
+            topicGenerationError instanceof Error
+              ? topicGenerationError.stack
+              : undefined,
+        },
       );
 
       // Update exam status to failed if topic generation fails using optimized batch operation
@@ -654,7 +681,7 @@ const handler = async (
 
       const topicFailureOperations = [
         {
-          operation: (tx: any) =>
+          operation: (tx: TransactionClient) =>
             tx.examAttempt.update({
               where: { exam_id: newExam.exam_id },
               data: { exam_status: ExamStatus.QUESTION_GENERATION_FAILED },
@@ -664,7 +691,7 @@ const handler = async (
         },
       ];
 
-      await BatchWriteOptimizer.batchOperations(
+      await BatchWriteOptimizer.batchOperations<unknown>(
         prismaInstance,
         topicFailureOperations,
         { useTransaction: true, batchSize: 1 },

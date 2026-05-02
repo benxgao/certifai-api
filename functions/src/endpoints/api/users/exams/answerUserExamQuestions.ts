@@ -1,6 +1,5 @@
-import { Response } from 'express';
 import logger from '../../../../services/firebase/logger';
-import { CustomRequest } from '../../../../types';
+import { AuthenticatedRequestHandler } from '../../../../types/express';
 import prismaInstance from '../../../../services/prisma';
 import { validateQuestionExamConstraint } from '../../../../utils/questionExamConstraint';
 import { CacheManager } from '../../../../services/cache';
@@ -17,7 +16,11 @@ import { CacheManager } from '../../../../services/cache';
  *     }
  * @param res - The Express response object.
  */
-const handler = async (req: any | CustomRequest, res: Response) => {
+const handler: AuthenticatedRequestHandler<
+  { answer_option_id?: string | null },
+  Record<string, unknown>,
+  { user_id: string; exam_id: string; quiz_question_id: string }
+> = async (req, res): Promise<void> => {
   try {
     const { user_id, exam_id, quiz_question_id } = req.params;
     const { answer_option_id } = req.body; // Assuming the request body sends answer_option_id
@@ -139,7 +142,11 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       data: updatedAnswer,
     });
   } catch (error) {
-    logger.error('Error in answerUserExamQuizQuestions handler:', error as any);
+    logger.error('Error in answerUserExamQuizQuestions handler:', {
+      error_message: error instanceof Error ? error.message : String(error),
+      error_type: error instanceof Error ? error.constructor.name : typeof error,
+      error_stack: error instanceof Error ? error.stack : undefined,
+    });
     // It's good practice to check for specific Prisma errors if needed, e.g., P2025 (Record not found)
     res.status(500).json({
       success: false,

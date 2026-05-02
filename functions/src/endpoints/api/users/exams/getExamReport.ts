@@ -6,25 +6,29 @@
  * Now uses Firestore for storage instead of Prisma exam_report field.
  */
 
-import { Response } from 'express';
 import logger from '../../../../services/firebase/logger';
-import { CustomRequest } from '../../../../types';
+import { AuthenticatedRequestHandler } from '../../../../types/express';
 import { generateExamReport } from '../../ai/examReportGenerator';
 import { examReportFirestore } from '../../../../services/firebase/examReportFirestore';
+
+type ExamReportParams = {
+  user_id: string;
+  exam_id: string;
+};
 
 /**
  * GET /api/users/:user_id/exams/:exam_id/exam-report
  * Fetch existing exam report from Firestore or generate if it doesn't exist
  */
-export const getExamReport = async (
-  req: any | CustomRequest,
-  res: Response,
-): Promise<void> => {
+export const getExamReport: AuthenticatedRequestHandler<
+  unknown,
+  Record<string, unknown>,
+  ExamReportParams
+> = async (req, res): Promise<void> => {
   try {
     const { user_id, exam_id } = req.params;
-    const firebaseUserIdFromToken = (req as CustomRequest).firebase_user_info
-      ?.uid;
-    const verifiedUser = (req as any).verified_user; // Added by verifyUserAccess middleware
+    const firebaseUserIdFromToken = req.firebase_user_info?.uid;
+    const verifiedUser = req.verified_user;
 
     if (!firebaseUserIdFromToken) {
       res.status(401).json({
@@ -132,10 +136,14 @@ export const getExamReport = async (
       success: true,
       data: result,
     });
-  } catch (error: any) {
-    logger.error('GET_EXAM_REPORT_FIRESTORE_ERROR:', error);
+  } catch (error: unknown) {
+    logger.error('GET_EXAM_REPORT_FIRESTORE_ERROR:', {
+      error_message: error instanceof Error ? error.message : String(error),
+      error_type: error instanceof Error ? error.constructor.name : typeof error,
+      error_stack: error instanceof Error ? error.stack : undefined,
+    });
 
-    if (error.message.includes('not found')) {
+    if (error instanceof Error && error.message.includes('not found')) {
       res.status(404).json({
         success: false,
         error: error.message,
@@ -143,7 +151,7 @@ export const getExamReport = async (
       return;
     }
 
-    if (error.message.includes('Access denied')) {
+    if (error instanceof Error && error.message.includes('Access denied')) {
       res.status(403).json({
         success: false,
         error: error.message,
@@ -151,7 +159,7 @@ export const getExamReport = async (
       return;
     }
 
-    if (error.message.includes('completed exams')) {
+    if (error instanceof Error && error.message.includes('completed exams')) {
       res.status(400).json({
         success: false,
         error: error.message,
@@ -170,15 +178,15 @@ export const getExamReport = async (
  * POST /api/users/:user_id/exams/:exam_id/exam-report
  * Force regenerate exam report (overwrites existing report in Firestore)
  */
-export const regenerateExamReport = async (
-  req: any | CustomRequest,
-  res: Response,
-): Promise<void> => {
+export const regenerateExamReport: AuthenticatedRequestHandler<
+  unknown,
+  Record<string, unknown>,
+  ExamReportParams
+> = async (req, res): Promise<void> => {
   try {
     const { user_id, exam_id } = req.params;
-    const firebaseUserIdFromToken = (req as CustomRequest).firebase_user_info
-      ?.uid;
-    const verifiedUser = (req as any).verified_user; // Added by verifyUserAccess middleware
+    const firebaseUserIdFromToken = req.firebase_user_info?.uid;
+    const verifiedUser = req.verified_user;
 
     if (!firebaseUserIdFromToken) {
       res.status(401).json({
@@ -272,10 +280,14 @@ export const regenerateExamReport = async (
       data: result,
       message: 'Exam report regenerated successfully',
     });
-  } catch (error: any) {
-    logger.error('REGENERATE_EXAM_REPORT_FIRESTORE_ERROR:', error);
+  } catch (error: unknown) {
+    logger.error('REGENERATE_EXAM_REPORT_FIRESTORE_ERROR:', {
+      error_message: error instanceof Error ? error.message : String(error),
+      error_type: error instanceof Error ? error.constructor.name : typeof error,
+      error_stack: error instanceof Error ? error.stack : undefined,
+    });
 
-    if (error.message.includes('not found')) {
+    if (error instanceof Error && error.message.includes('not found')) {
       res.status(404).json({
         success: false,
         error: error.message,
@@ -283,7 +295,7 @@ export const regenerateExamReport = async (
       return;
     }
 
-    if (error.message.includes('Access denied')) {
+    if (error instanceof Error && error.message.includes('Access denied')) {
       res.status(403).json({
         success: false,
         error: error.message,
@@ -291,7 +303,7 @@ export const regenerateExamReport = async (
       return;
     }
 
-    if (error.message.includes('completed exams')) {
+    if (error instanceof Error && error.message.includes('completed exams')) {
       res.status(400).json({
         success: false,
         error: error.message,

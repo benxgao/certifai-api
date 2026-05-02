@@ -1,6 +1,5 @@
-import { Response } from 'express';
 import logger from '../../../../services/firebase/logger';
-import { CustomRequest } from '../../../../types';
+import { AuthenticatedRequestHandler } from '../../../../types/express';
 import prismaInstance, { ExamStatus } from '../../../../services/prisma';
 import {
   associateQuestionsWithExam,
@@ -8,7 +7,11 @@ import {
 } from '../../../../utils/examQuestionAssociation';
 import { CacheManager } from '../../../../services/cache';
 
-const handler = async (req: any | CustomRequest, res: Response) => {
+const handler: AuthenticatedRequestHandler<
+  unknown,
+  Record<string, unknown>,
+  { exam_id: string }
+> = async (req, res): Promise<void> => {
   try {
     const { exam_id } = req.params;
     const firebaseUserIdFromToken = req.firebase_user_info?.user_id;
@@ -279,7 +282,11 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       },
     });
   } catch (error) {
-    logger.error('updateExam: Error updating exam:', error as any);
+    logger.error('updateExam: Error updating exam:', {
+      error_message: error instanceof Error ? error.message : String(error),
+      error_type: error instanceof Error ? error.constructor.name : typeof error,
+      error_stack: error instanceof Error ? error.stack : undefined,
+    });
     res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error occurred',

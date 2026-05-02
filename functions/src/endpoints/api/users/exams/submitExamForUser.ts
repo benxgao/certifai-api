@@ -1,15 +1,15 @@
-import { Response } from 'express';
 import logger from '../../../../services/firebase/logger';
-import { CustomRequest } from '../../../../types';
+import { AuthenticatedRequestHandler } from '../../../../types/express';
 import prismaInstance, { ExamStatus } from '../../../../services/prisma';
 import { CacheManager } from '../../../../services/cache';
 import { KnowledgePoolingTaskService } from '../../../../services/cloudTasks/knowledgePoolingTaskService';
 import { ExamReportTaskService } from '../../../../services/cloudTasks/examReportTaskService';
 
-const handler = async (
-  req: any | CustomRequest,
-  res: Response,
-): Promise<void> => {
+const handler: AuthenticatedRequestHandler<
+  unknown,
+  Record<string, unknown>,
+  { user_id: string; cert_id: string; exam_id: string }
+> = async (req, res): Promise<void> => {
   try {
     const { user_id, cert_id, exam_id } = req.params;
 
@@ -242,7 +242,16 @@ const handler = async (
       logger.error(
         `EXAM_REPORT_TASK_ERROR: Failed to trigger background report generation for exam_id=${exam_id}`,
         {
-          error: reportError as any,
+          error_message:
+            reportError instanceof Error
+              ? reportError.message
+              : String(reportError),
+          error_type:
+            reportError instanceof Error
+              ? reportError.constructor.name
+              : typeof reportError,
+          error_stack:
+            reportError instanceof Error ? reportError.stack : undefined,
           exam_id,
           user_id,
           will_retry: false, // User can manually generate later if needed
@@ -291,7 +300,18 @@ const handler = async (
       logger.error(
         `KNOWLEDGE_POOLING_TASK_ERROR: Failed to trigger background knowledge pooling for exam_id=${exam_id}`,
         {
-          error: knowledgePoolingError as any,
+          error_message:
+            knowledgePoolingError instanceof Error
+              ? knowledgePoolingError.message
+              : String(knowledgePoolingError),
+          error_type:
+            knowledgePoolingError instanceof Error
+              ? knowledgePoolingError.constructor.name
+              : typeof knowledgePoolingError,
+          error_stack:
+            knowledgePoolingError instanceof Error
+              ? knowledgePoolingError.stack
+              : undefined,
           exam_id,
           user_id,
           cert_id: examAttempt.cert_id,
@@ -312,7 +332,11 @@ const handler = async (
       },
     });
   } catch (error) {
-    logger.error('Error in answerUserExamQuizQuestions handler:', error as any);
+    logger.error('Error in answerUserExamQuizQuestions handler:', {
+      error_message: error instanceof Error ? error.message : String(error),
+      error_type: error instanceof Error ? error.constructor.name : typeof error,
+      error_stack: error instanceof Error ? error.stack : undefined,
+    });
     // It's good practice to check for specific Prisma errors if needed, e.g., P2025 (Record not found)
     res.status(500).json({
       success: false,

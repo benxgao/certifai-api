@@ -1,6 +1,5 @@
-import { Response } from 'express';
 import logger from '../../../../services/firebase/logger';
-import { CustomRequest } from '../../../../types';
+import { AuthenticatedRequestHandler } from '../../../../types/express';
 import prismaInstance, { ExamStatus } from '../../../../services/prisma';
 import {
   associateQuestionsWithExam,
@@ -34,7 +33,18 @@ type QuestionResponse = {
   answerOptions: AnswerOptionResponse[];
 };
 
-const handler = async (req: any | CustomRequest, res: Response) => {
+type GetExamQuestionsQuery = {
+  page?: string | number;
+  pageSize?: string | number;
+  limit?: string | number;
+};
+
+const handler: AuthenticatedRequestHandler<
+  unknown,
+  unknown,
+  { user_id: string; exam_id: string },
+  GetExamQuestionsQuery
+> = async (req, res): Promise<void> => {
   try {
     const { user_id, exam_id } = req.params;
 
@@ -220,7 +230,20 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       } catch (associationError) {
         logger.error(
           `Error associating questions with exam ${exam_id}:`,
-          associationError as any,
+          {
+            error_message:
+              associationError instanceof Error
+                ? associationError.message
+                : String(associationError),
+            error_type:
+              associationError instanceof Error
+                ? associationError.constructor.name
+                : typeof associationError,
+            error_stack:
+              associationError instanceof Error
+                ? associationError.stack
+                : undefined,
+          },
         );
         // Continue with the original flow even if association fails
       }
@@ -361,7 +384,11 @@ const handler = async (req: any | CustomRequest, res: Response) => {
 
     res.status(200).json(response);
   } catch (error) {
-    logger.error('Error in get_questions handler:', error as any);
+    logger.error('Error in get_questions handler:', {
+      error_message: error instanceof Error ? error.message : String(error),
+      error_type: error instanceof Error ? error.constructor.name : typeof error,
+      error_stack: error instanceof Error ? error.stack : undefined,
+    });
     res
       .status(
         error instanceof Error && error.message === 'Unauthorized' ? 401 : 500,

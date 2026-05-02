@@ -1,6 +1,5 @@
-import { Response } from 'express';
 import logger from '../../../../services/firebase/logger';
-import { CustomRequest } from '../../../../types';
+import { AuthenticatedRequestHandler } from '../../../../types/express';
 import { getRtdbValue } from '../../../../services/firebase/rtdb';
 import prismaInstance, { ExamStatus } from '../../../../services/prisma';
 
@@ -16,7 +15,20 @@ import prismaInstance, { ExamStatus } from '../../../../services/prisma';
  *
  * @deprecated Use /api/users/{user_id}/exams/{exam_id}/live-status instead
  */
-const handler = async (req: any | CustomRequest, res: Response) => {
+type RtdbExamPlanTopic = {
+  question_id?: string | null;
+};
+
+type RtdbExamPlan = {
+  questions?: RtdbExamPlanTopic[];
+  created_at?: number;
+};
+
+const handler: AuthenticatedRequestHandler<
+  unknown,
+  Record<string, unknown>,
+  { user_id: string; exam_id: string }
+> = async (req, res): Promise<void> => {
   try {
     const { user_id, exam_id } = req.params;
 
@@ -119,7 +131,9 @@ const handler = async (req: any | CustomRequest, res: Response) => {
 
     // Get exam plan from RTDB
     const examPlanPath = `exam_plans/${exam_id}`;
-    const examPlan = await getRtdbValue(examPlanPath);
+    const examPlan = (await getRtdbValue(examPlanPath)) as
+      | RtdbExamPlan
+      | null;
 
     if (
       !examPlan ||
@@ -136,7 +150,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
     // Count topics with and without question_id
     const totalTopics = examPlan.questions.length;
     const topicsWithQuestions = examPlan.questions.filter(
-      (topic: any) =>
+      (topic) =>
         topic.question_id !== null && topic.question_id !== undefined,
     ).length;
     const topicsRemaining = totalTopics - topicsWithQuestions;
@@ -199,7 +213,11 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       data: progressData,
     });
   } catch (error) {
-    logger.error('Error in getExamProgress handler:', error as any);
+    logger.error('Error in getExamProgress handler:', {
+      error_message: error instanceof Error ? error.message : String(error),
+      error_type: error instanceof Error ? error.constructor.name : typeof error,
+      error_stack: error instanceof Error ? error.stack : undefined,
+    });
     res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error occurred',

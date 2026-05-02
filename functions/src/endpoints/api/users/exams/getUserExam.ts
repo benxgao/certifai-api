@@ -1,11 +1,14 @@
-import { Response } from 'express';
 import logger from '../../../../services/firebase/logger';
-import { CustomRequest } from '../../../../types';
+import { AuthenticatedRequestHandler } from '../../../../types/express';
 import prismaInstance, { ExamStatus } from '../../../../services/prisma';
 import { calculateExamProgressFromPlan } from '../../../../delegators/tasks/buildExam/rtdb';
 import { getRtdbValue } from '../../../../services/firebase/rtdb';
 
-const handler = async (req: any | CustomRequest, res: Response) => {
+const handler: AuthenticatedRequestHandler<
+  unknown,
+  Record<string, unknown>,
+  { user_id: string; exam_id: string }
+> = async (req, res): Promise<void> => {
   try {
     const { user_id, exam_id } = req.params;
 
@@ -179,7 +182,11 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       data: exam,
     });
   } catch (error) {
-    logger.error('Error in getUserExam handler:', error as any);
+    logger.error('Error in getUserExam handler:', {
+      error_message: error instanceof Error ? error.message : String(error),
+      error_type: error instanceof Error ? error.constructor.name : typeof error,
+      error_stack: error instanceof Error ? error.stack : undefined,
+    });
     res
       .status(
         error instanceof Error && error.message === 'Unauthorized' ? 401 : 500,

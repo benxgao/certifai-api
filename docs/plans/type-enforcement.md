@@ -594,12 +594,15 @@ grep -rn ": any\|Promise<any>" functions/src/services/
 - ✅ Added `user_id?: string` deprecated field to `UserProfileData` in `types/api/users.ts`
 - ✅ `npx tsc --noEmit` — 0 errors
 
-**5b: Exam Endpoints (50 min)**
+**5b: Exam Endpoints (50 min)** ✅ COMPLETE (May 3, 2026)
 
 - Files: `functions/src/endpoints/api/exams/*.ts`
-- Type handler signatures using Phase 2 exam types
-- Wire to Phase 4 exam services
-- Custom exam errors from Phase 1b
+- ✅ Typed all exam handlers under actual route location: `functions/src/endpoints/api/users/exams/*.ts` (12 files)
+- ✅ Replaced loose handler signatures (`req: any | CustomRequest`) with `AuthenticatedRequestHandler<...>` and typed `params/query/body`
+- ✅ Removed `as any`/implicit `any` in handler-level code paths and error logging metadata
+- ✅ Category-level typecheck verified clean with project check filtered to exam endpoints:
+  - `npx tsc --noEmit 2>&1 | grep "src/endpoints/api/users/exams" || true` → no output
+- ✅ Validated and documented contract drift between Phase 2 exam DTOs and actual endpoint payloads in `certifai-app/docs/plans/type-enforce.md`
 
 **5c: Certification Endpoints (50 min)**
 
@@ -860,8 +863,8 @@ Phase 3:  [x] Middleware types, utils typed
 Phase 4a: [x] Prisma service typed, compiles
 Phase 4b: [x] Core services typed, compiles
 Phase 4c: [x] Domain services typed, compiles
-Phase 5a: [ ] User endpoints typed, category compiles
-Phase 5b: [ ] Exam endpoints typed, category compiles
+Phase 5a: [x] User endpoints typed, category compiles
+Phase 5b: [x] Exam endpoints typed, category compiles
 Phase 5c: [ ] Cert endpoints typed, category compiles
 Phase 5d: [ ] Other endpoints typed, all compile
 Phase 6a: [ ] npx tsc --noEmit returns 0 errors

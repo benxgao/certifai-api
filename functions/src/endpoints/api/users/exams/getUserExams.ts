@@ -1,6 +1,5 @@
-import { Response } from 'express';
 import logger from '../../../../services/firebase/logger';
-import { CustomRequest } from '../../../../types';
+import { AuthenticatedRequestHandler } from '../../../../types/express';
 import prismaInstance, { ExamStatus } from '../../../../services/prisma';
 import {
   extractPaginationParams,
@@ -28,7 +27,21 @@ import { CacheHierarchyService } from '../../../../services/cache/cacheHierarchy
  * GET /api/users/123/exams?sort_by=started_at&sort_order=desc
  * GET /api/users/123/exams?cert_id=456&sort_by=score&sort_order=asc
  */
-const handler = async (req: any | CustomRequest, res: Response) => {
+type GetUserExamsQuery = {
+  cert_id?: string | string[];
+  sort_by?: string | string[];
+  sort_order?: string | string[];
+  page?: string | number;
+  pageSize?: string | number;
+  limit?: string | number;
+};
+
+const handler: AuthenticatedRequestHandler<
+  unknown,
+  Record<string, unknown>,
+  { user_id: string },
+  GetUserExamsQuery
+> = async (req, res): Promise<void> => {
   try {
     const { user_id } = req.params;
     const { cert_id, sort_by, sort_order } = req.query; // Add sorting parameters
@@ -91,7 +104,10 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       maxPageSize: 50,
     });
 
-    const whereClause: any = {
+    const whereClause: {
+      user_id: string;
+      cert_id?: number;
+    } = {
       user_id: actualUserId,
     };
 
@@ -108,12 +124,22 @@ const handler = async (req: any | CustomRequest, res: Response) => {
     ] as const;
     const validSortOrders = ['asc', 'desc'] as const;
 
+    type SortField = (typeof validSortFields)[number];
+    type SortOrder = (typeof validSortOrders)[number];
+
+    const isSortField = (value: unknown): value is SortField =>
+      typeof value === 'string' &&
+      validSortFields.includes(value as SortField);
+    const isSortOrder = (value: unknown): value is SortOrder =>
+      typeof value === 'string' &&
+      validSortOrders.includes(value as SortOrder);
+
     const narrowedSortBy = Array.isArray(sort_by) ? sort_by[0] : sort_by;
-    const sortField = validSortFields.includes(narrowedSortBy as any)
+    const sortField = isSortField(narrowedSortBy)
       ? narrowedSortBy
       : 'started_at';
     const narrowedSortOrder = Array.isArray(sort_order) ? sort_order[0] : sort_order;
-    const sortDirection = validSortOrders.includes(narrowedSortOrder as any)
+    const sortDirection = isSortOrder(narrowedSortOrder)
       ? narrowedSortOrder
       : 'desc';
 
@@ -249,7 +275,11 @@ const handler = async (req: any | CustomRequest, res: Response) => {
 
     res.status(200).json(enhancedResponse);
   } catch (error) {
-    logger.error('Error in getUserExams handler:', error as any);
+    logger.error('Error in getUserExams handler:', {
+      error_message: error instanceof Error ? error.message : String(error),
+      error_type: error instanceof Error ? error.constructor.name : typeof error,
+      error_stack: error instanceof Error ? error.stack : undefined,
+    });
     res
       .status(
         error instanceof Error && error.message === 'Unauthorized' ? 401 : 500,

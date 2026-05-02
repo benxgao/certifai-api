@@ -1,6 +1,5 @@
-import { Response } from 'express';
 import logger from '../../../../services/firebase/logger';
-import { CustomRequest } from '../../../../types';
+import { AuthenticatedRequestHandler } from '../../../../types/express';
 import prismaInstance, { ExamStatus } from '../../../../services/prisma';
 import {
   getRtdbValue,
@@ -133,7 +132,11 @@ async function validateExamDeletion(exam_id: string): Promise<{
  * 5. RTDB data: exam plans and exam questions/topics data
  * 6. Cache invalidation
  */
-const handler = async (req: any | CustomRequest, res: Response) => {
+const handler: AuthenticatedRequestHandler<
+  unknown,
+  Record<string, unknown>,
+  { user_id: string; exam_id: string }
+> = async (req, res): Promise<void> => {
   try {
     const { user_id, exam_id } = req.params;
     const firebaseUserIdFromToken = req.firebase_user_info?.user_id;
@@ -406,7 +409,11 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       },
     });
   } catch (error) {
-    logger.error('deleteExam: Error deleting exam:', error as any);
+    logger.error('deleteExam: Error deleting exam:', {
+      error_message: error instanceof Error ? error.message : String(error),
+      error_type: error instanceof Error ? error.constructor.name : typeof error,
+      error_stack: error instanceof Error ? error.stack : undefined,
+    });
     res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error occurred',
