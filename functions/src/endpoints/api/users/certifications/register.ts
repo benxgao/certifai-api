@@ -1,14 +1,29 @@
-import { Response } from 'express';
 import logger from '../../../../services/firebase/logger';
-import { CustomRequest } from '../../../../types';
-import { BatchWriteOptimizer } from '../../../../services/database/batchWriteOptimizer';
+import {
+  BatchWriteOptimizer,
+  type BatchOperation,
+} from '../../../../services/database/batchWriteOptimizer';
 import { CacheManager } from '../../../../services/cache';
+import type { UserCertification } from '../../../../types';
+import { AuthenticatedRequestHandler } from '../../../../types/express';
 
 import prismaInstance, {
   CertificationStatus,
 } from '../../../../services/prisma';
 
-const handler = async (req: any | CustomRequest, res: Response) => {
+type RegisterCertificationParams = {
+  user_id: string;
+};
+
+type RegisterCertificationBody = {
+  cert_id?: string | number | string[];
+};
+
+const handler: AuthenticatedRequestHandler<
+  RegisterCertificationBody,
+  Record<string, unknown>,
+  RegisterCertificationParams
+> = async (req, res): Promise<void> => {
   const operationStart = Date.now();
   const timingAudit = {
     total_operation: 0,
@@ -119,9 +134,9 @@ const handler = async (req: any | CustomRequest, res: Response) => {
     // 4. Create user certification registration using optimized batch operation
     const registrationStart = Date.now();
 
-    const registrationOperations = [
+    const registrationOperations: BatchOperation<UserCertification>[] = [
       {
-        operation: (tx: any) =>
+        operation: (tx) =>
           tx.userCertification.create({
             data: {
               user_id: user_id as string,
@@ -142,7 +157,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       },
     );
 
-    const newCertificationRegistration = registrationResults[0] as any;
+    const newCertificationRegistration = registrationResults[0];
     const registrationDuration = Date.now() - registrationStart;
     timingAudit.prisma_operations.registration_create = registrationDuration;
 
@@ -172,7 +187,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
     timingAudit.total_operation = Date.now() - operationStart;
 
     logger.info(
-      `USER_CERT_REGISTER_SUCCESS: user_id=${user_id}, cert_id=${certIdNumber}, registration_id=${newCertificationRegistration.id}`,
+      `USER_CERT_REGISTER_SUCCESS: user_id=${user_id}, cert_id=${certIdNumber}`,
       {
         timing_audit: timingAudit,
         structured_data: true,

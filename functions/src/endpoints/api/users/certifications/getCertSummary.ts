@@ -5,13 +5,17 @@
  * POST /users/:user_id/certifications/:cert_id/cert-summary - Regenerate cert summary
  */
 
-import { Request, Response } from 'express';
 import logger from '../../../../services/firebase/logger';
-import { CustomRequest } from '../../../../types';
+import { AuthenticatedRequestHandler } from '../../../../types/express';
 import {
   generateCertSummary,
   certSummaryFirestore,
 } from '../../../../services/certSummaryService';
+
+type CertSummaryParams = {
+  user_id: string;
+  cert_id: string;
+};
 
 /**
  * GET /users/:user_id/certifications/:cert_id/cert-summary
@@ -20,14 +24,14 @@ import {
  * automatically attempts to generate one if the user has sufficient exam data.
  * This provides a seamless experience for users accessing their summaries.
  */
-export const getCertSummary = async (
-  req: Request | CustomRequest,
-  res: Response,
-): Promise<void> => {
+export const getCertSummary: AuthenticatedRequestHandler<
+  unknown,
+  Record<string, unknown>,
+  CertSummaryParams
+> = async (req, res): Promise<void> => {
   try {
-    const { user_id, cert_id } = req.params as { user_id: string; cert_id: string };
-    const firebaseUserIdFromToken = (req as CustomRequest).firebase_user_info
-      ?.uid;
+    const { user_id, cert_id } = req.params;
+    const firebaseUserIdFromToken = req.firebase_user_info?.uid;
 
     if (!user_id || !cert_id) {
       res.status(400).json({
@@ -158,10 +162,13 @@ export const getCertSummary = async (
   } catch (error) {
     logger.error(
       `GET_CERT_SUMMARY_ERROR: user_id=${req.params.user_id}, cert_id=${req.params.cert_id}`,
-      error as any,
+      {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      },
     );
 
-    const errorMessage = (error as Error).message;
+    const errorMessage = error instanceof Error ? error.message : String(error);
 
     if (errorMessage.includes('not found')) {
       res.status(404).json({
@@ -184,14 +191,14 @@ export const getCertSummary = async (
  * Generate or regenerate a certification summary.
  * Will create a new summary or update existing one.
  */
-export const regenerateCertSummary = async (
-  req: Request | CustomRequest,
-  res: Response,
-): Promise<void> => {
+export const regenerateCertSummary: AuthenticatedRequestHandler<
+  unknown,
+  Record<string, unknown>,
+  CertSummaryParams
+> = async (req, res): Promise<void> => {
   try {
-    const { user_id, cert_id } = req.params as { user_id: string; cert_id: string };
-    const firebaseUserIdFromToken = (req as CustomRequest).firebase_user_info
-      ?.uid;
+    const { user_id, cert_id } = req.params;
+    const firebaseUserIdFromToken = req.firebase_user_info?.uid;
 
     if (!user_id || !cert_id) {
       res.status(400).json({
@@ -256,10 +263,13 @@ export const regenerateCertSummary = async (
   } catch (error) {
     logger.error(
       `REGENERATE_CERT_SUMMARY_ERROR: user_id=${req.params.user_id}, cert_id=${req.params.cert_id}`,
-      error as any,
+      {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      },
     );
 
-    const errorMessage = (error as Error).message;
+    const errorMessage = error instanceof Error ? error.message : String(error);
 
     if (errorMessage.includes('not found')) {
       res.status(404).json({

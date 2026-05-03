@@ -4,10 +4,14 @@
  * GET /users/:user_id/certifications/:cert_id/knowledge-pooling - Get existing knowledge pooling data
  */
 
-import { Request, Response } from 'express';
 import logger from '../../../../services/firebase/logger';
-import { CustomRequest } from '../../../../types';
+import { AuthenticatedRequestHandler } from '../../../../types/express';
 import { getConsolidatedKnowledgePoolingFromFirestore } from '../../../../services/firestore/examKnowledgePoolingFirestoreService';
+
+type KnowledgePoolingParams = {
+  user_id: string;
+  cert_id: string;
+};
 
 /**
  * GET /users/:user_id/certifications/:cert_id/knowledge-pooling
@@ -15,14 +19,14 @@ import { getConsolidatedKnowledgePoolingFromFirestore } from '../../../../servic
  * Retrieve existing knowledge pooling data for a certification.
  * Returns consolidated insights from all exams under this certification.
  */
-export const getKnowledgePooling = async (
-  req: Request | CustomRequest,
-  res: Response,
-): Promise<void> => {
+export const getKnowledgePooling: AuthenticatedRequestHandler<
+  unknown,
+  Record<string, unknown>,
+  KnowledgePoolingParams
+> = async (req, res): Promise<void> => {
   try {
-    const { user_id, cert_id } = req.params as { user_id: string; cert_id: string };
-    const firebaseUserIdFromToken = (req as CustomRequest).firebase_user_info
-      ?.uid;
+    const { user_id, cert_id } = req.params;
+    const firebaseUserIdFromToken = req.firebase_user_info?.uid;
 
     if (!user_id || !cert_id) {
       res.status(400).json({

@@ -1,13 +1,40 @@
-import { Response } from 'express';
 import logger from '../../../../services/firebase/logger';
-import { CustomRequest } from '../../../../types';
 import prismaInstance from '../../../../services/prisma';
+import type { Certification, UserCertification } from '../../../../types';
+import { AuthenticatedRequestHandler } from '../../../../types/express';
 import {
   extractPaginationParams,
   createPaginatedResponse,
+  PaginatedResponse,
 } from '../../../../utils/pagination';
 
-const handler = async (req: any | CustomRequest, res: Response) => {
+type GetUserCertificationsParams = {
+  user_id: string;
+};
+
+type GetUserCertificationsQuery = {
+  cert_id?: string | string[];
+  page?: string | string[];
+  pageSize?: string | string[];
+};
+
+type UserCertificationWithCertification = UserCertification & {
+  certification: Certification;
+};
+
+type GetUserCertificationsResponse =
+  | PaginatedResponse<UserCertificationWithCertification[]>
+  | {
+      success: false;
+      error: string;
+    };
+
+const handler: AuthenticatedRequestHandler<
+  unknown,
+  GetUserCertificationsResponse,
+  GetUserCertificationsParams,
+  GetUserCertificationsQuery
+> = async (req, res): Promise<void> => {
   try {
     const { user_id } = req.params;
 
@@ -28,13 +55,20 @@ const handler = async (req: any | CustomRequest, res: Response) => {
     });
 
     // Support filtering by cert_id if provided as a query parameter
-    const { cert_id } = req.query;
-    const whereClause: any = {
-      user_id: user_id,
+    const certIdRaw = req.query.cert_id;
+    const certId =
+      typeof certIdRaw === 'string'
+        ? Number(certIdRaw)
+        : Array.isArray(certIdRaw) && certIdRaw.length > 0
+          ? Number(certIdRaw[0])
+          : undefined;
+
+    const whereClause = {
+      user_id,
+      ...(typeof certId === 'number' && !Number.isNaN(certId)
+        ? { cert_id: certId }
+        : {}),
     };
-    if (cert_id) {
-      whereClause.cert_id = Number(cert_id);
-    }
 
     // Demo certification IDs that should always appear at the top in this specific order
     const DEMO_CERT_IDS = [11, 8, 10];
@@ -87,7 +121,10 @@ const handler = async (req: any | CustomRequest, res: Response) => {
 
     res.status(200).json(response);
   } catch (error) {
-    logger.error('Error in getUserCertifications handler:', error as any); // Changed message
+    logger.error('Error in getUserCertifications handler:', {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    });
     res
       .status(
         error instanceof Error && error.message === 'Unauthorized' ? 401 : 500,

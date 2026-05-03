@@ -1,12 +1,17 @@
-import { Response } from 'express';
 import logger from '../../../../services/firebase/logger';
-import { CustomRequest } from '../../../../types';
 import prismaInstance from '../../../../services/prisma';
+import { CertificationStatus } from '../../../../services/prisma';
 import {
   getRtdbValue,
   deleteRtdbValue,
 } from '../../../../services/firebase/rtdb';
 import { CacheManager } from '../../../../services/cache';
+import { AuthenticatedRequestHandler } from '../../../../types/express';
+
+type DeleteCertificationParams = {
+  user_id: string;
+  cert_id: string;
+};
 
 /**
  * Deletes multiple exam-related data from Firebase Realtime Database
@@ -200,7 +205,11 @@ async function validateCertificationDeletion(
  * Note: This endpoint has a 180-second timeout to handle large certification deletions
  * with many related exams, questions, and answers.
  */
-const handler = async (req: any | CustomRequest, res: Response) => {
+const handler: AuthenticatedRequestHandler<
+  unknown,
+  Record<string, unknown>,
+  DeleteCertificationParams
+> = async (req, res): Promise<void> => {
   try {
     const { user_id, cert_id } = req.params;
     const firebaseUserIdFromToken = req.firebase_user_info?.user_id;
@@ -312,7 +321,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
         },
       },
       data: {
-        status: 'DELETING',
+        status: CertificationStatus.DELETING,
       },
     });
 
@@ -559,10 +568,10 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       },
     });
   } catch (error) {
-    logger.error(
-      'deleteCertification: Error deleting certification:',
-      error as any,
-    );
+    logger.error('deleteCertification: Error deleting certification:', {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    });
 
     // If we have the original status and certification details, try to revert the status
     try {
@@ -591,7 +600,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
               },
             },
             data: {
-              status: 'IN_PROGRESS',
+              status: CertificationStatus.IN_PROGRESS,
             },
           });
 
@@ -606,7 +615,10 @@ const handler = async (req: any | CustomRequest, res: Response) => {
     } catch (revertError) {
       logger.error(
         'deleteCertification: Failed to revert certification status after deletion error:',
-        revertError as any,
+        {
+          error: revertError instanceof Error ? revertError.message : String(revertError),
+          stack: revertError instanceof Error ? revertError.stack : undefined,
+        },
       );
     }
 

@@ -16,14 +16,23 @@
  * - Returns consolidated knowledge pooling data
  */
 
-import { Request, Response } from 'express';
 import logger from '../../../../services/firebase/logger';
-import { CustomRequest } from '../../../../types';
+import { AuthenticatedRequestHandler } from '../../../../types/express';
 import {
   KnowledgePoolingService,
   type KnowledgePoolingRequest,
 } from '../../../../services/knowledgePooling/knowledgePoolingService';
 import { getConsolidatedKnowledgePoolingFromFirestore } from '../../../../services/firestore/examKnowledgePoolingFirestoreService';
+
+type ForceGenerateKnowledgePoolingParams = {
+  user_id: string;
+  cert_id: string;
+};
+
+type ForceGenerateKnowledgePoolingBody = {
+  exam_id?: string;
+  forceGenerate?: boolean;
+};
 
 /**
  * POST /users/:user_id/certifications/:cert_id/knowledge-pooling
@@ -35,17 +44,17 @@ import { getConsolidatedKnowledgePoolingFromFirestore } from '../../../../servic
  * - exam_id (string, required): ID of the exam to analyze
  * - forceGenerate (boolean, optional): Force regeneration even if recent data exists
  */
-export const forceGenerateKnowledgePooling = async (
-  req: Request | CustomRequest,
-  res: Response,
-): Promise<void> => {
+export const forceGenerateKnowledgePooling: AuthenticatedRequestHandler<
+  ForceGenerateKnowledgePoolingBody,
+  Record<string, unknown>,
+  ForceGenerateKnowledgePoolingParams
+> = async (req, res): Promise<void> => {
   const startTime = Date.now();
 
   try {
-    const { user_id, cert_id } = req.params as { user_id: string; cert_id: string };
+    const { user_id, cert_id } = req.params;
     const { exam_id, forceGenerate = true } = req.body;
-    const firebaseUserIdFromToken = (req as CustomRequest).firebase_user_info
-      ?.uid;
+    const firebaseUserIdFromToken = req.firebase_user_info?.uid;
 
     // Validate required parameters
     if (!user_id || !cert_id) {

@@ -604,11 +604,23 @@ grep -rn ": any\|Promise<any>" functions/src/services/
   - `npx tsc --noEmit 2>&1 | grep "src/endpoints/api/users/exams" || true` → no output
 - ✅ Validated and documented contract drift between Phase 2 exam DTOs and actual endpoint payloads in `certifai-app/docs/plans/type-enforce.md`
 
-**5c: Certification Endpoints (50 min)**
+**5c: Certification Endpoints (50 min)** ✅ COMPLETE (May 3, 2026)
 
-- Files: `functions/src/endpoints/api/certifications/*.ts`
-- Type handler signatures using Phase 2 cert types
-- Wire to Phase 4 cert services
+- Files: `functions/src/endpoints/api/users/certifications/*.ts` (7 files)
+- ✅ Replaced loose handler signatures (`req: any | CustomRequest`, `Request | CustomRequest`) with typed `AuthenticatedRequestHandler<...>`
+- ✅ Typed route params/body/query per endpoint shape (`user_id`, `cert_id`, `exam_id`, pagination/cert filters)
+- ✅ Removed endpoint-level `any` usage in this category (handler signatures, logger casts, batch-operation callback typing)
+- ✅ Preserved behavior while tightening types on:
+  - `register.ts`
+  - `getUserCertifications.ts`
+  - `deleteCertification.ts`
+  - `getKnowledgePooling.ts`
+  - `generateKnowledgePooling.ts`
+  - `forceGenerateKnowledgePooling.ts`
+  - `getCertSummary.ts`
+- ✅ Category-level typecheck verified clean:
+  - `npx tsc --noEmit 2>&1 | grep "src/endpoints/api/users/certifications" || true` → no output
+- ✅ Documented certification contract drift in `certifai-app/docs/plans/type-enforce.md`
 
 **5d: Other Endpoints & Special Cases (30 min)**
 
@@ -865,7 +877,7 @@ Phase 4b: [x] Core services typed, compiles
 Phase 4c: [x] Domain services typed, compiles
 Phase 5a: [x] User endpoints typed, category compiles
 Phase 5b: [x] Exam endpoints typed, category compiles
-Phase 5c: [ ] Cert endpoints typed, category compiles
+Phase 5c: [x] Cert endpoints typed, category compiles
 Phase 5d: [ ] Other endpoints typed, all compile
 Phase 6a: [ ] npx tsc --noEmit returns 0 errors
 Phase 6b: [ ] Breaking changes documented and synced
