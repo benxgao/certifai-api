@@ -125,9 +125,9 @@ export function findMatchingExamTopic(
  */
 export function updateTopicListWithQuestionIds(
   examTopicList: ExamTopicItem[],
-  createdQuestions: any[],
+  createdQuestions: Array<{ quiz_question_id: string }>,
   validQuestionResults: Array<{
-    question: any;
+    question: { examTopic: string };
     matchingTopic: ExamTopicItem | null;
   }>,
 ): ExamTopicItem[] {

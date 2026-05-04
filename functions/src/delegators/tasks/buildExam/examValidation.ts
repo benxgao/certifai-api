@@ -1,16 +1,17 @@
 import logger from '../../../services/firebase/logger';
 import prismaInstance, { ExamStatus } from '../../../services/prisma';
+import { ExamAttempt } from '../../../types/prisma';
 import { updateExamPlanInRtdb, checkExamProcessingTimeout } from './rtdb';
-import { TaskPayload } from './helper';
+import { TaskPayload, ExamTopicItem } from './helper';
 
 /**
  * Detects and fixes corrupted exam plans on first batch processing
  */
 export const handleCorruptedExamPlan = async (
-  examTopicList: any[],
+  examTopicList: ExamTopicItem[],
   exam_id: string,
   batch_number: number,
-): Promise<any[]> => {
+): Promise<ExamTopicItem[]> => {
   if (batch_number === 1) {
     const assignedTopicsCount = examTopicList.filter(
       (t) => t.question_id !== null,
@@ -76,10 +77,10 @@ export const handleCorruptedExamPlan = async (
  * Prepares topics for the current batch and validates processing state
  */
 export const prepareBatchTopics = async (
-  examTopicList: any[],
+  examTopicList: ExamTopicItem[],
   payload: TaskPayload,
 ): Promise<{
-  topicsForThisBatch: any[];
+  topicsForThisBatch: ExamTopicItem[];
   topicNamesForGeneration: string[];
   questions_to_generate: number;
 }> => {
@@ -178,7 +179,7 @@ export const prepareBatchTopics = async (
 /**
  * Validates exam state and returns exam if valid
  */
-export const validateExamState = async (exam_id: string): Promise<any> => {
+export const validateExamState = async (exam_id: string): Promise<ExamAttempt> => {
   const exam = await prismaInstance.examAttempt.findUnique({
     where: { exam_id },
   });

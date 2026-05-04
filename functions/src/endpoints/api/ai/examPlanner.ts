@@ -7,6 +7,7 @@
 import { inspect } from 'util';
 import { Response } from 'express';
 import logger from '../../../services/firebase/logger';
+import { AuthenticatedRequest } from '../../../types/express';
 import { examPlannerPromise } from '../../../services/genkit/examPlanner.js';
 
 /**
@@ -44,7 +45,7 @@ import { examPlannerPromise } from '../../../services/genkit/examPlanner.js';
  *   }
  * }
  */
-export const examPlannerHandler = async (req: any, res: Response) => {
+export const examPlannerHandler = async (req: AuthenticatedRequest, res: Response) => {
   try {
     // Ensure the AI instance and flow are initialized before proceeding
     const examPlanner = await examPlannerPromise;
@@ -136,7 +137,7 @@ export const examPlannerHandler = async (req: any, res: Response) => {
       data: examPlan,
     });
   } catch (error) {
-    logger.error('Error in examPlannerHandler:', error as any);
+    logger.error('Error in examPlannerHandler:', { error: error instanceof Error ? error.message : String(error) });
     const errorMessage =
       error instanceof Error ? error.message : 'Unknown error occurred';
     if (errorMessage.includes('Could not initialize AI services')) {

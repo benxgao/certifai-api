@@ -3,12 +3,14 @@ import prismaInstance from '../../../services/prisma';
 import { PerformanceMonitor } from '../../../services/performance';
 import { ExamGenerationLogger } from '../../../services/exam-generation-logger';
 import { getRtdbValue } from '../../../services/firebase/rtdb';
+import { QuizItem } from '../../../types/genkit';
 import {
   BatchWriteOptimizer,
   QuestionBatchHelper,
 } from '../../../services/database/batchWriteOptimizer';
 import {
   TaskPayload,
+  ExamTopicItem,
   logQuestionTopicAssociationSummary,
   updateTopicListWithQuestionIds,
 } from './helper';
@@ -18,11 +20,11 @@ import { updateExamQuestionsInRtdb, updateExamPlanInRtdb } from './rtdb';
  * Stores valid questions in database and updates RTDB - OPTIMIZED VERSION
  */
 export const storeQuestionsInDatabase = async (
-  validQuestions: any[],
-  validQuestionResults: any[],
-  examTopicList: any[],
+  validQuestions: QuizItem[],
+  validQuestionResults: Array<{ question: QuizItem; matchingTopic: ExamTopicItem | null }>,
+  examTopicList: ExamTopicItem[],
   payload: TaskPayload,
-): Promise<any[]> => {
+): Promise<ExamTopicItem[]> => {
   const { exam_id, batch_number, cert_id } = payload;
   const batchStartTime = Date.now();
 
@@ -90,7 +92,7 @@ export const storeQuestionsInDatabase = async (
               batch_number,
               questions_created: createdQuestions.length,
               question_ids: createdQuestions.map(
-                (q: any) => q.quiz_question_id,
+                (q) => q.quiz_question_id,
               ),
               structuredData: true,
             },
@@ -150,7 +152,7 @@ export const storeQuestionsInDatabase = async (
             batch_number,
             association_duration_ms: associationDuration,
             topics_updated: updatedExamTopicList.length,
-            topics_with_questions: updatedExamTopicList.filter((t: any) => t.question_id !== null).length,
+            topics_with_questions: updatedExamTopicList.filter((t) => t.question_id !== null).length,
             structuredData: true,
           });
 
@@ -224,8 +226,9 @@ export const storeQuestionsInDatabase = async (
       const verificationDuration = Date.now() - verificationStartTime;
 
       if (updatedPlan && updatedPlan.questions) {
-        const verifiedAssignments = updatedPlan.questions.filter(
-          (q: any) => q.question_id !== null,
+        const questions = updatedPlan.questions as Array<{ question_id: string | null }>;
+        const verifiedAssignments = questions.filter(
+          (q) => q.question_id !== null,
         );
 
         logger.info(
@@ -264,7 +267,7 @@ export const storeQuestionsInDatabase = async (
     } catch (rtdbError) {
       logger.error(
         `RTDB update failed for exam ${exam_id} batch ${batch_number}:`,
-        rtdbError as any,
+        { error: rtdbError instanceof Error ? rtdbError.message : String(rtdbError) },
       );
       // Don't fail the entire operation for RTDB issues
       return updatedExamTopicList;

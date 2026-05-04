@@ -1,5 +1,6 @@
 import logger from '../../../services/firebase/logger';
-import { updateRtdbValue, getRtdbValue } from '../../../services/firebase/rtdb';
+import { RtdbObject, updateRtdbValue, getRtdbValue } from '../../../services/firebase/rtdb';
+import { ExamPlan } from '../../../types/genkit';
 import { ExamTopicItem } from './helper';
 
 /**
@@ -17,10 +18,10 @@ export async function getExamTopicsFromRtdb(
     if (examPlan && examPlan.questions && Array.isArray(examPlan.questions)) {
       // Enhanced logging to debug the "all topics assigned" issue
       const assignedCount = examPlan.questions.filter(
-        (q: any) => q.question_id !== null,
+        (q: ExamTopicItem) => q.question_id !== null,
       ).length;
       const unassignedCount = examPlan.questions.filter(
-        (q: any) => q.question_id === null,
+        (q: ExamTopicItem) => q.question_id === null,
       ).length;
 
       logger.info(
@@ -30,7 +31,7 @@ export async function getExamTopicsFromRtdb(
           total_topics: examPlan.questions.length,
           assigned_topics: assignedCount,
           unassigned_topics: unassignedCount,
-          topics_sample: examPlan.questions.slice(0, 3).map((q: any) => ({
+          topics_sample: examPlan.questions.slice(0, 3).map((q: ExamTopicItem) => ({
             exam_topic:
               q.exam_topic.substring(0, 30) +
               (q.exam_topic.length > 30 ? '...' : ''),
@@ -43,7 +44,7 @@ export async function getExamTopicsFromRtdb(
 
       // Ensure all question_id values are properly initialized as null (not undefined)
       // This normalizes any potential data inconsistencies from RTDB
-      const normalizedQuestions = examPlan.questions.map((q: any) => ({
+      const normalizedQuestions = examPlan.questions.map((q: ExamTopicItem) => ({
         ...q,
         question_id:
           q.question_id === null || q.question_id === undefined
@@ -73,7 +74,7 @@ export async function getExamTopicsFromRtdb(
   } catch (error) {
     logger.error(
       `Failed to retrieve exam plan from RTDB for exam ${exam_id}:`,
-      error as any,
+      { error: error instanceof Error ? error.message : String(error) },
     );
     throw error;
   }
@@ -88,9 +89,9 @@ export async function getExamTopicsFromRtdb(
  */
 export async function updateExamQuestionsInRtdb(
   exam_id: string,
-  createdQuestions: any[],
+  createdQuestions: Array<{ quiz_question_id: string }>,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  validQuestions: any[],
+  validQuestions: unknown[],
 ): Promise<void> {
   // REFACTORED: Removed RTDB "exams" collection storage as it was not being consumed
   // The data was only being written but never read by any other part of the application
@@ -170,7 +171,7 @@ export async function checkExamProcessingTimeout(
       timeoutThresholdMinutes: timeoutMinutes,
     };
   } catch (error) {
-    logger.error(`Error checking exam timeout for ${exam_id}:`, error as any);
+    logger.error(`Error checking exam timeout for ${exam_id}:`, { error: error instanceof Error ? error.message : String(error) });
     // In case of error, don't block processing
     return {
       isTimedOut: false,
@@ -345,7 +346,7 @@ export async function updateExamGenerationProgress(
   } catch (error) {
     logger.error(
       `Failed to update exam progress for ${exam_id}:`,
-      error as any,
+      { error: error instanceof Error ? error.message : String(error) },
     );
   }
 }
@@ -371,7 +372,7 @@ export async function getExamGenerationProgress(exam_id: string): Promise<{
 
     return progressData || null;
   } catch (error) {
-    logger.error(`Failed to get exam progress for ${exam_id}:`, error as any);
+    logger.error(`Failed to get exam progress for ${exam_id}:`, { error: error instanceof Error ? error.message : String(error) });
     return null;
   }
 }
@@ -392,7 +393,7 @@ export async function getExamGenerationProgress(exam_id: string): Promise<{
  */
 export async function calculateExamProgressFromPlan(
   exam_id: string,
-  examPlan: any,
+  examPlan: ExamPlan | null | undefined,
   totalQuestions: number | null,
 ): Promise<{
   current_batch: number;
@@ -409,7 +410,7 @@ export async function calculateExamProgressFromPlan(
 
     const total_batches = examPlan.questions.length;
     const questions_generated = examPlan.questions.filter(
-      (q: any) => q.question_id !== null && q.question_id !== undefined,
+      (q: ExamTopicItem) => q.question_id !== null && q.question_id !== undefined,
     ).length;
 
     // Estimate current_batch as the next batch being processed
@@ -438,7 +439,7 @@ export async function calculateExamProgressFromPlan(
   } catch (error) {
     logger.error(
       `Failed to calculate exam progress from exam_plans for ${exam_id}:`,
-      error as any,
+      { error: error instanceof Error ? error.message : String(error) },
     );
     return null;
   }
@@ -475,7 +476,7 @@ export async function updateExamPlanInRtdb(
         question_id: topic.question_id === undefined ? null : topic.question_id,
       }));
 
-      const updateData: any = {
+      const updateData: RtdbObject = {
         questions: normalizedQuestions,
         updated_at: Math.floor(Date.now() / 1000),
       };
@@ -513,7 +514,7 @@ export async function updateExamPlanInRtdb(
   } catch (error) {
     logger.error(
       `Failed to update exam plan in RTDB for exam ${exam_id}:`,
-      error as any,
+      { error: error instanceof Error ? error.message : String(error) },
     );
   }
 }

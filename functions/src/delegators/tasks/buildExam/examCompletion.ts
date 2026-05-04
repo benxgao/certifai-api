@@ -1,6 +1,8 @@
 import { Response } from 'express';
 import logger from '../../../services/firebase/logger';
 import prismaInstance, { ExamStatus } from '../../../services/prisma';
+import { ExamAttempt } from '../../../types/prisma';
+import { QuizItem } from '../../../types/genkit';
 import {
   associateQuestionsWithExam,
   updateExamAfterQuestionAssociation,
@@ -8,7 +10,7 @@ import {
 import { ExamGenerationLogger } from '../../../services/exam-generation-logger';
 import { CacheManager } from '../../../services/cache';
 // import { deleteRtdbValue } from '../../../services/firebase/rtdb';
-import { TaskPayload, logQuestionTopicAssociationSummary } from './helper';
+import { TaskPayload, ExamTopicItem, logQuestionTopicAssociationSummary } from './helper';
 import {
   checkExamProcessingTimeout,
   calculateAndLogExamGenerationTime,
@@ -24,12 +26,12 @@ import {
  * Determines whether exam should be completed and handles completion or next batch creation
  */
 export const handleExamCompletionOrNextBatch = async (
-  examTopicList: any[],
+  examTopicList: ExamTopicItem[],
   payload: TaskPayload,
-  generatedQuestions: any[],
-  validQuestions: any[],
-  invalidQuestionResults: any[],
-  exam: any,
+  generatedQuestions: QuizItem[],
+  validQuestions: QuizItem[],
+  invalidQuestionResults: Array<{ question: QuizItem; errors: string[] }>,
+  exam: ExamAttempt,
   res: Response,
 ): Promise<void> => {
   const { exam_id, batch_number, total_batches, cert_id, questions_per_batch } =

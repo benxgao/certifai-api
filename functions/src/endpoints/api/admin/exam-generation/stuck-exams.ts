@@ -1,6 +1,6 @@
 import { Response } from 'express';
 import logger from '../../../../services/firebase/logger';
-import { CustomRequest } from '../../../../types';
+import { AuthenticatedRequest } from '../../../../types/express';
 import { ExamGenerationHealthCheck } from '../../../../services/exam-generation-health-check';
 
 /**
@@ -29,11 +29,11 @@ import { ExamGenerationHealthCheck } from '../../../../services/exam-generation-
  * }
  */
 const handler = async (
-  req: any | CustomRequest,
+  req: AuthenticatedRequest,
   res: Response,
 ): Promise<void> => {
   try {
-    const threshold = parseInt(Array.isArray(req.query.threshold) ? req.query.threshold[0] : (req.query.threshold ?? '30')) || 30;
+    const threshold = parseInt(Array.isArray(req.query.threshold) ? String(req.query.threshold[0]) : String(req.query.threshold ?? '30')) || 30;
 
     logger.info('STUCK_EXAMS_REQUESTED', {
       threshold_minutes: threshold,

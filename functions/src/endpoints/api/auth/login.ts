@@ -2,12 +2,13 @@
 import { Response } from 'express';
 import logger from '../../../services/firebase/logger';
 import prismaInstance from '../../../services/prisma';
-import { CustomRequest, FirebaseJwtToken } from '../../../types';
+import { AuthenticatedRequest } from '../../../types/express';
+import { FirebaseJwtToken } from '../../../types';
 import { StripeFirestoreService } from '../../stripe/db';
 
-const handler = async (req: any | CustomRequest, res: Response) => {
+const handler = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const firebaseUser: FirebaseJwtToken = req.firebase_user_info;
+    const firebaseUser: FirebaseJwtToken | undefined = req.firebase_user_info;
 
     logger.info(`req.firebase_user_info: ${JSON.stringify(firebaseUser)}`);
 
@@ -102,7 +103,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       user_id: user.user_id, // @deprecated Use api_user_id instead
     });
   } catch (error) {
-    logger.error('Error in /api/auth/login:', error as any);
+    logger.error('Error in /api/auth/login:', { error: error instanceof Error ? error.message : String(error) });
 
     res
       .status(

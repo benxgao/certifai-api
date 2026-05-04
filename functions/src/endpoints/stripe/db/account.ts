@@ -104,12 +104,12 @@ export async function getAccountByFirebaseUid(
       error,
       firebase_user_id: firebaseUid,
       error_details: error instanceof Error ? error.message : 'Unknown error',
-      error_code: (error as any)?.code || 'UNKNOWN',
+      error_code: (error instanceof Error && 'code' in error) ? String((error as NodeJS.ErrnoException).code) : 'UNKNOWN',
     });
     // Don't return null for permission errors, throw them so we can handle them properly
     if (
-      (error as any)?.code === 7 ||
-      (error as any)?.message?.includes('permission')
+      (error instanceof Error && 'code' in error && (error as NodeJS.ErrnoException).code === '7') ||
+      (error instanceof Error && error.message?.includes('permission'))
     ) {
       throw new Error(
         `Firestore permission error: ${
@@ -137,7 +137,7 @@ export async function getAccountByApiUserId(
       error,
       api_user_id: apiUserId,
       error_details: error instanceof Error ? error.message : 'Unknown error',
-      error_code: (error as any)?.code || 'UNKNOWN',
+      error_code: (error instanceof Error && 'code' in error) ? String((error as NodeJS.ErrnoException).code) : 'UNKNOWN',
     });
     return null;
   }
@@ -166,7 +166,7 @@ export async function getAccountByCustomerId(
       error,
       customer_id: customerId,
       error_details: error instanceof Error ? error.message : 'Unknown error',
-      error_code: (error as any)?.code || 'UNKNOWN',
+      error_code: (error instanceof Error && 'code' in error) ? String((error as NodeJS.ErrnoException).code) : 'UNKNOWN',
     });
     return null;
   }

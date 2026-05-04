@@ -1,12 +1,23 @@
 import { Response } from 'express';
+import Stripe from 'stripe';
 import { StripeService, stripe } from './service';
 import { StripeFirestoreService } from './db';
 import logger from '../../services/firebase/logger';
+import { AuthenticatedRequest } from '../../types/express';
+
+/** In Stripe v18, current_period_start/end moved to subscription items */
+function getSubscriptionPeriod(sub: Stripe.Subscription): { start: number; end: number } {
+  const item = sub.items?.data?.[0];
+  return {
+    start: item?.current_period_start ?? 0,
+    end: item?.current_period_end ?? 0,
+  };
+}
 
 /**
  * Get current subscription status
  */
-export const getSubscriptionStatus = async (req: any, res: Response) => {
+export const getSubscriptionStatus = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const firebaseUserIdFromToken = req.firebase_user_info?.user_id;
 
@@ -55,7 +66,7 @@ export const getSubscriptionStatus = async (req: any, res: Response) => {
 /**
  * Cancel subscription
  */
-export const cancelSubscription = async (req: any, res: Response) => {
+export const cancelSubscription = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const firebaseUserIdFromToken = req.firebase_user_info?.user_id;
 
@@ -91,8 +102,8 @@ export const cancelSubscription = async (req: any, res: Response) => {
     await StripeFirestoreService.updateSubscriptionStatus(
       enrichedAccount.stripe_subscription_id,
       canceledSubscription.status,
-      (canceledSubscription as any).current_period_start || 0,
-      (canceledSubscription as any).current_period_end || 0,
+      getSubscriptionPeriod(canceledSubscription).start,
+      getSubscriptionPeriod(canceledSubscription).end,
       canceledSubscription.cancel_at_period_end,
       canceledSubscription.canceled_at || undefined,
       new Date().toISOString(), // Use current time for manual cancellation
@@ -105,7 +116,7 @@ export const cancelSubscription = async (req: any, res: Response) => {
         status: canceledSubscription.status,
         cancel_at_period_end: canceledSubscription.cancel_at_period_end,
         current_period_end:
-          (canceledSubscription as any).current_period_end || 0,
+          getSubscriptionPeriod(canceledSubscription).end,
       },
     });
   } catch (error) {
@@ -120,7 +131,7 @@ export const cancelSubscription = async (req: any, res: Response) => {
 /**
  * Resume subscription
  */
-export const resumeSubscription = async (req: any, res: Response) => {
+export const resumeSubscription = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const firebaseUserIdFromToken = req.firebase_user_info?.user_id;
 
@@ -153,8 +164,8 @@ export const resumeSubscription = async (req: any, res: Response) => {
     await StripeFirestoreService.updateSubscriptionStatus(
       enrichedAccount.stripe_subscription_id,
       resumedSubscription.status,
-      (resumedSubscription as any).current_period_start || 0,
-      (resumedSubscription as any).current_period_end || 0,
+      getSubscriptionPeriod(resumedSubscription).start,
+      getSubscriptionPeriod(resumedSubscription).end,
       resumedSubscription.cancel_at_period_end,
       undefined, // No canceled_at for resume
       new Date().toISOString(), // Use current time for manual resume
@@ -180,7 +191,7 @@ export const resumeSubscription = async (req: any, res: Response) => {
 /**
  * Update subscription plan
  */
-export const updateSubscriptionPlan = async (req: any, res: Response) => {
+export const updateSubscriptionPlan = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const firebaseUserIdFromToken = req.firebase_user_info?.user_id;
 
@@ -240,7 +251,7 @@ export const updateSubscriptionPlan = async (req: any, res: Response) => {
 /**
  * Get pricing plans
  */
-export const getPricingPlans = async (req: any, res: Response) => {
+export const getPricingPlans = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const plans = await StripeService.getPricingPlans();
 
@@ -260,7 +271,7 @@ export const getPricingPlans = async (req: any, res: Response) => {
 /**
  * Get subscription history for a user
  */
-export const getSubscriptionHistory = async (req: any, res: Response) => {
+export const getSubscriptionHistory = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const firebaseUserIdFromToken = req.firebase_user_info?.user_id;
 
@@ -311,7 +322,7 @@ export const getSubscriptionHistory = async (req: any, res: Response) => {
 /**
  * Reactivate a cancelled subscription (only if still in grace period)
  */
-export const reactivateSubscription = async (req: any, res: Response) => {
+export const reactivateSubscription = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const firebaseUserIdFromToken = req.firebase_user_info?.user_id;
 
@@ -356,8 +367,8 @@ export const reactivateSubscription = async (req: any, res: Response) => {
     await StripeFirestoreService.updateSubscriptionStatus(
       enrichedAccount.stripe_subscription_id,
       reactivatedSubscription.status,
-      (reactivatedSubscription as any).current_period_start || 0,
-      (reactivatedSubscription as any).current_period_end || 0,
+      getSubscriptionPeriod(reactivatedSubscription).start,
+      getSubscriptionPeriod(reactivatedSubscription).end,
       reactivatedSubscription.cancel_at_period_end,
       undefined, // No canceled_at for reactivation
       new Date().toISOString(), // Use current time for manual reactivation

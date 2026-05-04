@@ -2,13 +2,14 @@
 import { Response } from 'express';
 import logger from '../../../services/firebase/logger';
 import prismaInstance from '../../../services/prisma';
-import { CustomRequest, FirebaseJwtToken } from '../../../types';
+import { AuthenticatedRequest } from '../../../types/express';
+import { FirebaseJwtToken } from '../../../types';
 import { StripeFirestoreService } from '../../stripe/db';
 import { firebaseAdmin } from '../../../services/firebase/admin';
 
-const handler = async (req: any | CustomRequest, res: Response) => {
+const handler = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const firebaseUser: FirebaseJwtToken = req.firebase_user_info;
+    const firebaseUser: FirebaseJwtToken | undefined = req.firebase_user_info;
 
     logger.info(`/auth/register started:
       | req.body: ${JSON.stringify(req.body)}
@@ -155,7 +156,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
       user_id: user.user_id, // @deprecated Use api_user_id instead
     });
   } catch (error) {
-    logger.error('Error in register endpoint:', error as any);
+    logger.error('Error in register endpoint:', { error: error instanceof Error ? error.message : String(error) });
 
     let statusCode = 500;
     let errorMessage = 'An unexpected error occurred during registration.';

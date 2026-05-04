@@ -13,7 +13,7 @@ const ACCOUNTS_COLLECTION = 'accounts';
 /**
  * Store latest invoice data in account
  */
-export async function storeInvoice(invoiceData: any): Promise<void> {
+export async function storeInvoice(invoiceData: { customer_id: string; invoice_id: string; [key: string]: unknown }): Promise<void> {
   try {
     // Find account by customer ID
     const accounts = await firestoreService.list<AccountData>(

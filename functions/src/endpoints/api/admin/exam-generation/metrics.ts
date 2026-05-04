@@ -1,6 +1,6 @@
 import { Response } from 'express';
 import logger from '../../../../services/firebase/logger';
-import { CustomRequest } from '../../../../types';
+import { AuthenticatedRequest } from '../../../../types/express';
 import { ExamGenerationHealthCheck } from '../../../../services/exam-generation-health-check';
 
 /**
@@ -23,11 +23,11 @@ import { ExamGenerationHealthCheck } from '../../../../services/exam-generation-
  * }
  */
 const handler = async (
-  req: any | CustomRequest,
+  req: AuthenticatedRequest,
   res: Response,
 ): Promise<void> => {
   try {
-    const timeWindow = parseInt(Array.isArray(req.query.timeWindow) ? req.query.timeWindow[0] : (req.query.timeWindow ?? '60')) || 60;
+    const timeWindow = parseInt(Array.isArray(req.query.timeWindow) ? String(req.query.timeWindow[0]) : String(req.query.timeWindow ?? '60')) || 60;
 
     logger.info('METRICS_REPORT_REQUESTED', {
       timestamp: new Date().toISOString(),

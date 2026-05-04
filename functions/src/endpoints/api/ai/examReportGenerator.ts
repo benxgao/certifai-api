@@ -40,10 +40,10 @@
  * 5. Return the report for immediate use
  */
 
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import logger from '../../../services/firebase/logger';
 import prismaInstance from '../../../services/prisma';
-import { CustomRequest } from '../../../types';
+import { AuthenticatedRequest } from '../../../types/express';
 import {
   StructuredExamReport,
   TopicPerformance,
@@ -319,7 +319,7 @@ export const generateExamReport = async (
   } catch (error) {
     logger.error(
       `EXAM_REPORT_SERVICE_ERROR: Error in exam report generation for exam_id=${exam_id}:`,
-      error as any,
+      { error: error instanceof Error ? error.message : String(error) },
     );
     throw error;
   }
@@ -329,15 +329,14 @@ export const generateExamReport = async (
  * Express.js API handler that wraps the core service function
  */
 export const examReportGeneratorHandler = async (
-  req: Request | CustomRequest,
+  req: AuthenticatedRequest,
   res: Response,
 ): Promise<void> => {
   try {
-    const { exam_id } = req.body;
+    const { exam_id } = req.body as { exam_id: string };
 
     // Get Firebase user ID if available (for authenticated requests)
-    const firebaseUserIdFromToken = (req as CustomRequest).firebase_user_info
-      ?.uid;
+    const firebaseUserIdFromToken = req.firebase_user_info?.uid;
 
     // Validate required fields
     if (!exam_id) {
@@ -374,10 +373,10 @@ export const examReportGeneratorHandler = async (
   } catch (error) {
     logger.error(
       'EXAM_REPORT_API_ERROR: Error in exam report API handler:',
-      error as any,
+      { error: error instanceof Error ? error.message : String(error) },
     );
 
-    const errorMessage = (error as Error).message;
+    const errorMessage = error instanceof Error ? error.message : String(error);
 
     if (errorMessage.includes('not found')) {
       res.status(404).json({

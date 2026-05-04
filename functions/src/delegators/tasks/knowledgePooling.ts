@@ -1,6 +1,5 @@
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import logger from '../../services/firebase/logger';
-import { CustomRequest } from '../../types';
 import { KnowledgePoolingTaskPayload } from '../../services/cloudTasks/knowledgePoolingTaskService';
 import { KnowledgePoolingService } from '../../services/knowledgePooling/knowledgePoolingService';
 
@@ -8,7 +7,7 @@ import { KnowledgePoolingService } from '../../services/knowledgePooling/knowled
  * Cloud Task handler for knowledge pooling generation
  * This runs silently in the background after exam submission
  */
-const handler = async (req: any | CustomRequest, res: Response) => {
+const handler = async (req: Request, res: Response) => {
   let payload: KnowledgePoolingTaskPayload | null = null;
 
   try {

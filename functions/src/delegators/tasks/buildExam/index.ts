@@ -1,6 +1,5 @@
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import logger from '../../../services/firebase/logger';
-import { CustomRequest } from '../../../types';
 import prismaInstance, { ExamStatus } from '../../../services/prisma';
 import { ExamGenerationLogger } from '../../../services/exam-generation-logger';
 import { ExamGenerationMetrics } from '../../../services/exam-generation-metrics';
@@ -23,7 +22,7 @@ import {
   logClassifiedExamError,
 } from './errorClassifier';
 
-const handler = async (req: any | CustomRequest, res: Response) => {
+const handler = async (req: Request, res: Response) => {
   let batchMetrics: {
     start_time: number;
     initial_memory: NodeJS.MemoryUsage;
@@ -313,7 +312,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
 
       logger.error(
         `Error generating questions for exam ${exam_id}, batch ${batch_number}:`,
-        generationError as any,
+        { error: generationError instanceof Error ? generationError.message : String(generationError) },
       );
 
       // Classify the error to understand what went wrong

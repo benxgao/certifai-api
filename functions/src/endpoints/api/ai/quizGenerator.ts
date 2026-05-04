@@ -116,7 +116,7 @@ export const quizGeneratorHandler = async (req: Request, res: Response) => {
       },
     });
   } catch (error) {
-    logger.error('Error in quizGeneratorHandler:', error as any);
+    logger.error('Error in quizGeneratorHandler:', { error: error instanceof Error ? error.message : String(error) });
     const errorMessage =
       error instanceof Error ? error.message : 'Unknown error occurred';
     if (errorMessage.includes('Could not initialize AI services')) {

@@ -1,6 +1,6 @@
 import { Response } from 'express';
 import logger from '../../../../services/firebase/logger';
-import { CustomRequest } from '../../../../types';
+import { AuthenticatedRequest } from '../../../../types/express';
 import { ExamGenerationHealthCheck } from '../../../../services/exam-generation-health-check';
 /**
  * Health check endpoint for exam generation system
@@ -23,7 +23,7 @@ import { ExamGenerationHealthCheck } from '../../../../services/exam-generation-
  * }
  */
 const handler = async (
-  req: any | CustomRequest,
+  req: AuthenticatedRequest,
   res: Response,
 ): Promise<void> => {
   try {

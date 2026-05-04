@@ -1,6 +1,6 @@
 # CertifAI API - TypeScript Type Enforcement Guide
 
-**Status**: Phase 1 ✅ Complete | Phase 2 ✅ Complete | Phase 3 ✅ Complete | Phase 4 ✅ Complete | Phase 5 → In Progress | Phase 6 ⏳ Pending
+**Status**: Phase 1 ✅ Complete | Phase 2 ✅ Complete | Phase 3 ✅ Complete | Phase 4 ✅ Complete | Phase 5 ✅ Complete | Phase 6 ✅ Complete
 **Based on**: Learnings from certifai-app SWR type enforcement project (17/17 files completed)
 
 ### Phase 1-2 Completion Summary
@@ -622,11 +622,20 @@ grep -rn ": any\|Promise<any>" functions/src/services/
   - `npx tsc --noEmit 2>&1 | grep "src/endpoints/api/users/certifications" || true` → no output
 - ✅ Documented certification contract drift in `certifai-app/docs/plans/type-enforce.md`
 
-**5d: Other Endpoints & Special Cases (30 min)**
+**5d: Other Endpoints & Special Cases (30 min)** ✅ COMPLETE (May 5, 2026)
 
-- Remaining endpoints (questions, delegators, etc.)
-- ScheduledFunctions typing
-- Special case handlers
+- Files: `functions/src/endpoints/api/admin/`, `functions/src/endpoints/api/ai/`, `functions/src/endpoints/api/auth/`, `functions/src/endpoints/stripe/`, `functions/src/delegators/tasks/`
+- ✅ Replaced `req: any | CustomRequest` / `req: Request | CustomRequest` with `AuthenticatedRequest` in all admin, AI, auth, and stripe endpoint handlers
+- ✅ Replaced `req: any | CustomRequest` with `Request` in all Cloud Task delegator handlers (knowledgePooling, examReport, buildExam/index)
+- ✅ Typed buildExam internal pipeline (`any[]` → `ExamTopicItem[]`, `QuizItem[]`, `ExamAttempt`):
+  - `examValidation.ts`: `handleCorruptedExamPlan`, `prepareBatchTopics` now use `ExamTopicItem[]`; `validateExamState` returns `ExamAttempt`
+  - `questionGeneration.ts`: `generateQuestionsWithAI` returns `Promise<QuizItem[]>`; `validateGeneratedQuestions` uses fully typed result arrays
+  - `databaseOperations.ts` + `databaseOperationsOptimized.ts`: `storeQuestionsInDatabase` params now `QuizItem[]` + typed `validQuestionResults`
+  - `rtdb.ts`: `updateExamPlanInRtdb` accepts `ExamTopicItem[]`; `calculateExamProgressFromPlan` accepts `ExamPlan | null`; `updateData` typed as `RtdbObject`
+- ✅ Eliminated all `error as any` / `generationError as any` logger casts — replaced with structured `{ error: message }` objects
+- ✅ Fixed Stripe v18 breaking change: `current_period_start/end` moved from `Stripe.Subscription` to `subscription.items.data[0]` — introduced `getSubscriptionPeriod()` helper
+- ✅ Fixed query param `ParsedQs` errors in admin endpoints — coerced with `String()`
+- ✅ `npx tsc --noEmit` passes with EXIT:0 (zero errors)
 
 **Per-Category Validation**:
 
@@ -746,6 +755,17 @@ As you type each handler, if you discover:
 - ✅ **certifai-app team notified with checklist**
 
 **Buildable**: ✅ Yes - Documentation phase only
+
+**Completed**: May 5, 2026
+
+**Completion Notes**:
+
+- ✅ Audited all Phase 5d endpoints (admin, AI, auth, Stripe, Cloud Task delegators) — **zero** frontend-impacting breaking changes found
+- ✅ Created `certifai-app/docs/plans/api-tpyes-phase-5d.md` — full contract documentation for Phase 5d endpoints
+- ✅ Updated `certifai-app/docs/plans/type-enforce.md` — added Phase 5d summary section confirming no frontend changes required; updated sync date to May 5, 2026
+- ✅ Created `certifai-app/docs/plans/api-migration-guide.md` — consolidated type contracts for all endpoint categories (auth, user, exam, certification, Stripe) with field-level documentation and frontend implementation status table
+- ✅ Stripe v18 breaking change documented: `getSubscriptionPeriod()` helper introduced — API response shape unchanged, only internal Stripe SDK read path corrected
+- ✅ `npx tsc --noEmit` passes with EXIT:0 (confirmed before documentation phase)
 
 ---
 
@@ -878,9 +898,9 @@ Phase 4c: [x] Domain services typed, compiles
 Phase 5a: [x] User endpoints typed, category compiles
 Phase 5b: [x] Exam endpoints typed, category compiles
 Phase 5c: [x] Cert endpoints typed, category compiles
-Phase 5d: [ ] Other endpoints typed, all compile
-Phase 6a: [ ] npx tsc --noEmit returns 0 errors
-Phase 6b: [ ] Breaking changes documented and synced
+Phase 5d: [x] Other endpoints typed, all compile
+Phase 6a: [x] npx tsc --noEmit returns 0 errors
+Phase 6b: [x] Breaking changes documented and synced
 ```
 
 ---

@@ -1,6 +1,6 @@
 import { Response } from 'express';
 import logger from '../../../../services/firebase/logger';
-import { CustomRequest } from '../../../../types';
+import { AuthenticatedRequest } from '../../../../types/express';
 import { ExamGenerationHealthCheck } from '../../../../services/exam-generation-health-check';
 
 /**
@@ -8,7 +8,7 @@ import { ExamGenerationHealthCheck } from '../../../../services/exam-generation-
  * This endpoint allows administrators to manually run the stuck exam detection
  * and auto-failure process without waiting for the scheduled function
  */
-const handler = async (req: any | CustomRequest, res: Response) => {
+const handler = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const firebaseUserIdFromToken = req.firebase_user_info?.user_id;
 
@@ -22,7 +22,7 @@ const handler = async (req: any | CustomRequest, res: Response) => {
 
     // Get threshold from query parameter, default to 10 minutes
     const thresholdMinutes =
-      parseInt(Array.isArray(req.query.threshold_minutes) ? req.query.threshold_minutes[0] : (req.query.threshold_minutes ?? '10')) || 10;
+      parseInt(Array.isArray(req.query.threshold_minutes) ? String(req.query.threshold_minutes[0]) : String(req.query.threshold_minutes ?? '10')) || 10;
 
     if (thresholdMinutes < 1 || thresholdMinutes > 1440) {
       // Max 24 hours

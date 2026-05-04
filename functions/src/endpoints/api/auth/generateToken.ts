@@ -1,7 +1,7 @@
 import { Response } from 'express';
 import logger from '../../../services/firebase/logger';
 import { jwtService } from '../../../services/jwt';
-import { CustomRequest } from '../../../types';
+import { AuthenticatedRequest } from '../../../types/express';
 
 export interface TokenRequest {
   clientId: string;
@@ -14,7 +14,7 @@ export interface TokenRequest {
  * This should be protected by Firebase auth or another authentication method
  */
 export const generateToken = async (
-  req: any | CustomRequest,
+  req: AuthenticatedRequest,
   res: Response,
 ): Promise<void> => {
   try {

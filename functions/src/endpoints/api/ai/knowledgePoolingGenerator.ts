@@ -16,26 +16,29 @@
  * - metadata (object): Additional information about the operation
  */
 
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import logger from '../../../services/firebase/logger';
-import { CustomRequest } from '../../../types';
+import { AuthenticatedRequest } from '../../../types/express';
 import {
   KnowledgePoolingService,
   type KnowledgePoolingRequest,
 } from '../../../services/knowledgePooling/knowledgePoolingService';
 
 export const knowledgePoolingGeneratorHandler = async (
-  req: Request | CustomRequest,
+  req: AuthenticatedRequest,
   res: Response,
 ): Promise<void> => {
   const startTime = Date.now();
 
   try {
-    const { exam_id, api_user_id, force_regenerate = false } = req.body;
+    const { exam_id, api_user_id, force_regenerate = false } = req.body as {
+      exam_id: string;
+      api_user_id: string;
+      force_regenerate?: boolean;
+    };
 
     // Get Firebase user ID from authenticated token
-    const firebaseUserIdFromToken = (req as CustomRequest).firebase_user_info
-      ?.uid;
+    const firebaseUserIdFromToken = req.firebase_user_info?.uid;
 
     logger.info('Knowledge pooling API request received', {
       exam_id,

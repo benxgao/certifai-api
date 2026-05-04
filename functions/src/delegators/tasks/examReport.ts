@@ -1,6 +1,5 @@
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import logger from '../../services/firebase/logger';
-import { CustomRequest } from '../../types';
 import { ExamReportTaskPayload } from '../../services/cloudTasks/examReportTaskService';
 import { generateExamReport } from '../../endpoints/api/ai/examReportGenerator';
 
@@ -8,7 +7,7 @@ import { generateExamReport } from '../../endpoints/api/ai/examReportGenerator';
  * Cloud Task Handler for Exam Report Generation
  * Processes exam report generation tasks in the background
  */
-const handler = async (req: any | CustomRequest, res: Response) => {
+const handler = async (req: Request, res: Response) => {
   const taskStartTime = Date.now();
   let taskPayload: ExamReportTaskPayload | undefined;
 

@@ -1,7 +1,9 @@
 import logger from '../../../services/firebase/logger';
 import { ExamGenerationLogger } from '../../../services/exam-generation-logger';
+import { QuizItem } from '../../../types/genkit';
 import {
   TaskPayload,
+  ExamTopicItem,
   normalizeExamTopic,
   findMatchingExamTopic,
 } from './helper';
@@ -13,7 +15,7 @@ export const generateQuestionsWithAI = async (
   payload: TaskPayload,
   topicNamesForGeneration: string[],
   questions_to_generate: number,
-): Promise<any[]> => {
+): Promise<QuizItem[]> => {
   const {
     exam_id,
     batch_number,
@@ -51,7 +53,7 @@ export const generateQuestionsWithAI = async (
   const aiStartTime = Date.now();
 
   // Generate questions using the quiz generator
-  let generatedQuestions: any;
+  let generatedQuestions: QuizItem[];
   try {
     logger.info(`DEBUG_IMPORTING_QUIZ_GENERATOR: exam_id=${exam_id}, batch=${batch_number}`, {
       exam_id,
@@ -161,14 +163,14 @@ export const generateQuestionsWithAI = async (
  * Validates generated questions and returns valid/invalid results
  */
 export const validateGeneratedQuestions = (
-  generatedQuestions: any[],
-  topicsForThisBatch: any[],
+  generatedQuestions: QuizItem[],
+  topicsForThisBatch: ExamTopicItem[],
   exam_id: string,
   batch_number: number,
 ): {
-  validQuestionResults: any[];
-  invalidQuestionResults: any[];
-  validQuestions: any[];
+  validQuestionResults: Array<{ question: QuizItem; matchingTopic: ExamTopicItem | null; index: number; isValid: boolean; errors: string[] }>;
+  invalidQuestionResults: Array<{ question: QuizItem; matchingTopic: ExamTopicItem | null; index: number; isValid: boolean; errors: string[] }>;
+  validQuestions: QuizItem[];
 } => {
   logger.info(`DEBUG_VALIDATION_START: exam_id=${exam_id}, batch=${batch_number}`, {
     exam_id,

@@ -1,14 +1,15 @@
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import Stripe from 'stripe';
 import logger from '../../services/firebase/logger';
 
 export class StripeErrorHandler {
-  static handleStripeError(error: any, res: Response, context: string): void {
+  static handleStripeError(error: unknown, res: Response, context: string): void {
+    const stripeError = error instanceof Error ? error : new Error(String(error));
     logger.error(`STRIPE_ERROR_${context}`, {
-      error: error.message,
-      type: error.type,
-      code: error.code,
-      statusCode: error.statusCode,
+      error: stripeError.message,
+      type: error instanceof Stripe.errors.StripeError ? error.type : undefined,
+      code: error instanceof Stripe.errors.StripeError ? error.code : undefined,
+      statusCode: error instanceof Stripe.errors.StripeError ? error.statusCode : undefined,
     });
 
     if (error instanceof Stripe.errors.StripeError) {
@@ -81,7 +82,7 @@ export class StripeErrorHandler {
   }
 
   static validateSubscriptionStatus(
-    subscription: any,
+    subscription: { status: string } | null | undefined,
     allowedStatuses: string[],
     res: Response,
   ): boolean {
@@ -106,10 +107,10 @@ export class StripeErrorHandler {
 }
 
 export function withStripeErrorHandling(
-  handler: (req: any, res: Response) => Promise<void>,
+  handler: (req: Request, res: Response) => Promise<void>,
   context: string,
 ) {
-  return async (req: any, res: Response) => {
+  return async (req: Request, res: Response) => {
     try {
       await handler(req, res);
     } catch (error) {

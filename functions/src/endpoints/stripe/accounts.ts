@@ -1,12 +1,13 @@
 import { Response } from 'express';
 import { StripeFirestoreService } from './db';
 import logger from '../../services/firebase/logger';
+import { AuthenticatedRequest } from '../../types/express';
 
 /**
  * Get complete account data including all Stripe information
  * This endpoint demonstrates the new unified approach
  */
-export const getAccountData = async (req: any, res: Response) => {
+export const getAccountData = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const firebaseUserIdFromToken = req.firebase_user_info?.user_id;
 

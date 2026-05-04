@@ -21,24 +21,23 @@
  * 5. Return the summary for immediate use
  */
 
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import logger from '../../../services/firebase/logger';
-import { CustomRequest } from '../../../types';
+import { AuthenticatedRequest } from '../../../types/express';
 import { generateCertSummary } from '../../../services/certSummaryService';
 
 /**
  * Express.js API handler that wraps the core service function
  */
 export const certSummaryGeneratorHandler = async (
-  req: Request | CustomRequest,
+  req: AuthenticatedRequest,
   res: Response,
 ): Promise<void> => {
   try {
-    const { user_id, cert_id } = req.body;
+    const { user_id, cert_id } = req.body as { user_id: string; cert_id: string };
 
     // Get Firebase user ID if available (for authenticated requests)
-    const firebaseUserIdFromToken = (req as CustomRequest).firebase_user_info
-      ?.uid;
+    const firebaseUserIdFromToken = req.firebase_user_info?.uid;
 
     // Validate required fields
     if (!user_id || !cert_id) {
@@ -76,10 +75,10 @@ export const certSummaryGeneratorHandler = async (
   } catch (error) {
     logger.error(
       'CERT_SUMMARY_API_ERROR: Error in cert summary API handler:',
-      error as any,
+      { error: error instanceof Error ? error.message : String(error) },
     );
 
-    const errorMessage = (error as Error).message;
+    const errorMessage = error instanceof Error ? error.message : String(error);
 
     if (errorMessage.includes('not found')) {
       res.status(404).json({

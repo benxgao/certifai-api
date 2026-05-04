@@ -3,6 +3,7 @@ import { StripeService } from './service';
 import { StripeFirestoreService } from './db';
 import { firebaseAuth } from '../../services/firebase/admin';
 import logger from '../../services/firebase/logger';
+import { AuthenticatedRequest } from '../../types/express';
 
 interface CreateCheckoutSessionRequest {
   price_id: string;
@@ -11,7 +12,7 @@ interface CreateCheckoutSessionRequest {
   trial_days?: number;
 }
 
-export const createCheckoutSession = async (req: any, res: Response) => {
+export const createCheckoutSession = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const firebaseUserIdFromToken = req.firebase_user_info?.user_id;
 
