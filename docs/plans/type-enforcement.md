@@ -1,6 +1,7 @@
 # CertifAI API - TypeScript Type Enforcement Guide
 
 **Status**: Phase 1 ✅ Complete | Phase 2 ✅ Complete | Phase 3 ✅ Complete | Phase 4 ✅ Complete | Phase 5 ✅ Complete | Phase 6 ✅ Complete
+**Frontend follow-up**: certifai-app Phase 6 `any` elimination — see [certifai-app/docs/plans/type-enforce.md](../../../certifai-app/docs/plans/type-enforce.md#phase-6-app-wide-any-elimination)
 **Based on**: Learnings from certifai-app SWR type enforcement project (17/17 files completed)
 
 ### Phase 1-2 Completion Summary

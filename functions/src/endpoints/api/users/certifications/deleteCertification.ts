@@ -1,6 +1,5 @@
 import logger from '../../../../services/firebase/logger';
-import prismaInstance from '../../../../services/prisma';
-import { CertificationStatus } from '../../../../services/prisma';
+import prismaInstance, { CertificationStatus } from '../../../../services/prisma';
 import {
   getRtdbValue,
   deleteRtdbValue,

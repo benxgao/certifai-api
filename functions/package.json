@@ -1,8 +1,12 @@
 {
   "$schema": "https://json.schemastore.org/package.json",
-  "name": "functions",
+  "name": "certifai-api",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/benxgao/certifai-api.git"
+  },
   "version": "2.0.0",
-  "description": "Firebase services of certestic.com",
+  "description": "The services of infrastructure and API for certestic.com",
   "author": {
     "name": "Ben Gao",
     "email": "info@certestic.com"
