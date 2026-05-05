@@ -37,21 +37,61 @@ export async function getSecret(
     }
   }
 
+  const gcpProjectNumber = process.env.GCP_PROJECT_NUMBER;
+  if (!gcpProjectNumber) {
+    logger.error('SecretManager: GCP_PROJECT_NUMBER env var is not set', {
+      secretName,
+    });
+    throw new Error('GCP_PROJECT_NUMBER environment variable is not set');
+  }
+
   const client = new SecretManagerServiceClient();
 
-  const name = `projects/${
-    process.env.GCP_PROJECT_NUMBER
-  }/secrets/${secretName}/versions/${version || 'latest'}`;
+  const name = `projects/${gcpProjectNumber}/secrets/${secretName}/versions/${
+    version || 'latest'
+  }`;
 
-  const [secretVersion] = await client.accessSecretVersion({
-    name,
+  logger.info('SecretManager: fetching secret', {
+    secretName,
+    version: version || 'latest',
   });
 
+  const fetchStart = Date.now();
+
+  let secretVersion;
+  try {
+    [secretVersion] = await client.accessSecretVersion({ name });
+  } catch (error) {
+    const elapsedMs = Date.now() - fetchStart;
+    // GCP gRPC errors expose .code and .details
+    const grpcCode = (error as { code?: number }).code;
+    const grpcDetails = (error as { details?: string }).details;
+
+    logger.error('SecretManager: accessSecretVersion call failed', {
+      secretName,
+      elapsedMs,
+      error: error instanceof Error ? error.message : String(error),
+      errorType: error instanceof Error ? error.constructor.name : typeof error,
+      grpcCode,
+      grpcDetails,
+    });
+    throw error;
+  }
+
   if (!secretVersion?.payload?.data) {
+    logger.error('SecretManager: secret payload missing or empty', {
+      secretName,
+      elapsedMs: Date.now() - fetchStart,
+    });
     throw new Error(`unable to retrieve secret: ${secretName}`);
   }
 
   const secret = secretVersion.payload.data.toString();
+
+  logger.info('SecretManager: secret fetched and decoded successfully', {
+    secretName,
+    elapsedMs: Date.now() - fetchStart,
+  });
 
   // Cache Google GenAI API key
   if (secretName === 'GOOGLE_GENAI_API_KEY' && !version) {

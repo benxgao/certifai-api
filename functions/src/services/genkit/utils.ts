@@ -29,6 +29,12 @@ export const DEFAULT_GENAI_MODEL = 'gemini-2.5-flash';
 let genkitInstance: Genkit | null = null;
 
 /**
+ * Tracks cumulative initialization attempts across the function instance lifetime.
+ * Helps correlate retry bursts in logs.
+ */
+let initAttemptCount = 0;
+
+/**
  * Initialize a Genkit AI instance with Google AI plugin (singleton)
  * @returns Promise<Genkit> - Initialized AI instance
  */
@@ -41,23 +47,44 @@ export const initializeAiInstance = async (): Promise<Genkit> => {
     return genkitInstance;
   }
 
+  logger.info('GenkitAI: creating new instance - no existing instance found', {
+    gcpProjectNumberPresent: !!process.env.GCP_PROJECT_NUMBER,
+    nodeEnv: process.env.NODE_ENV,
+  });
+
+  let secretElapsedMs: number | undefined;
+
   try {
-    logger.info('GenkitAI: creating new instance - no existing instance found');
-
+    const secretStart = Date.now();
     const apiKey = await getSecret('GOOGLE_GENAI_API_KEY');
+    secretElapsedMs = Date.now() - secretStart;
 
+    logger.info('GenkitAI: secret fetched successfully', {
+      elapsedMs: secretElapsedMs,
+      apiKeyPresent: apiKey.length > 0,
+    });
+
+    const genkitStart = Date.now();
     genkitInstance = genkit({
       plugins: [googleAI({ apiKey })],
     });
 
-    logger.info('GenkitAI: New instance created and cached successfully');
+    logger.info('GenkitAI: New instance created and cached successfully', {
+      genkitInitElapsedMs: Date.now() - genkitStart,
+      secretElapsedMs,
+    });
 
     return genkitInstance;
   } catch (error) {
     const errorMessage =
       error instanceof Error ? error.message : 'Unknown error';
+
     logger.error(`GenkitAI: Failed to initialize instance:`, {
       error: errorMessage,
+      errorType: error instanceof Error ? error.constructor.name : typeof error,
+      errorStack: error instanceof Error ? error.stack : undefined,
+      gcpProjectNumberPresent: !!process.env.GCP_PROJECT_NUMBER,
+      secretElapsedMs,
     });
 
     logger.error(
@@ -216,7 +243,14 @@ let aiInstancePromise: Promise<Genkit> | null = null;
  */
 export const createAiInstancePromise = (): Promise<Genkit> => {
   if (!aiInstancePromise) {
-    logger.info('Creating new Genkit AI instance...');
+    initAttemptCount += 1;
+    const attemptNumber = initAttemptCount;
+    const startTime = Date.now();
+
+    logger.info('GenkitAI: initiating singleton promise', {
+      attemptNumber,
+      gcpProjectNumberPresent: !!process.env.GCP_PROJECT_NUMBER,
+    });
 
     // Create a timeout wrapper around the initialization
     const timeoutMs = 45000; // 45 seconds timeout
@@ -237,10 +271,21 @@ export const createAiInstancePromise = (): Promise<Genkit> => {
 
     // Handle failures by resetting both promises so they can be retried later
     aiInstancePromise = initWithTimeout.catch((error) => {
+      const elapsedMs = Date.now() - startTime;
+      const isTimeout =
+        error instanceof Error && error.message.includes('timed out');
+
       logger.error(
         'AI instance initialization failed, resetting singletons for retry:',
         {
           error: error instanceof Error ? error.message : 'Unknown error',
+          errorType:
+            error instanceof Error ? error.constructor.name : typeof error,
+          errorStack: error instanceof Error ? error.stack : undefined,
+          isTimeout,
+          elapsedMs,
+          attemptNumber,
+          gcpProjectNumberPresent: !!process.env.GCP_PROJECT_NUMBER,
         },
       );
 
