@@ -31,6 +31,7 @@ How exam status transitions from **QUESTIONS_GENERATING** → **READY** when all
 ### PostgreSQL (Prisma - ExamAttempt Table)
 
 **Initial State (Step 1):**
+
 ```
 exam_id:        "abc123"
 user_id:        "user456"
@@ -42,6 +43,7 @@ completed_at:   null
 ```
 
 **After Transition (Step 4):**
+
 ```
 exam_id:        "abc123"
 user_id:        "user456"
@@ -55,6 +57,7 @@ completed_at:   null
 ### RTDB (exam_plans/{exam_id})
 
 **During Generation (Step 2):**
+
 ```
 ├─ exam_id: "abc123"
 ├─ topics: [
@@ -70,6 +73,7 @@ completed_at:   null
 ```
 
 **After Completion (Step 4):**
+
 ```
 [DELETED - temporary data no longer needed]
 ```
@@ -77,6 +81,7 @@ completed_at:   null
 ### Firestore (exams/{exam_id}/questions)
 
 **During Generation:**
+
 ```
 Document: q_001
 ├─ exam_topic: "VPC"
@@ -100,6 +105,7 @@ Document: q_002
 **Purpose:** Associate questions with exam + user
 
 **Records Created:**
+
 ```
 exam_id:        "abc123"
 user_id:        "user456"
@@ -114,6 +120,7 @@ is_correct:     null        (filled after user submits)
 ## Transition Triggers
 
 ### Condition 1: Last Batch Completes
+
 ```
 if (batch_number === total_batches) {
   trigger_transition()
@@ -121,6 +128,7 @@ if (batch_number === total_batches) {
 ```
 
 ### Condition 2: All Topics Have Questions
+
 ```
 if (completed_question_count >= total_topics) {
   trigger_transition()
@@ -128,6 +136,7 @@ if (completed_question_count >= total_topics) {
 ```
 
 ### Condition 3: Target Questions Reached
+
 ```
 if (completed_question_count >= target_questions) {
   trigger_transition()
@@ -139,22 +148,25 @@ When ANY condition is true → execute transition
 ## Transition Process
 
 ### Step 1: Verify Questions Exist
+
 ```
-SELECT COUNT(*) FROM ExamUserAnswer 
+SELECT COUNT(*) FROM ExamUserAnswer
 WHERE exam_id = 'abc123'
 → Must be > 0
 ```
 
 ### Step 2: Count Associated Questions
+
 ```
 Questions to associate = count from step 1
 Success = count > 0
 ```
 
 ### Step 3: Update ExamAttempt Status
+
 ```
-UPDATE ExamAttempt 
-SET 
+UPDATE ExamAttempt
+SET
   exam_status = 'READY',
   total_questions = count,
   updated_at = NOW()
@@ -162,16 +174,18 @@ WHERE exam_id = 'abc123'
 ```
 
 ### Step 4: Update UserCertification Status
+
 ```
 If first exam for user:
   UPDATE UserCertification
   SET status = 'IN_PROGRESS'
-  
+
 If not first exam:
   No change
 ```
 
 ### Step 5: Cleanup Temporary Data
+
 ```
 DELETE FROM RTDB: exam_plans/{exam_id}
   → No longer needed
@@ -181,12 +195,12 @@ DELETE FROM RTDB: exam_plans/{exam_id}
 
 ## Error Recovery
 
-| Error | Detection | Recovery |
-|-------|-----------|----------|
-| No questions generated | Count = 0 in step 2 | Status = QUESTION_GENERATION_FAILED |
-| Partial generation | Count < expected | Status = READY (partial exam OK) |
-| Database error | Transaction fails | Retry transition or manual intervention |
-| Data inconsistency | Mismatch between stores | Log error, manual review needed |
+| Error                  | Detection               | Recovery                                |
+| ---------------------- | ----------------------- | --------------------------------------- |
+| No questions generated | Count = 0 in step 2     | Status = QUESTION_GENERATION_FAILED     |
+| Partial generation     | Count < expected        | Status = READY (partial exam OK)        |
+| Database error         | Transaction fails       | Retry transition or manual intervention |
+| Data inconsistency     | Mismatch between stores | Log error, manual review needed         |
 
 ## Key Design Points
 
@@ -199,12 +213,12 @@ DELETE FROM RTDB: exam_plans/{exam_id}
 ## Monitoring
 
 Track these transitions:
+
 - Time taken (creation → READY)
 - Success rate
 - Failure reasons
 - Database operation timing
 - Number of questions generated per exam
-
 
 ### Step 3.2: Determine Status (Lines ~323-335)
 

@@ -40,48 +40,74 @@ npx prisma generate
 
 - Use absolute imports: `@/src/components/ui/button`
 - Never reset database or run `npm run build` during interaction
-- Use Prisma generated types, avoid `any`
+- Use Prisma generated types, avoid `any`; use enums as single source of truth for fixed string values
 - Conservative, clean solutions following best practices
 - Leverage existing libraries over custom implementations
+- Run `npx tsc --noEmit 2>&1 | grep "^(src|functions/src)/"` after major type changes to verify compilation
+- When migrating DB columns, always provide default values or nullable constraints to avoid breaking changes
 
 ## Anti-Patterns to Avoid
 
-- Avoid running `npm run build` during the interaction
+- Don't run `npm run build` during interaction
 - Don't bypass the `cn()` utility for className merging
 - Avoid direct Prisma client usage outside service layer
-- Don't hardcode API endpoints - use environment variables
+- Don't hardcode API endpoints — use environment variables
 - Never commit Firebase config or credentials
-- Don't use `any` types - leverage Prisma's generated types
-- Never reset the databse
-- Avoid introducing unnecessary complexity
-- When migrating, always update columns with default values or constraints to avoid breaking changes
+- Never use `any` types — leverage Prisma generated types and explicit interfaces
+- Never reset the database
 - Avoid using Firebase's default JWT verification for public endpoints; implement custom verification logic
-- Cconservative solutions with a focus on clean and simple and follows best practices
-- Use existing libraries and tools rather than reinventing the wheel
-- Value type safety and want to ensure that the code is easy to understand and maintain
-- Ensure no fancy features are used that could complicate the codebase
-- Ensure that the code is easy to test and debug
+- Don't add error handling, fallbacks, or abstractions beyond what the task requires
 
-## Emergency Memory Recovery:
+## Type Safety Notes (from experience)
 
-If VS Code becomes unresponsive:
+- `useSWRMutation` needs 4 generic params when passing extra args: `<Data, Error, Key, ExtraArg>`
+- Avoid `data?.data` nesting if the response type has no `.data` field — return `data` directly
+- Use enums for status comparisons (e.g., `ExamStatus.READY` not `'READY'`)
+- Express auth middleware: keep `req.user` optional (`AuthRequest`) for public routes, required for protected ones
+- Create custom error classes (extending `Error`) when callers need context (e.g., which item failed)
 
-```bash
-# Kill VS Code processes
-pkill -f "Visual Studio Code"
+## Rollout Instruction Skill
 
-# Clear VS Code cache
-rm -rf ~/Library/Caches/com.microsoft.VSCode*
+**Trigger**: Any task that involves creating or modifying more than 5 files.
 
-# Restart with minimal extensions
-code --disable-extensions
+**Action**: Before writing any code, generate a rollout instruction document in `kanban/WIP/` using the filename format `YYMMDD-<short-kebab-title>.md`.
+
+**Document structure**:
+
+```markdown
+# Rollout: <Feature/Task Title>
+
+## Summary
+
+One paragraph description of what this change does and why.
+
+## Scope
+
+- Estimated files to create: N
+- Estimated files to modify: N
+- Risk level: Low / Medium / High
+
+## Phases
+
+### Phase 1: <Name> (independently testable)
+
+**Goal**: ...
+**Files**:
+
+- `path/to/file.ts` — create/modify — reason
+  **Verification**: how to test this phase in isolation
+
+### Phase 2: ...
+
+## Rollback Plan
+
+Steps to revert each phase safely.
+
+## Open Questions
+
+Any unknowns that need product/architect input before or during implementation.
 ```
 
-## Monitoring Memory Usage:
+This document must be created **before** any implementation starts. It serves as the audit trail for product managers and solution architects.
 
-You can check VS Code's memory usage with:
-
-```bash
-# Check VS Code memory usage
-ps aux | grep -i "visual studio code" | head -5
-```
+After completing all phases, move the document from `kanban/WIP/` to `kanban/_completed/`.
