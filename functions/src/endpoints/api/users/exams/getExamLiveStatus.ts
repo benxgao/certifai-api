@@ -17,7 +17,7 @@ import prismaInstance, { ExamStatus } from '../../../../services/prisma';
  * - Real-time progress percentage calculated from exam_plans structure
  * - Current exam status from database (not cached)
  * - Estimated time remaining based on progress rate
- * - is_complete flag: true when status === 'READY'
+ * - is_generating_completed flag: true when status === 'READY'
  */
 type RtdbExamPlanTopic = {
   question_id?: string | null;
@@ -204,7 +204,7 @@ const handler: AuthenticatedRequestHandler<
         total_questions: exam.total_questions,
         estimated_seconds_remaining:
           estimatedSecondsRemaining > 0 ? estimatedSecondsRemaining : 0,
-        is_complete: exam.exam_status === ExamStatus.READY,
+        is_generating_completed: exam.exam_status === ExamStatus.READY,
         query_duration_ms: queryDurationMs,
         timestamp_ms: Date.now(),
       },

@@ -511,7 +511,7 @@ export function useExamLiveStatus(
     total_topics: number,                   // e.g., 15
     batch_number: number,
     total_batches: number,
-    is_complete: boolean,
+    is_generating_completed: boolean,
     estimated_time_remaining?: number      // in seconds
   },
   meta?: {
@@ -534,7 +534,7 @@ export function useExamLiveStatus(
     "total_topics": 15,
     "batch_number": 1,
     "total_batches": 2,
-    "is_complete": false,
+    "is_generating_completed": false,
     "estimated_time_remaining": 45
   }
 }
@@ -553,7 +553,7 @@ export function useExamLiveStatus(
     "total_topics": 15,
     "batch_number": 2,
     "total_batches": 2,
-    "is_complete": true
+    "is_generating_completed": true
   }
 }
 ```

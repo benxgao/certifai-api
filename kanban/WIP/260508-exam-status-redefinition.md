@@ -217,7 +217,7 @@ Update live-status response data shape to include:
 
 - `exam_status` (availability)
 - `progress_percentage` (generation progress)
-- `is_complete` (generation completion only)
+- `is_generating_completed` (generation completion only)
 - `generated_questions_count`
 - `associated_questions_count`
 - `target_questions`
@@ -237,13 +237,13 @@ Important rule:
    - In early-ready window (e.g., 5/50 done), call live status.
    - Pass criteria:
      - `exam_status=READY`
-     - `is_complete=false`
+     - `is_generating_completed=false`
      - `progress_percentage < 100`
 
 2. **Completion contract test**
    - After final batch complete.
    - Pass criteria:
-     - `is_complete=true`
+     - `is_generating_completed=true`
      - `progress_percentage=100`
      - `generated_questions_count=target_questions` (or capped successful target behavior if partial policy applies)
 
@@ -274,7 +274,7 @@ Apply new strict semantics for `IN_PROGRESS`.
 ### Acceptance tests (exact)
 
 1. **No early in-progress test**
-   - While generation incomplete (`is_complete=false`), answer first question.
+   - While generation incomplete (`is_generating_completed=false`), answer first question.
    - Pass criteria: persisted and returned status remains `READY`.
 
 2. **In-progress eligibility test**
@@ -297,10 +297,10 @@ Frontend should let users start immediately on `READY`, while still tracking bac
 
 ### Implementation
 
-1. In `useExamLiveStatus`, keep polling while `is_complete=false` (not only while backend status is generating).
+1. In `useExamLiveStatus`, keep polling while `is_generating_completed=false` (not only while backend status is generating).
 2. In exam cards/detail:
    - enable “Begin Exam” once status is `READY`.
-   - continue showing generation progress until `is_complete=true`.
+   - continue showing generation progress until `is_generating_completed=true`.
 3. Preserve ordering by backend question query (`created_at ASC`).
 
 ### Files (expected)
@@ -321,7 +321,7 @@ Frontend should let users start immediately on `READY`, while still tracking bac
    - Pass criteria: visible question list starts with earliest created questions; additional questions appear as generated.
 
 3. **Polling-stop condition test**
-   - Once `is_complete=true`, polling cadence reduces/stops per hook rules.
+   - Once `is_generating_completed=true`, polling cadence reduces/stops per hook rules.
    - Pass criteria: no unnecessary high-frequency polling after completion.
 
 ---
@@ -360,7 +360,7 @@ Ensure production safety with metrics, alerts, and reversible rollout.
 
 ## Exact API/State Acceptance Matrix
 
-| Scenario                                                   | Expected `exam_status` | Expected `is_complete` | Notes                         |
+| Scenario                                                   | Expected `exam_status` | Expected `is_generating_completed` | Notes                         |
 | ---------------------------------------------------------- | ---------------------- | ---------------------- | ----------------------------- |
 | Exam just created, no questions linked                     | `QUESTIONS_GENERATING` | `false`                | Not playable                  |
 | First batch linked (>=1 question), more remaining          | `READY`                | `false`                | Playable now                  |
@@ -383,7 +383,7 @@ Ensure production safety with metrics, alerts, and reversible rollout.
 ## Open Questions for Review
 
 1. Should partially generated exams allow submit before generation completes?
-2. If generation ends with fewer than target due to hard failures, should `is_complete=true` still be set with partial count and warning?
+2. If generation ends with fewer than target due to hard failures, should `is_generating_completed=true` still be set with partial count and warning?
 3. Should `READY` + incomplete generation have a dedicated frontend badge copy (e.g., “Ready (more questions loading)”) or keep existing label?
 
 ---
