@@ -1,0 +1,206 @@
+# Certifai API Security Scan Report
+
+**Date:** 2026-05-09  
+**Scope:** `certifai-api/functions` runtime code, route/middleware security, credential hygiene, and production dependency risk  
+**Method:** Static code review + targeted grep checks + `npm audit --omit=dev --json`
+
+---
+
+## Executive Summary
+
+The backend has strong baseline controls in some areas (Firebase token verification, Stripe webhook signature verification, Helmet, typed Prisma usage), but there are **multiple critical authorization/control-plane weaknesses** that can enable abuse, denial of service, and potential data integrity impact.
+
+### Overall Risk Posture
+
+- **Critical:** 3
+- **High:** 2
+- **Moderate:** 2
+- **Low/Info:** 3+
+
+Immediate focus should be on task endpoint protection, rate-limit enforcement correctness, and scope-based authorization for destructive public endpoints.
+
+---
+
+## 0-day Breach Assessment
+
+### Confirmed 0-day Breaches
+
+- **None confirmed from static analysis alone.**
+
+### 0-day / Emerging Risk Signals
+
+- `npm audit` reports a **high** vulnerability in transitive dependency `fast-uri` (`GHSA-v39h-62p7-jpjc`, host confusion via percent-encoded delimiters), plus additional moderate/low advisories.
+- These are **known advisories**, not confirmed active exploitation in this environment.
+
+---
+
+## Critical Findings
+
+### C1 — Delegator task endpoints appear unauthenticated (control-plane exposure)
+
+**Severity:** Critical  
+**Impact:** External callers may invoke expensive/privileged background processing paths (`buildExam`, `knowledgePooling`, `examReport`) if endpoint-level invoker restrictions are not enforced at infrastructure level. This can cause resource exhaustion, task poisoning, and integrity issues.
+
+**Evidence:**
+
+- `functions/src/delegators/tasks/index.ts:8` → `router.post('/take', handleExamBuild);`
+- `functions/src/delegators/tasks/index.ts:9` → `router.post('/knowledge-pooling', handleKnowledgePooling);`
+- `functions/src/delegators/tasks/index.ts:10` → `router.post('/exam-report', handleExamReport);`
+- No middleware checks for Cloud Tasks headers/OIDC token validation in task handlers.
+
+**Why this is critical:** Task routes perform high-cost and high-impact operations and currently trust request body payload.
+
+---
+
+### C2 — Exam creation rate limit check is executed but not enforced
+
+**Severity:** Critical  
+**Impact:** Users can exceed intended exam-creation quota, enabling abuse/cost blowout and operational degradation.
+
+**Evidence:**
+
+- `functions/src/endpoints/api/users/exams/createExam.ts:161` calls `OptimizedRateLimitService.checkExamRateLimit(user_id)`
+- `functions/src/endpoints/api/users/exams/createExam.ts:166` logs `RATE_LIMIT_VALIDATION_PASSED`
+- No conditional branch found that blocks when `rateLimitResult.isAllowed === false`.
+
+**Why this is critical:** Rate limit exists as a control but is effectively bypassed by logic omission.
+
+---
+
+### C3 — Destructive cache endpoints exposed to any valid JWT (no scope/role authorization)
+
+**Severity:** Critical  
+**Impact:** Any bearer token that passes `verifyJWTToken` can call cache purge endpoints, causing repeated cache flushes (DoS/performance degradation).
+
+**Evidence:**
+
+- `functions/src/endpoints/api/public/index.ts:66` → `router.delete('/cache', verifyJWTToken, clearAllCache);`
+- `functions/src/endpoints/api/public/index.ts:69` → `router.delete('/cache/firms', verifyJWTToken, clearFirmsCache);`
+- `functions/src/endpoints/api/public/index.ts:75` / `:80` cache certification purge routes also protected only by `verifyJWTToken`.
+- `functions/src/middlewares/jwtAuth.ts:42` sets scope but there is no downstream scope enforcement on destructive routes.
+
+---
+
+## High-Risk Findings
+
+### H1 — Service token gate reuses the same secret as JWT signing key
+
+**Severity:** High  
+**Impact:** Compromise of `PUBLIC_JWT_SECRET` breaks both issuance gate and token trust boundary (single-secret blast radius).
+
+**Evidence:**
+
+- `functions/src/endpoints/api/auth/generateServiceToken.ts:16` uses `process.env.PUBLIC_JWT_SECRET` as request gate (`x-service-secret`).
+- `functions/src/services/jwt/index.ts:14` uses the same `PUBLIC_JWT_SECRET` to sign/verify JWTs.
+
+**Risk pattern:** Key reuse across authentication factors and signing authority.
+
+---
+
+### H2 — CORS origin logic is overly permissive for no-origin requests and origin allowlist is empty
+
+**Severity:** High  
+**Impact:** Non-browser clients with missing origin are allowed; policy intent appears restrictive but implementation allows broader access patterns.
+
+**Evidence:**
+
+- `functions/src/endpoints/index.ts:22` `allowedOrigins` array is empty.
+- `functions/src/endpoints/index.ts:44` allows when `!origin || allowedOrigins.includes(origin)`.
+
+**Note:** This does not directly bypass bearer auth, but broadens attack surface and weakens boundary expectations.
+
+---
+
+## Moderate Findings
+
+### M1 — Dependency risk: 1 High + 4 Moderate advisories in production dependency graph
+
+**Severity:** Moderate (supply-chain)  
+**Evidence:** `npm audit --omit=dev --json`
+
+- **High:** `fast-uri` (`GHSA-v39h-62p7-jpjc`)
+- **Moderate:** includes `express-rate-limit` transitive issue via `ip-address`, and `@anthropic-ai/sdk` advisory
+- Audit summary: `high: 1`, `moderate: 4`, `total: 24`
+
+---
+
+### M2 — Task handlers return success on internal failures to suppress retries
+
+**Severity:** Moderate  
+**Impact:** May hide persistent failures and reduce recoverability/forensics if an attacker induces malformed payloads.
+
+**Evidence:**
+
+- `functions/src/delegators/tasks/knowledgePooling.ts` returns `200` on processing failure by design.
+- `functions/src/delegators/tasks/examReport.ts` also returns `200` for generation failure branch.
+
+---
+
+## Low / Informational
+
+1. **Credential hygiene appears improved locally:** `gcp_credentials.json` exists in workspace but `git ls-files` did not show tracked credential-like files in repo root scan output.
+2. **Stripe webhook verification is properly implemented:** `stripe.webhooks.constructEvent(req.rawBody, sig, endpointSecret)` in `functions/src/endpoints/stripe/snapshotWebhooks/index.ts`.
+3. **No active usage found for unsafe raw query helper:** `executeRawQuery` exists in `queryOptimizer.ts` but no call sites found.
+
+---
+
+## Phased Remediation Plan
+
+### Phase 0 (0-24 hours) — Containment & Hard Blocks
+
+1. **Lock delegator endpoints immediately**
+   - Enforce Cloud Functions invoker IAM to Cloud Tasks service account only.
+   - Add in-code request verification (OIDC audience/issuer checks or signed internal header).
+2. **Hotfix exam rate-limit enforcement**
+   - In `createExam.ts`, block with `429` when `rateLimitResult.isAllowed === false`.
+3. **Disable destructive public cache routes or gate behind admin-only scope**
+   - Temporary kill switch if needed.
+
+**Exit criteria:** External unauthenticated task invocation impossible; exam rate limits actively enforced; cache purge protected by admin scope.
+
+### Phase 1 (1-3 days) — Authorization Hardening
+
+1. Implement scope/role middleware (e.g., `requireScope('admin:cache')`) and apply to all destructive endpoints.
+2. Split secrets:
+   - `PUBLIC_JWT_SIGNING_SECRET`
+   - `SERVICE_TOKEN_GATE_SECRET`
+3. Add brute-force protections/rate limiting for token-issuing endpoints.
+
+**Exit criteria:** Principle-of-least-privilege enforced for all mutation endpoints.
+
+### Phase 2 (3-7 days) — Surface Reduction & Reliability
+
+1. Tighten CORS policy to explicit allowlist by environment.
+2. Review no-origin allowance policy; permit only where strictly needed.
+3. For task handlers, return retryable status for transient failures and classify permanent failures explicitly.
+
+**Exit criteria:** Cross-origin policy matches architecture intent; task reliability semantics are explicit and auditable.
+
+### Phase 3 (1-2 weeks) — Supply-Chain & Monitoring
+
+1. Patch or pin vulnerable dependencies (`fast-uri`, `express-rate-limit` chain, Genkit-related advisories where safe).
+2. Add CI security gates:
+   - `npm audit --omit=dev` threshold policy
+   - Secret scanning + IaC checks
+3. Add security telemetry:
+   - Alerts for cache purge spikes
+   - Alerts for delegator endpoint access anomalies
+   - Rate-limit bypass anomaly detection
+
+**Exit criteria:** Vulnerability baseline reduced; automated prevention and detection in CI/runtime.
+
+---
+
+## Verification Commands Used
+
+- Dependency scan: `npm audit --omit=dev --json` (run in `certifai-api/functions`)
+- Credential tracking check: `git ls-files | grep -E 'gcp_credentials|\.env(\.|$)|service-account|credentials\.json' || true`
+- Targeted static checks across auth, CORS, tasks, and route protections via repository grep.
+
+---
+
+## Recommended Immediate Owners
+
+- **Backend/API owner:** Phases 0-2 implementation
+- **DevOps/Cloud owner:** IAM invoker lockdown + environment secret separation
+- **Security owner:** dependency policy + runtime alerting baselines
