@@ -69,6 +69,8 @@ jobs:
 
           echo "FRONTEND_URL=${{ vars.FRONTEND_URL }}" >> .env
 
+          echo "CORS_ALLOWED_ORIGINS=${{ vars.CORS_ALLOWED_ORIGINS }}" >> .env
+
           echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> .env
           echo "DIRECT_URL=${{ secrets.DIRECT_URL }}" >> .env
           echo "PUBLIC_JWT_SECRET=${{ secrets.PUBLIC_JWT_SECRET }}" >> .env

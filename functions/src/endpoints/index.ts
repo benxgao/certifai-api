@@ -3,6 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
 import logger from '../services/firebase/logger';
+import { getCorsPolicyConfig, normalizeOrigin } from '../config/cors';
 
 import healthcheck from './healthCheck';
 import api from './api';
@@ -18,42 +19,64 @@ app.use(helmet());
 // Compression middleware
 app.use(compression());
 
-// CORS configuration - restrict to allowed origins only
-const allowedOrigins: string[] = [
-  // 'http://localhost:3000',
-  // 'https://localhost:3000',
-  // 'https://www.certestic.com',
-  // 'https://certestic.com',
-  // 'http://www.certestic.com', // In case HTTP is used (though HTTPS is recommended)
-  // 'http://certestic.com',
-];
+const corsPolicy = getCorsPolicyConfig();
 
 app.use(
   cors({
     origin: (origin, callback) => {
-      console.log(`req.origion: ${origin}`);
+      let allowed = false;
+      let reason:
+        | 'allowed_origin'
+        | 'invalid_origin'
+        | 'origin_not_allowlisted'
+        | 'allowed_no_origin'
+        | 'no_origin_blocked'
+        | 'fail_closed_no_allowlist' = 'origin_not_allowlisted';
+      let normalizedOrigin: string | null = null;
 
-      // Allow requests with no origin (like mobile apps or curl requests) only in development
-      if (!origin && process.env.NODE_ENV === 'development') {
-        logger.info(
-          'CORS: Allowing request with no origin in development mode',
-        );
-        return callback(null, true);
-      }
-
-      if (!origin || allowedOrigins.includes(origin)) {
-        if (origin) {
-          logger.info(`CORS: Allowing request from origin: ${origin}`);
-        }
-        callback(null, true);
+      if (!origin) {
+        allowed = corsPolicy.allowNoOrigin;
+        reason = allowed ? 'allowed_no_origin' : 'no_origin_blocked';
       } else {
-        logger.warn(
-          `CORS: Blocking request from unauthorized origin: ${origin}`,
-        );
-        callback(new Error(`Origin ${origin} not allowed by CORS policy`));
+        normalizedOrigin = normalizeOrigin(origin);
+
+        if (!normalizedOrigin) {
+          reason = 'invalid_origin';
+        } else if (corsPolicy.failClosed) {
+          reason = 'fail_closed_no_allowlist';
+        } else if (corsPolicy.allowedOrigins.has(normalizedOrigin)) {
+          allowed = true;
+          reason = 'allowed_origin';
+        } else {
+          reason = 'origin_not_allowlisted';
+        }
       }
+
+      if (!allowed && corsPolicy.logBlockedOrigins) {
+        logger.warn('CORS_REQUEST_BLOCKED', {
+          origin: origin || null,
+          normalized_origin: normalizedOrigin,
+          decision: 'blocked',
+          reason,
+          environment: corsPolicy.gcpEnv,
+        });
+      }
+
+      if (allowed) {
+        // logger.info('CORS_REQUEST_ALLOWED', {
+        //   origin: origin || null,
+        //   normalized_origin: normalizedOrigin,
+        //   decision: 'allowed',
+        //   reason,
+        //   environment: corsPolicy.gcpEnv,
+        // });
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error('Origin not allowed by CORS policy'));
     },
-    credentials: true, // Allow cookies and authorization headers
+    credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   }),

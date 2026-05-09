@@ -29,6 +29,18 @@ This weakens boundary controls and can unintentionally expand access from non-br
 4. Blocked-origin events are observable with structured logs and counters.
 5. Behavior is covered by tests for both allowed and denied scenarios.
 
+## Implementation Status (2026-05-09)
+
+- ✅ Phase 1 implemented
+  - Added `functions/src/config/cors.ts` for centralized CORS policy parsing and validation.
+  - Added env-driven CORS config keys in `functions/.env.sample`.
+- ✅ Phase 2 implemented
+  - Replaced permissive inline CORS logic in `functions/src/endpoints/index.ts`.
+  - Enforced strict allowlist / explicit no-origin behavior.
+  - Added structured allow/block logging with method/path/reason.
+- ⏳ Phase 3 pending (tests)
+- ⏳ Phase 4 pending (UAT/prod rollout + monitoring)
+
 ## Phases
 
 ### Phase 1: Policy & Config Foundation (independently testable)
@@ -137,13 +149,21 @@ This weakens boundary controls and can unintentionally expand access from non-br
 ## Open Questions
 
 1. Should no-origin traffic ever be allowed in production for specific machine clients, or should those callers migrate to internal network/IAM-based access only?
+
+- No. This should be reserved for local/dev use where CORS is not a concern. Production machine clients should use secure network/IAM controls instead of relying on CORS exceptions.
+
 2. Should we support wildcard subdomains (e.g., preview environments), and if yes, via strict suffix matching rules rather than naive wildcarding?
+
+- Not for now. To keep the implementation simple and secure, we should require explicit origins. If wildcarding is needed in the future, it should be implemented with strict suffix matching and documented clearly.
+
 3. Should failed CORS checks increment a security metric (e.g., Cloud Monitoring counter) and alert on spikes?
+
+- Not for now. Keep it simple with structured logs. If we see a need for proactive monitoring based on blocked-origin patterns, we can add a counter and alerting in a future phase.
 
 ## Acceptance Criteria
 
-- [ ] Production CORS policy is explicit and allowlist-only.
-- [ ] No-origin is denied by default outside controlled local/dev usage.
-- [ ] CORS decisions are visible in structured logs.
+- [x] Production CORS policy is explicit and allowlist-only (code-level enforcement; env population per environment pending rollout).
+- [x] No-origin is denied by default outside controlled local/dev usage.
+- [x] CORS decisions are visible in structured logs.
 - [ ] Automated tests cover all decision branches.
 - [ ] UAT + production rollout completed with no user-impacting regressions.
