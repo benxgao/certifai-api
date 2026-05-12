@@ -361,13 +361,13 @@ Ensure production safety with metrics, alerts, and reversible rollout.
 ## Exact API/State Acceptance Matrix
 
 | Scenario                                                   | Expected `exam_status` | Expected `is_generating_completed` | Notes                         |
-| ---------------------------------------------------------- | ---------------------- | ---------------------- | ----------------------------- |
-| Exam just created, no questions linked                     | `QUESTIONS_GENERATING` | `false`                | Not playable                  |
-| First batch linked (>=1 question), more remaining          | `READY`                | `false`                | Playable now                  |
-| User answers first question before completion              | `READY`                | `false`                | Must remain READY             |
-| All questions generated, no answer selected yet            | `READY`                | `true`                 | Playable, not in-progress yet |
-| All generated + at least 1 answer selected + not submitted | `IN_PROGRESS`          | `true`                 | New strict transition         |
-| Submitted                                                  | `COMPLETED`            | `true`                 | Terminal                      |
+| ---------------------------------------------------------- | ---------------------- | ---------------------------------- | ----------------------------- |
+| Exam just created, no questions linked                     | `QUESTIONS_GENERATING` | `false`                            | Not playable                  |
+| First batch linked (>=1 question), more remaining          | `READY`                | `false`                            | Playable now                  |
+| User answers first question before completion              | `READY`                | `false`                            | Must remain READY             |
+| All questions generated, no answer selected yet            | `READY`                | `true`                             | Playable, not in-progress yet |
+| All generated + at least 1 answer selected + not submitted | `IN_PROGRESS`          | `true`                             | New strict transition         |
+| Submitted                                                  | `COMPLETED`            | `true`                             | Terminal                      |
 
 ---
 
