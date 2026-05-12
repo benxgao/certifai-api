@@ -8,6 +8,7 @@ import {
   getPublicCertificationBySlug,
   getPublicCertificationsByFirm,
 } from './certifications';
+import { getPublicDemoCredentials } from './demoCredentials';
 import {
   getCacheHealth,
   clearAllCache,
@@ -34,6 +35,9 @@ router.get(
 );
 
 /** ******************* PUBLIC CERTIFICATIONS ************************* */
+
+// Get demo credentials for visitor login assistance (public JWT-protected)
+router.get('/demo-credentials', verifyJWTToken, getPublicDemoCredentials);
 
 // Get all certifications (public)
 router.get(
