@@ -39,6 +39,14 @@ const ExamReportSchema = z.object({
     ),
 });
 
+const LLMReportOutputSchema = z.object({
+  report: z
+    .string()
+    .describe(
+      'A concise 150-word performance report summarizing strengths and areas for improvement',
+    ),
+});
+
 /**
  * Exam Report Generator Flow
  * Analyzes user performance data and generates personalized learning recommendations
@@ -182,7 +190,7 @@ Keep it exactly around 150 words, be specific about topic names, and emphasize h
           const response = await generateWithValidation(
             ai,
             prompt,
-            ExamReportSchema,
+            LLMReportOutputSchema,
             sendChunk,
             {
               ...DEFAULT_GENERATION_CONFIG,
