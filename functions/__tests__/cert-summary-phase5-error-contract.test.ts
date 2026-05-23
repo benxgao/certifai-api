@@ -69,12 +69,8 @@ describe('cert summary phase 5 error contract', () => {
   });
 
   it('returns INSUFFICIENT_EXAM_REPORTS with details on prerequisite failure', async () => {
-    const { CertSummaryPrerequisiteError } = await import(
-      '../src/services/certSummaryService'
-    );
-    const { getCertSummary } = await import(
-      '../src/endpoints/api/users/certifications/getCertSummary'
-    );
+    const { CertSummaryPrerequisiteError } = require('../src/services/certSummaryService');
+    const { getCertSummary } = require('../src/endpoints/api/users/certifications/getCertSummary');
 
     getCertSummaryMock.mockResolvedValue(null);
     generateCertSummaryMock.mockRejectedValue(
@@ -108,9 +104,7 @@ describe('cert summary phase 5 error contract', () => {
   });
 
   it('preserves transient generation failure as 500 REPORT_GENERATION_TRANSIENT', async () => {
-    const { getCertSummary } = await import(
-      '../src/endpoints/api/users/certifications/getCertSummary'
-    );
+    const { getCertSummary } = require('../src/endpoints/api/users/certifications/getCertSummary');
 
     getCertSummaryMock.mockResolvedValue(null);
     generateCertSummaryMock.mockRejectedValue(new Error('GenAI timeout'));
