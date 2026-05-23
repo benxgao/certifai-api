@@ -47,7 +47,7 @@ describe('exam report task idempotency behavior', () => {
   });
 
   it('returns 200 and already_existed on repeated task delivery', async () => {
-    const module = require('../src/delegators/tasks/examReport');
+    const module = await import('../src/delegators/tasks/examReport');
     const handler = module.default as (
       req: unknown,
       res: unknown,
