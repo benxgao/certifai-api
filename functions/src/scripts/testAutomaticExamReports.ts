@@ -4,14 +4,37 @@
  */
 
 import logger from '../services/firebase/logger';
-import prismaInstance from '../services/prisma';
+import prismaInstance, { ExamStatus } from '../services/prisma';
 import { examReportFirestore } from '../services/firebase/examReportFirestore';
+import { ExamReportTaskService } from '../services/cloudTasks/examReportTaskService';
 
 interface TestExamData {
   exam_id: string;
   user_id: string;
   cert_id: string;
   certification_name: string;
+}
+
+interface MissingExamReportRecord {
+  exam_id: string;
+  user_id: string;
+  cert_id: string;
+  certification_name: string;
+  submitted_at: string;
+}
+
+interface BackfillOptions {
+  mode: 'dry-run' | 'execute';
+  limit: number;
+  batchSize: number;
+  batchDelaySeconds: number;
+}
+
+interface ParsedCliArgs {
+  mode: 'dry-run' | 'execute';
+  limit: number;
+  batchSize: number;
+  batchDelaySeconds: number;
 }
 
 /**
@@ -216,6 +239,223 @@ export async function findRecentlySubmittedExams(
     });
     throw error;
   }
+}
+
+/**
+ * Find completed exams that do not have a corresponding Firestore exam report.
+ * This is Phase 2.1 discovery support for hotfix backfill.
+ */
+export async function discoverCompletedExamsMissingFirestoreReports(
+  limit: number = 500,
+): Promise<MissingExamReportRecord[]> {
+  logger.info('AUTOMATIC_REPORT_BACKFILL: Starting missing-report discovery', {
+    limit,
+    target_exam_status: ExamStatus.COMPLETED,
+  });
+
+  const completedExams = await prismaInstance.examAttempt.findMany({
+    where: {
+      exam_status: ExamStatus.COMPLETED,
+      submitted_at: { not: null },
+    },
+    select: {
+      exam_id: true,
+      user_id: true,
+      cert_id: true,
+      submitted_at: true,
+      certification: {
+        select: {
+          name: true,
+        },
+      },
+    },
+    orderBy: {
+      submitted_at: 'desc',
+    },
+    take: limit,
+  });
+
+  const missingReports: MissingExamReportRecord[] = [];
+  const firestoreLookupFailures: string[] = [];
+
+  for (const exam of completedExams) {
+    if (!exam.submitted_at) {
+      continue;
+    }
+
+    const certId = exam.cert_id.toString();
+    try {
+      const report = await examReportFirestore.getExamReport(
+        exam.exam_id,
+        exam.user_id,
+        certId,
+      );
+
+      if (report) {
+        continue;
+      }
+
+      missingReports.push({
+        exam_id: exam.exam_id,
+        user_id: exam.user_id,
+        cert_id: certId,
+        certification_name: exam.certification.name,
+        submitted_at: exam.submitted_at.toISOString(),
+      });
+    } catch (error) {
+      firestoreLookupFailures.push(exam.exam_id);
+      logger.warn(
+        'AUTOMATIC_REPORT_BACKFILL: Firestore lookup failed for exam',
+        {
+          exam_id: exam.exam_id,
+          user_id: exam.user_id,
+          cert_id: certId,
+          error: error instanceof Error ? error.message : String(error),
+        },
+      );
+    }
+  }
+
+  logger.info('AUTOMATIC_REPORT_BACKFILL: Discovery completed', {
+    total_completed_exam_candidates: completedExams.length,
+    missing_report_count: missingReports.length,
+    firestore_lookup_failures: firestoreLookupFailures.length,
+    firestore_lookup_failure_exam_ids: firestoreLookupFailures,
+    covered_exam_status: ExamStatus.COMPLETED,
+  });
+
+  return missingReports;
+}
+
+/**
+ * Backfill missing exam reports by either listing missing records (dry-run)
+ * or enqueueing generation tasks through Cloud Tasks (execute).
+ */
+export async function backfillMissingExamReports(
+  options: BackfillOptions,
+): Promise<void> {
+  const { mode, limit, batchSize, batchDelaySeconds } = options;
+
+  logger.info('AUTOMATIC_REPORT_BACKFILL: Starting backfill workflow', {
+    mode,
+    limit,
+    batch_size: batchSize,
+    batch_delay_seconds: batchDelaySeconds,
+  });
+
+  const missingReports = await discoverCompletedExamsMissingFirestoreReports(
+    limit,
+  );
+
+  if (missingReports.length === 0) {
+    logger.info('AUTOMATIC_REPORT_BACKFILL: No missing reports found');
+    return;
+  }
+
+  logger.info('AUTOMATIC_REPORT_BACKFILL: Missing report sample', {
+    sample: missingReports.slice(0, 10),
+    total_missing_reports: missingReports.length,
+  });
+
+  if (mode === 'dry-run') {
+    logger.info('AUTOMATIC_REPORT_BACKFILL: Dry-run completed', {
+      discovered_missing_reports: missingReports.length,
+      next_action: 'Run with --execute to enqueue backfill tasks',
+    });
+    return;
+  }
+
+  const examReportTaskService = ExamReportTaskService.getInstance();
+  let enqueuedCount = 0;
+  const failedEnqueue: string[] = [];
+
+  for (let index = 0; index < missingReports.length; index++) {
+    const record = missingReports[index];
+    const batchNumber = Math.floor(index / batchSize);
+    const scheduleDelaySeconds = batchNumber * batchDelaySeconds;
+
+    const taskName = await examReportTaskService.createRetryReportTask(
+      record.exam_id,
+      record.user_id,
+      Number(record.cert_id),
+      record.certification_name,
+      scheduleDelaySeconds,
+    );
+
+    if (taskName) {
+      enqueuedCount += 1;
+    } else {
+      failedEnqueue.push(record.exam_id);
+    }
+  }
+
+  logger.info('AUTOMATIC_REPORT_BACKFILL: Execute mode completed', {
+    discovered_missing_reports: missingReports.length,
+    successfully_enqueued: enqueuedCount,
+    failed_to_enqueue: failedEnqueue.length,
+    failed_exam_ids: failedEnqueue,
+  });
+}
+
+const parsePositiveInt = (
+  value: string | undefined,
+  fallback: number,
+): number => {
+  if (!value) {
+    return fallback;
+  }
+
+  const parsed = Number.parseInt(value, 10);
+  if (Number.isNaN(parsed) || parsed <= 0) {
+    return fallback;
+  }
+
+  return parsed;
+};
+
+const parseBackfillCliArgs = (args: string[]): ParsedCliArgs => {
+  const mode: 'dry-run' | 'execute' = args.includes('--execute')
+    ? 'execute'
+    : 'dry-run';
+
+  const limitArg = args.find((arg) => arg.startsWith('--limit='));
+  const batchSizeArg = args.find((arg) => arg.startsWith('--batch-size='));
+  const batchDelayArg = args.find((arg) => arg.startsWith('--batch-delay='));
+
+  return {
+    mode,
+    limit: parsePositiveInt(limitArg?.split('=')[1], 500),
+    batchSize: parsePositiveInt(batchSizeArg?.split('=')[1], 25),
+    batchDelaySeconds: parsePositiveInt(batchDelayArg?.split('=')[1], 3),
+  };
+};
+
+/**
+ * Run backfill flow when this script is executed directly.
+ * Defaults to dry-run mode for safety.
+ */
+export async function runMissingReportBackfillFromCli(): Promise<void> {
+  const args = process.argv.slice(2);
+  const parsedArgs = parseBackfillCliArgs(args);
+
+  await backfillMissingExamReports({
+    mode: parsedArgs.mode,
+    limit: parsedArgs.limit,
+    batchSize: parsedArgs.batchSize,
+    batchDelaySeconds: parsedArgs.batchDelaySeconds,
+  });
+}
+
+if (require.main === module) {
+  runMissingReportBackfillFromCli()
+    .then(() => {
+      console.log('✅ Missing report backfill script finished.');
+      process.exit(0);
+    })
+    .catch((error: unknown) => {
+      console.error('❌ Missing report backfill script failed:', error);
+      process.exit(1);
+    });
 }
 
 // Example usage - uncomment to run tests

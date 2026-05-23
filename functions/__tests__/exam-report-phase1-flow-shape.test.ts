@@ -51,7 +51,7 @@ describe('examReportGenerator phase 1.2 flow shape', () => {
 
   it('returns report and locally computed difficulty_adjustments', async () => {
     const { createExamReportGeneratorFlow } = await import(
-      '../src/services/genkit/examReportGenerator'
+      '../src/services/genkit/examReportGenerator.js'
     );
 
     const flow = await createExamReportGeneratorFlow();
