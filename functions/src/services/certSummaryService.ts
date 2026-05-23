@@ -9,6 +9,7 @@ export {
   CertificationSummary,
   TopicMastery,
   CertSummaryDocument,
+  CertSummaryPrerequisiteError,
   generateCertSummary,
   certSummaryFirestore,
 } from './firebase/certSummaryFirestore';

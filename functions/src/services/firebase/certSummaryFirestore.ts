@@ -46,6 +46,28 @@ export interface CertSummaryDocument extends CertificationSummary {
   updatedAt: Date;
 }
 
+export class CertSummaryPrerequisiteError extends Error {
+  public readonly code = 'INSUFFICIENT_EXAM_REPORTS';
+  public readonly status = 400;
+  public readonly retriable = false;
+  public readonly details: {
+    required_reports: number;
+    available_reports: number;
+    cert_id: string;
+  };
+
+  constructor(details: {
+    required_reports: number;
+    available_reports: number;
+    cert_id: string;
+  }) {
+    super('Certification summary requires at least 2 completed exam reports');
+    this.name = 'CertSummaryPrerequisiteError';
+    this.details = details;
+    Object.setPrototypeOf(this, CertSummaryPrerequisiteError.prototype);
+  }
+}
+
 /**
  * Core service function for generating certification summaries
  * Can be used both by API endpoint and internal service calls
@@ -102,9 +124,11 @@ export const generateCertSummary = async (
     );
 
     if (examReports.length < 2) {
-      throw new Error(
-        'Certification summary requires at least 2 completed exam reports',
-      );
+      throw new CertSummaryPrerequisiteError({
+        required_reports: 2,
+        available_reports: examReports.length,
+        cert_id,
+      });
     }
 
     logger.info(
@@ -452,9 +476,11 @@ export const generateCertSummary = async (
       },
     );
 
-    // Provide more context in the thrown error
-    const errorMessage = (error as Error).message || 'Unknown error occurred';
-    throw new Error(`Cert summary generation failed: ${errorMessage}`);
+    if (error instanceof Error) {
+      throw error;
+    }
+
+    throw new Error('Cert summary generation failed: Unknown error occurred');
   }
 };
 

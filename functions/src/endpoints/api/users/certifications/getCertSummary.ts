@@ -8,6 +8,7 @@
 import logger from '../../../../services/firebase/logger';
 import { AuthenticatedRequestHandler } from '../../../../types/express';
 import {
+  CertSummaryPrerequisiteError,
   generateCertSummary,
   certSummaryFirestore,
 } from '../../../../services/certSummaryService';
@@ -37,6 +38,8 @@ export const getCertSummary: AuthenticatedRequestHandler<
       res.status(400).json({
         success: false,
         error: 'user_id and cert_id are required',
+        error_code: 'VALIDATION_ERROR',
+        retriable: false,
       });
       return;
     }
@@ -45,6 +48,8 @@ export const getCertSummary: AuthenticatedRequestHandler<
       res.status(401).json({
         success: false,
         error: 'Authentication required',
+        error_code: 'AUTH_REQUIRED',
+        retriable: false,
       });
       return;
     }
@@ -88,23 +93,24 @@ export const getCertSummary: AuthenticatedRequestHandler<
           message: 'Certification summary generated automatically',
         });
         return;
-      } catch (generationError) {
-        const errorMessage = (generationError as Error).message;
+      } catch (generationError: unknown) {
+        const errorMessage =
+          generationError instanceof Error
+            ? generationError.message
+            : String(generationError);
 
         logger.warn(
           `GET_CERT_SUMMARY_AUTO_GENERATION_FAILED: user_id=${user_id}, cert_id=${cert_id}`,
           { error: generationError },
         );
 
-        // If auto-generation fails, fall back to 404 with helpful message
-        if (
-          errorMessage.includes('requires at least 2') ||
-          errorMessage.includes('Certification summary requires')
-        ) {
+        if (generationError instanceof CertSummaryPrerequisiteError) {
           res.status(400).json({
             success: false,
-            error: errorMessage,
-            message: 'Cannot generate summary: insufficient exam data',
+            error: generationError.message,
+            error_code: generationError.code,
+            retriable: generationError.retriable,
+            details: generationError.details,
           });
           return;
         }
@@ -113,16 +119,20 @@ export const getCertSummary: AuthenticatedRequestHandler<
           res.status(404).json({
             success: false,
             error: errorMessage,
-            message: 'User or certification not found',
+            error_code: 'NOT_FOUND',
+            retriable: false,
           });
           return;
         }
 
-        // For other errors, return 404 with original message
-        res.status(404).json({
+        res.status(500).json({
           success: false,
-          error: 'Certification summary not found and auto-generation failed',
-          message: `No certification summary exists yet and automatic generation failed: ${errorMessage}`,
+          error: 'Certification summary auto-generation failed',
+          error_code: 'REPORT_GENERATION_TRANSIENT',
+          retriable: true,
+          details: {
+            original_error: errorMessage,
+          },
         });
         return;
       }
@@ -174,6 +184,8 @@ export const getCertSummary: AuthenticatedRequestHandler<
       res.status(404).json({
         success: false,
         error: errorMessage,
+        error_code: 'NOT_FOUND',
+        retriable: false,
       });
       return;
     }
@@ -181,6 +193,8 @@ export const getCertSummary: AuthenticatedRequestHandler<
     res.status(500).json({
       success: false,
       error: 'Internal server error during cert summary retrieval',
+      error_code: 'INTERNAL_SERVER_ERROR',
+      retriable: true,
     });
   }
 };
@@ -204,6 +218,8 @@ export const regenerateCertSummary: AuthenticatedRequestHandler<
       res.status(400).json({
         success: false,
         error: 'user_id and cert_id are required',
+        error_code: 'VALIDATION_ERROR',
+        retriable: false,
       });
       return;
     }
@@ -212,6 +228,8 @@ export const regenerateCertSummary: AuthenticatedRequestHandler<
       res.status(401).json({
         success: false,
         error: 'Authentication required',
+        error_code: 'AUTH_REQUIRED',
+        retriable: false,
       });
       return;
     }
@@ -271,10 +289,23 @@ export const regenerateCertSummary: AuthenticatedRequestHandler<
 
     const errorMessage = error instanceof Error ? error.message : String(error);
 
+    if (error instanceof CertSummaryPrerequisiteError) {
+      res.status(400).json({
+        success: false,
+        error: error.message,
+        error_code: error.code,
+        retriable: error.retriable,
+        details: error.details,
+      });
+      return;
+    }
+
     if (errorMessage.includes('not found')) {
       res.status(404).json({
         success: false,
         error: errorMessage,
+        error_code: 'NOT_FOUND',
+        retriable: false,
       });
       return;
     }
@@ -283,17 +314,8 @@ export const regenerateCertSummary: AuthenticatedRequestHandler<
       res.status(403).json({
         success: false,
         error: errorMessage,
-      });
-      return;
-    }
-
-    if (
-      errorMessage.includes('requires at least 2') ||
-      errorMessage.includes('Certification summary requires')
-    ) {
-      res.status(400).json({
-        success: false,
-        error: errorMessage,
+        error_code: 'ACCESS_DENIED',
+        retriable: false,
       });
       return;
     }
@@ -301,6 +323,11 @@ export const regenerateCertSummary: AuthenticatedRequestHandler<
     res.status(500).json({
       success: false,
       error: 'Internal server error during cert summary regeneration',
+      error_code: 'REPORT_GENERATION_TRANSIENT',
+      retriable: true,
+      details: {
+        original_error: errorMessage,
+      },
     });
   }
 };
