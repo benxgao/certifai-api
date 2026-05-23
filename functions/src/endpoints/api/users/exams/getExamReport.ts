@@ -10,6 +10,10 @@ import logger from '../../../../services/firebase/logger';
 import { AuthenticatedRequestHandler } from '../../../../types/express';
 import { generateExamReport } from '../../ai/examReportGenerator';
 import { examReportFirestore } from '../../../../services/firebase/examReportFirestore';
+import {
+  mapExamReportError,
+  sendExamReportErrorResponse,
+} from '../../examReportErrorMap';
 
 type ExamReportParams = {
   user_id: string;
@@ -31,28 +35,37 @@ export const getExamReport: AuthenticatedRequestHandler<
     const verifiedUser = req.verified_user;
 
     if (!firebaseUserIdFromToken) {
-      res.status(401).json({
-        success: false,
-        error: 'Authentication required',
-      });
+      sendExamReportErrorResponse(
+        res,
+        mapExamReportError(
+          new Error('Authentication required'),
+          'Authentication required',
+        ),
+      );
       return;
     }
 
     if (!user_id || !exam_id) {
-      res.status(400).json({
-        success: false,
-        error: 'User ID and Exam ID are required',
-      });
+      sendExamReportErrorResponse(
+        res,
+        mapExamReportError(
+          new Error('User ID and Exam ID are required'),
+          'User ID and Exam ID are required',
+        ),
+      );
       return;
     }
 
     // User verification is now handled by verifyUserAccess middleware
     // We can use the verified user directly
     if (!verifiedUser) {
-      res.status(500).json({
-        success: false,
-        error: 'User verification middleware not properly configured',
-      });
+      sendExamReportErrorResponse(
+        res,
+        mapExamReportError(
+          new Error('User verification middleware not properly configured'),
+          'User verification middleware not properly configured',
+        ),
+      );
       return;
     }
 
@@ -71,19 +84,22 @@ export const getExamReport: AuthenticatedRequestHandler<
     });
 
     if (!exam) {
-      res.status(404).json({
-        success: false,
-        error: 'Exam not found',
-      });
+      sendExamReportErrorResponse(
+        res,
+        mapExamReportError(new Error('Exam not found'), 'Exam not found'),
+      );
       return;
     }
 
     // Verify the exam belongs to the requesting user
     if (exam.user_id !== user_id) {
-      res.status(403).json({
-        success: false,
-        error: 'Access denied: Exam does not belong to this user',
-      });
+      sendExamReportErrorResponse(
+        res,
+        mapExamReportError(
+          new Error('Access denied: Exam does not belong to this user'),
+          'Access denied: Exam does not belong to this user',
+        ),
+      );
       return;
     }
 
@@ -97,10 +113,13 @@ export const getExamReport: AuthenticatedRequestHandler<
     if (existingReport) {
       // Verify the report belongs to the requesting user
       if (existingReport.user_id !== user_id) {
-        res.status(403).json({
-          success: false,
-          error: 'Access denied: Exam report does not belong to this user',
-        });
+        sendExamReportErrorResponse(
+          res,
+          mapExamReportError(
+            new Error('Access denied: Exam report does not belong to this user'),
+            'Access denied: Exam report does not belong to this user',
+          ),
+        );
         return;
       }
 
@@ -143,34 +162,10 @@ export const getExamReport: AuthenticatedRequestHandler<
       error_stack: error instanceof Error ? error.stack : undefined,
     });
 
-    if (error instanceof Error && error.message.includes('not found')) {
-      res.status(404).json({
-        success: false,
-        error: error.message,
-      });
-      return;
-    }
-
-    if (error instanceof Error && error.message.includes('Access denied')) {
-      res.status(403).json({
-        success: false,
-        error: error.message,
-      });
-      return;
-    }
-
-    if (error instanceof Error && error.message.includes('completed exams')) {
-      res.status(400).json({
-        success: false,
-        error: error.message,
-      });
-      return;
-    }
-
-    res.status(500).json({
-      success: false,
-      error: 'Failed to fetch exam report',
-    });
+    sendExamReportErrorResponse(
+      res,
+      mapExamReportError(error, 'Failed to fetch exam report'),
+    );
   }
 };
 
@@ -189,28 +184,37 @@ export const regenerateExamReport: AuthenticatedRequestHandler<
     const verifiedUser = req.verified_user;
 
     if (!firebaseUserIdFromToken) {
-      res.status(401).json({
-        success: false,
-        error: 'Authentication required',
-      });
+      sendExamReportErrorResponse(
+        res,
+        mapExamReportError(
+          new Error('Authentication required'),
+          'Authentication required',
+        ),
+      );
       return;
     }
 
     if (!user_id || !exam_id) {
-      res.status(400).json({
-        success: false,
-        error: 'User ID and Exam ID are required',
-      });
+      sendExamReportErrorResponse(
+        res,
+        mapExamReportError(
+          new Error('User ID and Exam ID are required'),
+          'User ID and Exam ID are required',
+        ),
+      );
       return;
     }
 
     // User verification is now handled by verifyUserAccess middleware
     // We can use the verified user directly
     if (!verifiedUser) {
-      res.status(500).json({
-        success: false,
-        error: 'User verification middleware not properly configured',
-      });
+      sendExamReportErrorResponse(
+        res,
+        mapExamReportError(
+          new Error('User verification middleware not properly configured'),
+          'User verification middleware not properly configured',
+        ),
+      );
       return;
     }
 
@@ -229,19 +233,22 @@ export const regenerateExamReport: AuthenticatedRequestHandler<
     });
 
     if (!exam) {
-      res.status(404).json({
-        success: false,
-        error: 'Exam not found',
-      });
+      sendExamReportErrorResponse(
+        res,
+        mapExamReportError(new Error('Exam not found'), 'Exam not found'),
+      );
       return;
     }
 
     // Verify the exam belongs to the requesting user
     if (exam.user_id !== user_id) {
-      res.status(403).json({
-        success: false,
-        error: 'Access denied: Exam does not belong to this user',
-      });
+      sendExamReportErrorResponse(
+        res,
+        mapExamReportError(
+          new Error('Access denied: Exam does not belong to this user'),
+          'Access denied: Exam does not belong to this user',
+        ),
+      );
       return;
     }
 
@@ -254,10 +261,13 @@ export const regenerateExamReport: AuthenticatedRequestHandler<
     if (existingReport) {
       // Verify the report belongs to the requesting user before deleting
       if (existingReport.user_id !== user_id) {
-        res.status(403).json({
-          success: false,
-          error: 'Access denied: Exam report does not belong to this user',
-        });
+        sendExamReportErrorResponse(
+          res,
+          mapExamReportError(
+            new Error('Access denied: Exam report does not belong to this user'),
+            'Access denied: Exam report does not belong to this user',
+          ),
+        );
         return;
       }
 
@@ -287,34 +297,10 @@ export const regenerateExamReport: AuthenticatedRequestHandler<
       error_stack: error instanceof Error ? error.stack : undefined,
     });
 
-    if (error instanceof Error && error.message.includes('not found')) {
-      res.status(404).json({
-        success: false,
-        error: error.message,
-      });
-      return;
-    }
-
-    if (error instanceof Error && error.message.includes('Access denied')) {
-      res.status(403).json({
-        success: false,
-        error: error.message,
-      });
-      return;
-    }
-
-    if (error instanceof Error && error.message.includes('completed exams')) {
-      res.status(400).json({
-        success: false,
-        error: error.message,
-      });
-      return;
-    }
-
-    res.status(500).json({
-      success: false,
-      error: 'Failed to regenerate exam report',
-    });
+    sendExamReportErrorResponse(
+      res,
+      mapExamReportError(error, 'Failed to regenerate exam report'),
+    );
   }
 };
 

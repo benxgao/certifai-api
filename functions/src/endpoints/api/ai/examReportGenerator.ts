@@ -52,6 +52,10 @@ import {
 } from '../../../types/examReport';
 import { examReportFirestore } from '../../../services/firebase/examReportFirestore';
 import { getExamReportGeneratorFlow } from '../../../services/genkit/examReportGenerator.js';
+import {
+  mapExamReportError,
+  sendExamReportErrorResponse,
+} from '../examReportErrorMap';
 
 /**
  * Helper function to convert difficulty string to number
@@ -340,19 +344,22 @@ export const examReportGeneratorHandler = async (
 
     // Validate required fields
     if (!exam_id) {
-      res.status(400).json({
-        success: false,
-        error: 'exam_id is required',
-      });
+      sendExamReportErrorResponse(
+        res,
+        mapExamReportError(new Error('exam_id is required'), 'exam_id is required'),
+      );
       return;
     }
 
     // For API calls, we require authentication
     if (!firebaseUserIdFromToken) {
-      res.status(401).json({
-        success: false,
-        error: 'Authentication required',
-      });
+      sendExamReportErrorResponse(
+        res,
+        mapExamReportError(
+          new Error('Authentication required'),
+          'Authentication required',
+        ),
+      );
       return;
     }
 
@@ -376,39 +383,9 @@ export const examReportGeneratorHandler = async (
       { error: error instanceof Error ? error.message : String(error) },
     );
 
-    const errorMessage = error instanceof Error ? error.message : String(error);
-
-    if (errorMessage.includes('not found')) {
-      res.status(404).json({
-        success: false,
-        error: errorMessage,
-      });
-      return;
-    }
-
-    if (errorMessage.includes('Access denied')) {
-      res.status(403).json({
-        success: false,
-        error: errorMessage,
-      });
-      return;
-    }
-
-    if (
-      errorMessage.includes('completed exams') ||
-      errorMessage.includes('No valid performance')
-    ) {
-      res.status(400).json({
-        success: false,
-        error: errorMessage,
-      });
-      return;
-    }
-
-    // Generic server error
-    res.status(500).json({
-      success: false,
-      error: 'Internal server error during report generation',
-    });
+    sendExamReportErrorResponse(
+      res,
+      mapExamReportError(error, 'Internal server error during report generation'),
+    );
   }
 };

@@ -3,6 +3,17 @@ import logger from '../../services/firebase/logger';
 import { ExamReportTaskPayload } from '../../services/cloudTasks/examReportTaskService';
 import { generateExamReport } from '../../endpoints/api/ai/examReportGenerator';
 
+const isPermanentGenerationError = (errorMessage: string): boolean => {
+  const lowerMessage = errorMessage.toLowerCase();
+
+  return (
+    lowerMessage.includes('exam not found') ||
+    lowerMessage.includes('access denied') ||
+    lowerMessage.includes('completed exams') ||
+    lowerMessage.includes('no valid performance data')
+  );
+};
+
 /**
  * Cloud Task Handler for Exam Report Generation
  * Processes exam report generation tasks in the background
@@ -107,6 +118,8 @@ const handler = async (req: Request, res: Response) => {
       // Handle exam report generation errors
       const errorMessage =
         reportError instanceof Error ? reportError.message : 'Unknown error';
+      const permanentFailure = isPermanentGenerationError(errorMessage);
+      const responseStatus = permanentFailure ? 400 : 500;
 
       logger.error(
         'EXAM_REPORT_TASK_GENERATION_FAILED: Report generation failed',
@@ -122,19 +135,21 @@ const handler = async (req: Request, res: Response) => {
             reportError instanceof Error
               ? reportError.constructor.name
               : 'Unknown',
+          permanent_failure: permanentFailure,
+          response_status: responseStatus,
           structuredData: true,
         },
       );
 
-      // For task processing, we want to return success even if report generation fails
-      // This prevents the task from being retried indefinitely
-      res.status(200).json({
+      res.status(responseStatus).json({
         success: false,
         error: {
           exam_id,
           report_generated: false,
           reason: 'generation_failed',
           error_message: errorMessage,
+          permanent_failure: permanentFailure,
+          retriable: !permanentFailure,
           duration_ms: Date.now() - taskStartTime,
         },
       });
