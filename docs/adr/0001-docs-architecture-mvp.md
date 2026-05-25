@@ -141,7 +141,7 @@ Combine all architecture docs into one giant file. **Dismissed** because:
 
 ## References
 
-- [Documents-as-Code: MVP Rollout Plan](./documents-as-code.md)
+- [Documents-as-Code: MVP Rollout Plan](../../ai_oriented_kanban/10-active/documents-as-code.md)
 - [Repository Map](../ai/repo-map.md) – System boundaries for AI context
 - [Assistant Context Index](../ai/assistant-context-index.md) – Complete docs index
 - [Assistant Guide](../ai/guide.md) – Task routing examples

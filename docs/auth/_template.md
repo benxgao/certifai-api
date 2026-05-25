@@ -26,5 +26,5 @@
 
 ## Related Docs
 
-- See [docs/workflow/auth-verification-workflow.md](../../workflow/auth-verification-workflow.md) for step-by-step auth verification lifecycle
-- See [Related Document Title](../related-section/file.md) for [relationship]
+- See [docs/workflow/auth-verification-workflow.md](../workflow/auth-verification-workflow.md) for step-by-step auth verification lifecycle.
+- Add at least one sibling-domain link here (for example: `../api/endpoint-conventions.md`).

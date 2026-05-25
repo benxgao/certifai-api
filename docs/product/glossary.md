@@ -192,5 +192,5 @@ A planned, phased deployment of a feature or change to production. Includes test
 ## Related Docs
 
 - [API Response Envelope](../api/response-envelope.md) – Details of the ApiResponse structure
-- [Architecture Overview](../ARCHITECTURE.md) – System context and core components
+- [Architecture Overview](../architecture/firebase-functions-structure.md) – System context and core components
 - [Repository Map](../ai/repo-map.md) – System boundaries and structure

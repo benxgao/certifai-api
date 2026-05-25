@@ -28,5 +28,5 @@
 
 ## Related Docs
 
-- See [docs/DOMAIN/invariants.md](../relative/path.md) for [relationship to invariant docs]
-- See [Related Document Title](../related-section/file.md) for [relationship]
+- Link to the corresponding invariant domain doc (for example: `../auth/auth-patterns.md`).
+- Add at least one sibling workflow/domain link here.

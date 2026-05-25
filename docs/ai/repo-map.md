@@ -127,7 +127,7 @@ QUESTIONS_GENERATING → READY → IN_PROGRESS → COMPLETED
 
 **Dangerous**: Status updates must be atomic; out-of-order updates can corrupt exam state.
 
-**Where documented**: [Exam Status Flow](../architecture/exam_active.md)
+**Where documented**: [Exam Generation Workflow](../workflow/exam-generation-workflow.md)
 
 ## System Boundaries (What Goes Where)
 

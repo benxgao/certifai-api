@@ -30,4 +30,4 @@
 
 ## Related Docs
 
-- See [Related Document Title](../related-section/file.md) for [relationship]
+- Add at least one sibling-domain link here (for example: `../api/endpoint-conventions.md`).

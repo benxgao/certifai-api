@@ -285,7 +285,7 @@ Adapted for documentation rollout:
 
 - [x] Phase 1 — Establish AI docs skeleton (1.1–1.9)
 - [x] Phase 2 — Wire canonical links in instructions and README
-- [ ] Phase 3 — Add governance, smoke-tests, and freshness checks
+- [x] Phase 3 — Add governance, smoke-tests, and freshness checks
 
 ## Phases
 
@@ -417,7 +417,7 @@ Adapted for documentation rollout:
 
 ### Phase 3: Add governance and freshness checks
 
-**Progress**: `[ ]`
+**Progress**: `[x]`
 
 **Layer**: process/governance layer
 
@@ -437,16 +437,16 @@ Adapted for documentation rollout:
 
 **Sub-subphase checklist**:
 
-- [ ] **3.1 — Introduce PR checklist**: codify when docs updates are required, including new-doc registration requirements.
+- [x] **3.1 — Introduce PR checklist**: codify when docs updates are required, including new-doc registration requirements.
   - **New-doc registration gate**: a new doc is not merge-ready unless `docs/ai/assistant-context-index.md` and `docs/ai/guide.md` are updated and the doc has a `## Related Docs` section.
   - **Independent verification**: open a PR draft and confirm checklist appears.
 
-- [ ] **3.2 — Define maintenance protocol**: document the docs layering contract, archive retirement policy, and monthly freshness review process.
+- [x] **3.2 — Define maintenance protocol**: document the docs layering contract, archive retirement policy, and monthly freshness review process.
   - **Layering contract**: add explicit rule that procedures go in `docs/workflow/` and invariants stay in domain docs. PRs adding step-by-step sequences to non-workflow domain docs require an explicit reviewer sign-off.
   - **Archive retirement policy**: `docs/plans/` planning docs are independent artifacts — never the canonical source for live patterns. Any rule found only in a plans doc must be migrated to its domain doc before the plans doc is trusted as reference.
   - **Independent verification**: protocol can be executed by any maintainer without additional tribal knowledge.
 
-- [ ] **3.3 — AI retrieval smoke-test protocol**: create manual QA prompts that verify key assistant context paths.
+- [x] **3.3 — AI retrieval smoke-test protocol**: create manual QA prompts that verify key assistant context paths.
   - **Covered tasks**: (1) "add a new protected endpoint", (2) "implement exam generation rate limiting", (3) "add a Redis-cached query", (4) "debug a Cloud Tasks local dev issue", (5) "add a Prisma migration safely".
   - **Independent verification**: each prompt answered correctly by assistant using only linked canonical docs; no invented details.
 
@@ -480,7 +480,7 @@ At the end of each working session:
 ### Session Note Template
 
 ```markdown
-### Session Note — <YYYY-MM-DD HH:mm local>
+### Session Note — <YYYY-MM-DD HH:mm UTC>
 
 - Completed: <phase.subphase>
 - Verified by: <command/test/QA>
@@ -488,11 +488,18 @@ At the end of each working session:
 - Blockers: <none | details>
 ```
 
-### Session Note — 2026-05-26 23:10 local
+### Session Note — 2026-05-25 23:10 UTC
 
 - Completed: 1.1–1.9
 - Verified by: file existence checks (`ls docs/*/_template.md`), link/metadata checks (`grep` for `Source of truth` and `## Related Docs`), and docs index/guide backlink review
 - Next: 2.1 (add canonical AI doc references in `.github/instructions/instruction.instructions.md`)
+- Blockers: none
+
+### Session Note — 2026-05-25 23:35 UTC
+
+- Completed: 3.1–3.3
+- Verified by: file existence checks for `.github/pull_request_template.md`, `docs/operations/docs-maintenance.md`, `docs/operations/ai-retrieval-smoke-tests.md`; backlink/index checks in `docs/ai/assistant-context-index.md` and `docs/ai/guide.md`
+- Next: none (Phase 1–3 complete)
 - Blockers: none
 
 ## Essential Implementation Details

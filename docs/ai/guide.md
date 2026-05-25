@@ -143,6 +143,10 @@ This guide routes common assistant tasks to the most relevant canonical document
 → Start with: [Testing Strategy](../testing/strategy.md)
 → Coverage targets section provides guidance on what to prioritize
 
+**Task: Validate assistant retrieval quality**
+→ Start with: [AI Retrieval Smoke Tests](../operations/ai-retrieval-smoke-tests.md)
+→ Then review: [Assistant Context Index](./assistant-context-index.md) | [Docs Maintenance Protocol](../operations/docs-maintenance.md)
+
 ---
 
 ### 🚀 Operations & Deployment
@@ -169,7 +173,7 @@ This guide routes common assistant tasks to the most relevant canonical document
 
 **Task: Understand the system's overall architecture**
 → Start with: [Repository Map](./repo-map.md)
-→ Then review: [Firebase Functions Structure](../architecture/firebase-functions-structure.md) | [ARCHITECTURE.md](../ARCHITECTURE.md)
+→ Then review: [Firebase Functions Structure](../architecture/firebase-functions-structure.md) | [Repository Map](./repo-map.md)
 
 **Task: Understand how data flows through the system**
 → Start with: [Repository Map](./repo-map.md) (System Architecture section)
@@ -235,3 +239,4 @@ If an assistant response seems incorrect or incomplete:
 
 - [Repository Map](./repo-map.md) – System boundaries and critical invariants
 - [Assistant Context Index](./assistant-context-index.md) – Complete documentation index
+- [AI Retrieval Smoke Tests](../operations/ai-retrieval-smoke-tests.md) – QA protocol for verifying good context assembly

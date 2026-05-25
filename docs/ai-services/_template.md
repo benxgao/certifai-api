@@ -26,5 +26,5 @@
 
 ## Related Docs
 
-- See [docs/workflow/](../../workflow/) for step-by-step AI generation or processing lifecycles
-- See [Related Document Title](../related-section/file.md) for [relationship]
+- See [docs/workflow/README.md](../workflow/README.md) for workflow placement and naming.
+- Add at least one sibling-domain link here (for example: `../services/service-catalog.md`).
