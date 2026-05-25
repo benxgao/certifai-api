@@ -9,6 +9,24 @@ Backend for [Certestic](https://certestic.com), a certification training app wit
 **Frontend**: `certifai-app` (Next.js 15)  
 **Backend**: `certifai-api` (this repo) — Firebase Functions + Express.js
 
+## Documentation Map
+
+Start here for canonical project context:
+
+- Repo map: `docs/ai/repo-map.md`
+- Assistant context index: `docs/ai/assistant-context-index.md`
+- Task-routing guide: `docs/ai/guide.md`
+
+Core domain docs:
+
+- API conventions: `docs/api/endpoint-conventions.md`
+- Response contract: `docs/api/response-envelope.md`
+- Auth invariants: `docs/auth/auth-patterns.md`
+- Database patterns: `docs/database/prisma-patterns.md`
+- Cache patterns: `docs/cache/redis-patterns.md`
+- Service catalog: `docs/services/service-catalog.md`
+- Workflows: `docs/workflow/`
+
 ## Getting Started
 
 ### Prerequisites

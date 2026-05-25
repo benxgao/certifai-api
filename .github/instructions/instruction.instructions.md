@@ -5,6 +5,14 @@
 - `certifai-app`: Next.js 15 frontend with shadcn/ui, Tailwind CSS, Firebase Auth
 - `certifai-api`: Firebase Functions backend with Express.js, Prisma, PostgreSQL, Redis
 
+## Canonical Documentation References
+
+Load these first for project context (keep this section as links-only; details live in docs):
+
+- Repository map: `../../docs/ai/repo-map.md`
+- Assistant context index: `../../docs/ai/assistant-context-index.md`
+- Assistant task-routing guide: `../../docs/ai/guide.md`
+
 ## Frontend Patterns
 
 - Use shadcn/ui components from `src/components/ui/`, custom components in `src/components/custom/`
