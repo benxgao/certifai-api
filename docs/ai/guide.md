@@ -235,4 +235,3 @@ If an assistant response seems incorrect or incomplete:
 
 - [Repository Map](./repo-map.md) – System boundaries and critical invariants
 - [Assistant Context Index](./assistant-context-index.md) – Complete documentation index
-- [AI Retrieval Smoke Tests](../operations/ai-retrieval-smoke-tests.md) – QA protocol for verifying good context assembly

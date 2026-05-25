@@ -283,7 +283,7 @@ Adapted for documentation rollout:
 
 ## Progress Dashboard
 
-- [ ] Phase 1 — Establish AI docs skeleton (1.1–1.9)
+- [x] Phase 1 — Establish AI docs skeleton (1.1–1.9)
 - [ ] Phase 2 — Wire canonical links in instructions and README
 - [ ] Phase 3 — Add governance, smoke-tests, and freshness checks
 
@@ -291,7 +291,7 @@ Adapted for documentation rollout:
 
 ### Phase 1: Establish AI docs skeleton
 
-**Progress**: `[ ]`
+**Progress**: `[x]`
 
 **Layer**: `docs/` content layer
 
@@ -347,41 +347,41 @@ Adapted for documentation rollout:
 
 **Sub-subphase checklist**:
 
-- [ ] **1.1 — All `_template.md` files**: create 13 section templates with the standard skeleton and domain-specific heading notes. No real content — structure only.
+- [x] **1.1 — All `_template.md` files**: create 13 section templates with the standard skeleton and domain-specific heading notes. No real content — structure only.
   - **Files**: `docs/{product,architecture,adr,api,database,cache,auth,ai-services,services,testing,ai,operations,workflow}/_template.md`
   - **Independent verification**: `ls docs/*/_template.md | wc -l` outputs `13`; all render in Markdown preview.
 
-- [ ] **1.2 — AI context docs**: author `docs/ai/repo-map.md`, `docs/ai/assistant-context-index.md`, and `docs/ai/guide.md` from live repo inspection.
+- [x] **1.2 — AI context docs**: author `docs/ai/repo-map.md`, `docs/ai/assistant-context-index.md`, and `docs/ai/guide.md` from live repo inspection.
   - **Files**: `docs/ai/repo-map.md`, `docs/ai/assistant-context-index.md`, `docs/ai/guide.md`
   - **Independent verification**: manual QA prompt "summarize certifai-api boundaries" yields answer grounded in repo map only; no invented details. `guide.md` maps at least 5 common assistant tasks to specific docs.
 
-- [ ] **1.3 — Product and ADR docs**: author glossary and first decision record.
+- [x] **1.3 — Product and ADR docs**: author glossary and first decision record.
   - **Files**: `docs/product/glossary.md`, `docs/adr/0001-docs-architecture-mvp.md`
   - **Independent verification**: glossary covers all terms used in `docs/ARCHITECTURE.md` and `docs/ai/`; ADR status is `Accepted`.
 
-- [ ] **1.4 — Architecture docs**: document Firebase Functions structure and Express.js routing from `functions/src/`.
+- [x] **1.4 — Architecture docs**: document Firebase Functions structure and Express.js routing from `functions/src/`.
   - **Files**: `docs/architecture/firebase-functions-structure.md`
   - **Independent verification**: `grep -r "router\|app\.use\|endpoint" functions/src/endpoints/ | head -10` matches at least 3 conventions in the doc.
 
-- [ ] **1.5 — API docs**: document `ApiResponse<T>` envelope and endpoint conventions from `functions/src/endpoints/api/` and `functions/src/types/`.
+- [x] **1.5 — API docs**: document `ApiResponse<T>` envelope and endpoint conventions from `functions/src/endpoints/api/` and `functions/src/types/`.
   - **Files**: `docs/api/endpoint-conventions.md`, `docs/api/response-envelope.md`
   - **Independent verification**: `grep -r "ApiResponse\|success.*boolean\|data.*T" functions/src/types/ | head -20` matches all patterns documented; nothing invented.
 
-- [ ] **1.6 — Database and Cache docs**: document Prisma service patterns and Redis caching conventions.
+- [x] **1.6 — Database and Cache docs**: document Prisma service patterns and Redis caching conventions.
   - **Files**: `docs/database/prisma-patterns.md`, `docs/cache/redis-patterns.md`
   - **Independent verification**: `docs/database/prisma-patterns.md` references `functions/src/services/prisma/`; `docs/cache/redis-patterns.md` references at least one real key pattern from `functions/src/services/redis/`.
 
-- [ ] **1.7 — Auth, AI Services, and Services docs**: document auth **invariants** from `functions/src/middlewares/`, generation **conventions** from `functions/src/services/genkit/`, and service catalog from `functions/src/services/`.
+- [x] **1.7 — Auth, AI Services, and Services docs**: document auth **invariants** from `functions/src/middlewares/`, generation **conventions** from `functions/src/services/genkit/`, and service catalog from `functions/src/services/`.
   - **Files**: `docs/auth/auth-patterns.md`, `docs/ai-services/exam-generation.md`, `docs/services/service-catalog.md`
   - **Important**: `docs/auth/auth-patterns.md` must contain invariants ONLY — no step-by-step middleware call sequence (that goes in `docs/workflow/auth-verification-workflow.md`).
   - **Independent verification**: `docs/auth/auth-patterns.md` references `authCheck.ts` and `jwtAuth.ts` entry points; `docs/ai-services/exam-generation.md` references `functions/src/services/genkit/`; `docs/services/service-catalog.md` lists at least 8 services matching `ls functions/src/services/`.
 
-- [ ] **1.8 — Workflow docs**: author the two key lifecycle procedure docs and the workflow README.
+- [x] **1.8 — Workflow docs**: author the two key lifecycle procedure docs and the workflow README.
   - **Files**: `docs/workflow/README.md`, `docs/workflow/exam-generation-workflow.md`, `docs/workflow/auth-verification-workflow.md`
   - **Important**: workflow docs contain numbered step sequences and state transitions. Domain docs must link to these rather than embed procedures inline.
   - **Independent verification**: `docs/workflow/exam-generation-workflow.md` traces lifecycle from `POST /exams/generate` through Cloud Tasks queue to completion; `grep -r "exam-generation-workflow\|auth-verification-workflow" docs/` shows backlinks from at least the relevant auth and ai-services docs.
 
-- [ ] **1.9 — Testing and Operations docs**: document test patterns from `functions/__tests__/` and deployment from `.github/workflows/`.
+- [x] **1.9 — Testing and Operations docs**: document test patterns from `functions/__tests__/` and deployment from `.github/workflows/`.
   - **Files**: `docs/testing/strategy.md`, `docs/operations/deployment.md`
   - **Independent verification**: `docs/testing/strategy.md` cites actual test file patterns matching `grep -r "describe\|it(" functions/__tests__/`; `docs/operations/deployment.md` references actual workflow file names.
 
@@ -487,6 +487,13 @@ At the end of each working session:
 - Next: <phase.subphase>
 - Blockers: <none | details>
 ```
+
+### Session Note — 2026-05-26 23:10 local
+
+- Completed: 1.1–1.9
+- Verified by: file existence checks (`ls docs/*/_template.md`), link/metadata checks (`grep` for `Source of truth` and `## Related Docs`), and docs index/guide backlink review
+- Next: 2.1 (add canonical AI doc references in `.github/instructions/instruction.instructions.md`)
+- Blockers: none
 
 ## Essential Implementation Details
 

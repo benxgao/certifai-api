@@ -70,11 +70,9 @@ This index provides a machine-friendly list of all canonical documentation files
 
 ### 🚀 Operations & Deployment
 
-| Doc                          | Purpose                                                                      | File                                                                                     |
-| ---------------------------- | ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| **Deployment Guide**         | GitHub Actions workflow, Firebase Functions config, environment variables    | [docs/operations/deployment.md](../operations/deployment.md)                             |
-| **Docs Maintenance**         | Layering contract, archive policy, update cadence, quarterly topology review | [docs/operations/docs-maintenance.md](../operations/docs-maintenance.md)                 |
-| **AI Retrieval Smoke Tests** | Manual prompt-based QA protocol for verifying key assistant context paths    | [docs/operations/ai-retrieval-smoke-tests.md](../operations/ai-retrieval-smoke-tests.md) |
+| Doc                  | Purpose                                                                   | File                                                         |
+| -------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| **Deployment Guide** | GitHub Actions workflow, Firebase Functions config, environment variables | [docs/operations/deployment.md](../operations/deployment.md) |
 
 ### 📋 Process & Governance
 
@@ -87,6 +85,14 @@ This index provides a machine-friendly list of all canonical documentation files
 | Doc                  | Purpose                                                       | File                                               |
 | -------------------- | ------------------------------------------------------------- | -------------------------------------------------- |
 | **Product Glossary** | Shared terminology for product, engineering, and AI retrieval | [docs/product/glossary.md](../product/glossary.md) |
+
+### 🧭 AI Documentation Entry Points
+
+| Doc                           | Purpose                                            | File                                                   |
+| ----------------------------- | -------------------------------------------------- | ------------------------------------------------------ |
+| **Assistant Context Index**   | Canonical map of all docs (this document)          | [docs/ai/assistant-context-index.md](./assistant-context-index.md) |
+| **Assistant Guide**           | Task routing for common implementation/debug tasks | [docs/ai/guide.md](./guide.md)                         |
+| **Repository Map**            | Boundaries, invariants, and dangerous areas        | [docs/ai/repo-map.md](./repo-map.md)                  |
 
 ## Workflows (Multi-Step Procedures)
 
@@ -157,4 +163,3 @@ Orphan docs (not linked anywhere) are hard to find. If you notice one, open an i
 
 - [Repository Map](./repo-map.md) – System boundaries and critical invariants
 - [Assistant Guide](./guide.md) – Task-based routing to the right docs
-- [AI Retrieval Smoke Tests](../operations/ai-retrieval-smoke-tests.md) – QA protocol for verifying good context assembly

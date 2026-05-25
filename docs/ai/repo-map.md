@@ -112,14 +112,14 @@ Flow:
 - All Express handlers must type `req` and `res` using `TypedRequestHandler<ReqBody, ResBody, ...>`
 - All component props and SWR hooks must have explicit type parameters
 
-**Where documented**: [Backend Coding Instructions](instruction.instructions.md#type-safety-notes)
+**Where documented**: [Backend Coding Instructions](../../.github/instructions/instruction.instructions.md)
 
 ### 7. **Exam Status Lifecycle**
 
 Valid status transitions:
 
 ```
-QUESTIONS_GENERATING → READY → STARTED → COMPLETED
+QUESTIONS_GENERATING → READY → IN_PROGRESS → COMPLETED
   (questions being     (ready    (user       (user
    created)            for       started)    submitted)
                        user)
