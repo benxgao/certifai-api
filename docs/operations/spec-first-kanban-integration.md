@@ -24,6 +24,37 @@ Every rollout plan in `ai_oriented_kanban/` must include:
    - Docs-only simulation drill
    - Rollout evaluation and health score
 
+## Required Spec Format (Before Implementation)
+
+Each rollout spec must explicitly define:
+
+1. **Scope**
+   - In-scope outcomes and out-of-scope boundaries.
+2. **Assumptions**
+   - Planning assumptions with supporting doc references.
+3. **Constraints**
+   - Technical/process restrictions and non-negotiable guardrails.
+4. **Decision Log**
+   - Major decisions with docs evidence and sufficiency verdicts.
+5. **Acceptance Criteria**
+   - Independent verification checks that determine done/not-done.
+
+### Acceptance Criteria Schema (Required)
+
+Use measurable pass/fail style:
+
+- `Given`: preconditions/context
+- `When`: action/change performed
+- `Then`: observable and verifiable result
+- `Evidence`: command/check/manual proof used
+
+Example criterion:
+
+- **Given** rollout Phase 1 files are updated
+- **When** reviewer checks `.github/pull_request_template.md`
+- **Then** `Docs Needed` and decision evidence capture are explicitly required
+- **Evidence** PR template section includes those checklist items
+
 ## Required Decision Evidence Schema
 
 Use this schema in rollout artifacts:
@@ -45,6 +76,22 @@ Reject rollout work if any are missing:
 - Fallback code scan without insufficiency reason
 - Insufficiency discovered but no doc update action or blocker ownership
 
+Approve only when all are true:
+
+- Spec includes `Scope`, `Assumptions`, `Constraints`, `Decision Log`, and `Acceptance Criteria`.
+- Acceptance criteria are independently verifiable.
+- Major decisions have complete evidence schema rows.
+
+## Pre-Implementation Gate (Execution Order)
+
+Before implementation begins, rollout artifacts must show:
+
+1. `Docs Needed` completed with reason per doc.
+2. Initial decision evidence rows for major implementation decisions.
+3. Sufficiency verdict for each major decision (`Sufficient` / `Insufficient`).
+
+If any decision is `Insufficient`, fallback code scanning is allowed only for that decision and must be paired with a concrete doc update action (or explicit blocker owner + due date).
+
 ## Verification Expectations
 
 A rollout is governance-compliant when:
@@ -53,6 +100,21 @@ A rollout is governance-compliant when:
 - Insufficiency rows are closed with doc updates or tracked blockers.
 - Discoverability is preserved (index + guide + related docs).
 - Simulation drill result is captured with pass/partial/fail and remediation notes.
+
+## Minimal Example
+
+### Docs Needed
+
+- `docs/ai/guide.md` — route to task-relevant primary docs.
+- `docs/ai/assistant-context-index.md` — confirm canonical doc set.
+- `docs/operations/docs-maintenance.md` — enforce governance/review gates.
+
+### Decision Evidence Log (Sample)
+
+| Decision | Docs cited | Sufficiency verdict | Fallback code scan used? | Doc update action |
+| --- | --- | --- | --- | --- |
+| Use rollout template docs-first sections | `ai_oriented_kanban/templates/rollout-plan-template.md` | Sufficient | No | None |
+| Resolve outdated middleware path reference | `docs/auth/auth-patterns.md` | Insufficient | Yes (doc path differed from live code) | Update `docs/auth/auth-patterns.md` with corrected path |
 
 ## Related Docs
 

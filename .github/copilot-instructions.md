@@ -38,6 +38,7 @@ For major decisions, capture:
 When authoring or executing rollout plans:
 
 - Use `ai_oriented_kanban/templates/rollout-plan-template.md`.
+- Confirm rollout spec includes `Scope`, `Assumptions`, `Constraints`, `Decision Log`, and `Acceptance Criteria`.
 - Complete docs-first sections before implementation:
   - `Docs-First Retrieval Checklist`
   - `Docs Needed`
@@ -47,6 +48,16 @@ When authoring or executing rollout plans:
   - AI-ready reflection and next-plan handoff
   - Docs-only Simulation Drill
   - Rollout Eval & Health Score
+
+## Pre-Implementation Gate (Required)
+
+Before writing implementation code, assistants must:
+
+1. Declare `Docs Needed` with reason per document.
+2. Record an initial decision evidence row for each major decision.
+3. Mark sufficiency verdict per decision (`Sufficient` / `Insufficient`).
+
+If any decision is `Insufficient`, use fallback code scan only for that decision and record the exact docs remediation action.
 
 ## Docs Remediation Contract
 

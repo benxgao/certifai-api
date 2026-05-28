@@ -14,6 +14,24 @@
 - Commands/tests executed:
 - Key outputs/results:
 
+## Docs-First Planning Gate (required before implementation)
+
+- [ ] `Docs Needed` list declared before implementation details (with reason per doc)
+- [ ] Doc sufficiency assessed for major decisions (`Sufficient` / `Insufficient`)
+- [ ] `Decision Evidence Log` completed for major decisions
+
+### Docs Needed
+
+| Doc path | Why needed |
+| --- | --- |
+| `<docs/...>` | `<decision or scope dependency>` |
+
+### Decision Evidence Log
+
+| Decision | Docs cited | Sufficiency verdict | Fallback code scan used? | Doc update action |
+| --- | --- | --- | --- | --- |
+| `<decision>` | `<doc paths>` | `Sufficient` / `Insufficient` | `No` / `Yes (reason)` | `None` / `<update target or blocker owner+date>` |
+
 ## Documentation Impact
 
 - [ ] No documentation impact

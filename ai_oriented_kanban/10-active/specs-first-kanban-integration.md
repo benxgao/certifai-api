@@ -203,7 +203,7 @@ Default sequencing: contract definition → template integration → doc graph u
 
 ## Progress Dashboard
 
-- [ ] Phase 1 — Spec-first kanban contract
+- [x] Phase 1 — Spec-first kanban contract
 - [ ] Phase 2 — Template and checklist integration
 - [ ] Phase 3 — Graph-link system hardening
 - [ ] Phase 4 — Retrieval QA expansion
@@ -216,7 +216,7 @@ Default sequencing: contract definition → template integration → doc graph u
 
 ### Phase 1: Spec-first kanban contract
 
-**Progress**: `[ ]`
+**Progress**: `[x]`
 
 **Layer**: governance policy
 
@@ -236,12 +236,18 @@ Default sequencing: contract definition → template integration → doc graph u
 
 **Sub-subphase checklist**:
 
-- [ ] **1.1 — Define spec format**: scope, assumptions, constraints, decision log, acceptance criteria.
+- [x] **1.1 — Define spec format**: scope, assumptions, constraints, decision log, acceptance criteria.
   - **Independent verification**: spec format is explicit and example included.
-- [ ] **1.2 — Define review gate**: PR checks and evidence requirements.
+- [x] **1.2 — Define review gate**: PR checks and evidence requirements.
   - **Independent verification**: checklist includes `Docs Needed`, sufficiency verdicts, pass/fail criteria.
-- [ ] **1.3 — Update copilot instructions**: add spec-first workflow guidance and docs-first decision rules.
+- [x] **1.3 — Update copilot instructions**: add spec-first workflow guidance and docs-first decision rules.
   - **Independent verification**: instructions include doc-priority, required docs listing, code-scan fallback, and doc-update mandate.
+
+**Phase 1 verification notes (2026-05-29)**:
+
+- `docs/operations/spec-first-kanban-integration.md` now includes explicit spec format, acceptance criteria schema, reviewer gate, and minimal example.
+- `.github/copilot-instructions.md` now includes an explicit pre-implementation gate requiring docs-needed declaration and per-decision sufficiency logging.
+- `.github/pull_request_template.md` now requires `Docs Needed` and `Decision Evidence Log` capture before implementation details.
 
 ---
 
