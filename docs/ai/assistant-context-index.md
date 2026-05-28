@@ -1,7 +1,7 @@
 # Assistant Context Index: Complete Documentation Map
 
 > **Source of truth**: Canonical docs in `docs/`
-> **Last reviewed**: 2026-05-26
+> **Last reviewed**: 2026-05-29
 > **Owner**: Engineering Team / AI Assistants
 
 ## Purpose
@@ -75,6 +75,7 @@ This index provides a machine-friendly list of all canonical documentation files
 | **Deployment Guide**         | GitHub Actions workflow, Firebase Functions config, environment variables    | [docs/operations/deployment.md](../operations/deployment.md)                             |
 | **Docs Maintenance**         | Layering contract, archive policy, update cadence, quarterly topology review | [docs/operations/docs-maintenance.md](../operations/docs-maintenance.md)                 |
 | **AI Retrieval Smoke Tests** | Manual prompt-based QA protocol for verifying key assistant context paths    | [docs/operations/ai-retrieval-smoke-tests.md](../operations/ai-retrieval-smoke-tests.md) |
+| **Spec-First Kanban Policy** | Docs-first rollout contract: docs needed, decision evidence, remediation     | [docs/operations/spec-first-kanban-integration.md](../operations/spec-first-kanban-integration.md) |
 
 ### 📋 Process & Governance
 
@@ -95,6 +96,7 @@ This index provides a machine-friendly list of all canonical documentation files
 | **Assistant Context Index**   | Canonical map of all docs (this document)          | [docs/ai/assistant-context-index.md](./assistant-context-index.md) |
 | **Assistant Guide**           | Task routing for common implementation/debug tasks | [docs/ai/guide.md](./guide.md)                         |
 | **Repository Map**            | Boundaries, invariants, and dangerous areas        | [docs/ai/repo-map.md](./repo-map.md)                  |
+| **Project Simulation Readiness** | Docs-only planning/execution readiness rubric   | [docs/ai/project-simulation-readiness.md](./project-simulation-readiness.md) |
 
 ## Workflows (Multi-Step Procedures)
 
@@ -140,6 +142,8 @@ Each section has a standardized template to ensure consistent structure when add
 | Understand how users authenticate             | [Auth Patterns](../auth/auth-patterns.md)                    | [Auth Verification Workflow](../workflow/auth-verification-workflow.md) (for step-by-step flow) |
 | Add a new service                             | [Service Catalog](../services/service-catalog.md)            | [Repository Map](./repo-map.md) (for boundaries)                                                |
 | Deploy changes to production                  | [Deployment Guide](../operations/deployment.md)              | [GitHub workflows](../../.github/workflows/) (source)                                           |
+| Create docs-first rollout plan                | [Spec-First Kanban Policy](../operations/spec-first-kanban-integration.md) | [Docs Maintenance](../operations/docs-maintenance.md), [Assistant Guide](./guide.md) |
+| Validate docs-only simulation readiness       | [Project Simulation Readiness](./project-simulation-readiness.md) | [AI Retrieval Smoke Tests](../operations/ai-retrieval-smoke-tests.md) |
 
 ## Linked Reference Graph
 
@@ -166,3 +170,5 @@ Orphan docs (not linked anywhere) are hard to find. If you notice one, open an i
 - [Repository Map](./repo-map.md) – System boundaries and critical invariants
 - [Assistant Guide](./guide.md) – Task-based routing to the right docs
 - [AI Retrieval Smoke Tests](../operations/ai-retrieval-smoke-tests.md) – QA protocol for verifying good context assembly
+- [Spec-First Kanban Policy](../operations/spec-first-kanban-integration.md) – rollout governance contract
+- [Project Simulation Readiness](./project-simulation-readiness.md) – docs-only readiness rubric

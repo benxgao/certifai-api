@@ -1,7 +1,7 @@
 # Docs Maintenance Protocol
 
 > **Source of truth**: `docs/` topology and repository contribution workflow
-> **Last reviewed**: 2026-05-26
+> **Last reviewed**: 2026-05-29
 > **Owner**: Engineering Team
 
 ## Purpose
@@ -16,6 +16,31 @@ Prevent documentation drift by enforcing layering rules, discoverability gates, 
 ### Reviewer enforcement rule
 
 PRs that add step-by-step numbered procedures to non-workflow domain docs require explicit reviewer sign-off (or must be moved to `docs/workflow/`).
+
+## Docs-First Decision Contract for Rollouts (Required)
+
+For rollout plans under `ai_oriented_kanban/`, reviewers must enforce that assistants can make decisions from docs specs first, then repair docs when gaps are found.
+
+Required evidence in rollout artifacts:
+
+1. `Docs Needed` list is declared before implementation, with reason per doc.
+2. `Decision Evidence Log` exists for major decisions and includes:
+   - Decision statement
+   - Docs cited
+   - Sufficiency verdict (`Sufficient` / `Insufficient`)
+   - Fallback code scan usage + reason (if any)
+   - Doc update action
+3. Any `Insufficient` decision row has a matching docs remediation action in the same rollout (or explicit blocker with owner + due date).
+4. Closing phases include Docs Sync, AI-ready reflection/handoff, docs-only simulation drill, and health score evaluation.
+
+### Rollout reviewer enforcement rule
+
+Reject rollout PRs when any of the following are missing:
+
+- No `Docs Needed` declaration
+- No decision evidence log for key decisions
+- Fallback code scans used without insufficiency reason
+- Docs insufficiency discovered but no docs update action recorded
 
 ## Discoverability Contract
 
@@ -63,6 +88,10 @@ A doc is considered merge-ready only if it is:
    - search `docs/ai/assistant-context-index.md`
 6. Validate routing registration:
    - search `docs/ai/guide.md`
+7. Validate rollout docs-first contract usage in active rollouts:
+   - `grep -R "Docs Needed" ai_oriented_kanban/10-active/`
+   - `grep -R "Decision Evidence Log" ai_oriented_kanban/10-active/`
+   - spot-check insufficiency rows include docs update actions
 
 Record findings in PR or ops notes and open follow-up issues for drift.
 
@@ -70,6 +99,7 @@ Record findings in PR or ops notes and open follow-up issues for drift.
 
 - Doc owners are responsible for domain accuracy.
 - PR reviewers enforce layering + discoverability gates.
+- PR reviewers also enforce rollout docs-first decision evidence and insufficiency remediation gates.
 - Significant structure/policy changes should be recorded via ADR.
 
 ## Related Docs
@@ -77,4 +107,5 @@ Record findings in PR or ops notes and open follow-up issues for drift.
 - [Assistant Context Index](../ai/assistant-context-index.md) – canonical discoverability map
 - [Assistant Guide](../ai/guide.md) – task routing map
 - [Workflow Guide](../workflow/README.md) – procedure placement rules
+- [AI Retrieval Smoke Tests](./ai-retrieval-smoke-tests.md) – retrieval QA and simulation checks
 - [ADR 0001](../adr/0001-docs-architecture-mvp.md) – docs architecture decision

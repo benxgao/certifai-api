@@ -1,7 +1,7 @@
 # Assistant Guide: Task Routing
 
 > **Source of truth**: Canonical docs in `docs/`
-> **Last reviewed**: 2026-05-26
+> **Last reviewed**: 2026-05-29
 > **Owner**: Engineering Team / AI Assistants
 
 ## Purpose
@@ -149,6 +149,26 @@ This guide routes common assistant tasks to the most relevant canonical document
 
 ---
 
+### 📘 Docs-First Rollout Governance
+
+**Task: Create a rollout plan with docs-first decisions**
+→ Start with: [Spec-First + Kanban Integration Policy](../operations/spec-first-kanban-integration.md)
+→ Then review: [Docs Maintenance Protocol](../operations/docs-maintenance.md) | [Rollout Plan Template](../../ai_oriented_kanban/templates/rollout-plan-template.md)
+
+**Task: Verify whether docs are sufficient before implementation**
+→ Start with: [Assistant Context Index](./assistant-context-index.md)
+→ Then review: [Assistant Guide](./guide.md) | [AI Retrieval Smoke Tests](../operations/ai-retrieval-smoke-tests.md)
+
+**Task: Handle insufficient docs during rollout**
+→ Start with: [Docs Maintenance Protocol](../operations/docs-maintenance.md)
+→ Then review: [Spec-First + Kanban Integration Policy](../operations/spec-first-kanban-integration.md) | [AI Retrieval Smoke Tests](../operations/ai-retrieval-smoke-tests.md)
+
+**Task: Run a docs-only project simulation drill**
+→ Start with: [Project Simulation Readiness](./project-simulation-readiness.md)
+→ Then review: [AI Retrieval Smoke Tests](../operations/ai-retrieval-smoke-tests.md) | [Spec-First + Kanban Integration Policy](../operations/spec-first-kanban-integration.md)
+
+---
+
 ### 🚀 Operations & Deployment
 
 **Task: Deploy changes to production**
@@ -231,7 +251,8 @@ If an assistant response seems incorrect or incomplete:
 
 1. Check if the right docs were loaded (compare with task routing map above)
 2. Check if context limits caused truncation (verify docs loaded completely)
-3. Open an issue or PR to update the routing map if guidance is missing
+3. If docs are insufficient, record missing/ambiguous docs and propose concrete updates
+4. Open an issue or PR to update the routing map and canonical docs if guidance is missing
 
 ---
 
@@ -240,3 +261,4 @@ If an assistant response seems incorrect or incomplete:
 - [Repository Map](./repo-map.md) – System boundaries and critical invariants
 - [Assistant Context Index](./assistant-context-index.md) – Complete documentation index
 - [AI Retrieval Smoke Tests](../operations/ai-retrieval-smoke-tests.md) – QA protocol for verifying good context assembly
+- [Project Simulation Readiness](./project-simulation-readiness.md) – docs-only execution readiness rubric
