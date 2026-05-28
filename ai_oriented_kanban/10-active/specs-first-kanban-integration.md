@@ -101,13 +101,32 @@ These steps are safe, low-risk, and immediately improve review quality and retri
 
 ### Docs-First Retrieval Checklist
 
-- [ ] Loaded all primary docs for this task type from `docs/ai/guide.md`.
-- [ ] Declared `Docs Needed` list before implementation, with reason for each doc.
-- [ ] Assessed sufficiency — docs were **sufficient** / **insufficient** _(strike one)_.
-  - If insufficient: docs that were missing, ambiguous, or outdated: `<list here>`
-  - If insufficient: fallback code scan was used for this specific decision: `<describe here>`
-- [ ] For each major decision, recorded evidence: `Decision`, `Docs cited`, `Sufficiency verdict`, `Fallback scan used?`, `Doc update action`.
-- [ ] Post-task docs update required: `[ ] Yes` — captured in Docs to update below | `[ ] No` — docs remain accurate after this change.
+- [x] Loaded all primary docs for this task type from `docs/ai/guide.md`.
+- [x] Declared `Docs Needed` list before implementation, with reason for each doc.
+- [x] Assessed sufficiency — docs were **sufficient** / ~~**insufficient**~~.
+  - If insufficient: docs that were missing, ambiguous, or outdated: _N/A in this phase set; no canonical gap blocked rollout progress._
+  - If insufficient: fallback code scan was used for this specific decision: _N/A_
+- [x] For each major decision, recorded evidence: `Decision`, `Docs cited`, `Sufficiency verdict`, `Fallback scan used?`, `Doc update action`.
+- [x] Post-task docs update required: `[x] Yes` — captured in Docs to update below | `[ ] No` — docs remain accurate after this change.
+
+### Docs Needed (Phase 4–6 execution)
+
+| Doc | Why needed in this execution window |
+| --- | --- |
+| `docs/operations/ai-retrieval-smoke-tests.md` | Implement Phase 4 retrieval QA prompts and insufficiency-remediation scenario. |
+| `docs/operations/spec-first-kanban-integration.md` | Validate required decision-evidence and remediation contract language for prompts/checks. |
+| `docs/operations/docs-maintenance.md` | Confirm graph-link enforcement and docs-sync acceptance criteria. |
+| `docs/ai/assistant-context-index.md` | Verify required discoverability links for governance docs. |
+| `docs/ai/guide.md` | Validate routing entries used by new smoke-test prompts and docs-first execution rule. |
+| `docs/ai/project-simulation-readiness.md` | Align Phase 6 reflection outputs with simulation-readiness rubric and blockers. |
+
+### Decision Evidence Log (Phase 4–6 execution)
+
+| Decision | Docs cited | Sufficiency verdict | Fallback code scan used? | Doc update action |
+| --- | --- | --- | --- | --- |
+| Expand retrieval QA with graph-link verification prompt | `docs/operations/ai-retrieval-smoke-tests.md`, `docs/operations/spec-first-kanban-integration.md` | Sufficient | No | Updated `docs/operations/ai-retrieval-smoke-tests.md` required prompt set and pass criteria. |
+| Keep docs-sync placeholder check scoped to touched docs evidence | `docs/operations/docs-maintenance.md`, `docs/operations/ai-retrieval-smoke-tests.md` | Sufficient | No | Recorded verification evidence in this rollout and kept unresolved historical placeholder out of touched-doc scope. |
+| Create follow-up operationalization rollout for simulation cadence and scan-ratio targets | `docs/ai/project-simulation-readiness.md`, `docs/ai/guide.md`, `ai_oriented_kanban/templates/rollout-plan-template.md` | Sufficient | No | Created `ai_oriented_kanban/10-active/simulation-readiness-ops-cadence.md` and linked handoff below. |
 
 ### Docs to create
 
@@ -206,9 +225,9 @@ Default sequencing: contract definition → template integration → doc graph u
 - [x] Phase 1 — Spec-first kanban contract
 - [x] Phase 2 — Template and checklist integration
 - [x] Phase 3 — Graph-link system hardening
-- [ ] Phase 4 — Retrieval QA expansion
-- [ ] Phase 5 — Docs Sync
-- [ ] Phase 6 — AI-ready docs reflection and next-plan handoff
+- [x] Phase 4 — Retrieval QA expansion
+- [x] Phase 5 — Docs Sync
+- [x] Phase 6 — AI-ready docs reflection and next-plan handoff
 - [ ] Phase 7 — Docs-only Simulation Drill
 - [ ] Phase 8 — Rollout Eval & Health Score
 
@@ -334,7 +353,7 @@ Default sequencing: contract definition → template integration → doc graph u
 
 ### Phase 4: Retrieval QA expansion
 
-**Progress**: `[ ]`
+**Progress**: `[x]`
 
 **Layer**: QA protocol
 
@@ -352,16 +371,22 @@ Default sequencing: contract definition → template integration → doc graph u
 
 **Sub-subphase checklist**:
 
-- [ ] **4.1 — Add prompts**: create at least one prompt for spec-first planning and one for graph-link verification.
+- [x] **4.1 — Add prompts**: create at least one prompt for spec-first planning and one for graph-link verification.
   - **Independent verification**: prompt doc paths match canonical docs.
-- [ ] **4.2 — Add insufficiency remediation prompt**: simulate ambiguous docs and verify assistant proposes exact doc updates.
+- [x] **4.2 — Add insufficiency remediation prompt**: simulate ambiguous docs and verify assistant proposes exact doc updates.
   - **Independent verification**: expected answer includes docs-needed list + update targets.
+
+**Phase 4 verification notes (2026-05-29)**:
+
+- `docs/operations/ai-retrieval-smoke-tests.md` now includes explicit graph-link usage in pass criteria.
+- Added Prompt 8 for governance graph-link verification using index + guide + related-doc checks.
+- Added Prompt 9 for docs-insufficiency remediation with explicit update-target expectations.
 
 ---
 
 ### Phase 5: Docs Sync _(mandatory closing phase)_
 
-**Progress**: `[ ]`
+**Progress**: `[x]`
 
 **Layer**: documentation layer
 
@@ -393,24 +418,32 @@ Default sequencing: contract definition → template integration → doc graph u
 
 **Sub-subphase checklist**:
 
-- [ ] **5.0 — Confirm docs-first retrieval checklist**: verify the checklist is completed.
+- [x] **5.0 — Confirm docs-first retrieval checklist**: verify the checklist is completed.
   - **Independent verification**: sufficiency is explicitly marked.
-- [ ] **5.1 — Create new docs**: author all new files.
+- [x] **5.1 — Create new docs**: author all new files.
   - **Independent verification**: new doc has `Source of truth`, `Last reviewed`, `Owner`.
-- [ ] **5.2 — Update existing docs**: apply all changes listed.
+- [x] **5.2 — Update existing docs**: apply all changes listed.
   - **Independent verification**: updated `Last reviewed` dates and consistent guidance.
-- [ ] **5.3 — Update assistant-context-index**: add new entry.
+- [x] **5.3 — Update assistant-context-index**: add new entry.
   - **Independent verification**: index entry appears under Operations or Process.
-- [ ] **5.4 — Verify link integrity**: validate related docs links.
+- [x] **5.4 — Verify link integrity**: validate related docs links.
   - **Independent verification**: spot-check each updated doc.
-- [ ] **5.5 — Verify decision evidence fields**: confirm templates/docs enforce required decision-evidence schema.
+- [x] **5.5 — Verify decision evidence fields**: confirm templates/docs enforce required decision-evidence schema.
   - **Independent verification**: schema appears in template + governance docs.
+
+**Phase 5 verification notes (2026-05-29)**:
+
+- Confirmed docs-first checklist is completed in this rollout and sufficiency is explicitly marked `Sufficient`.
+- Verified created docs exist and include metadata fields: `docs/operations/spec-first-kanban-integration.md`, `docs/ai/project-simulation-readiness.md`.
+- Verified index matches required references for `spec-first-kanban-integration` and `project-simulation-readiness`.
+- Verified touched canonical docs include `## Related Docs` heading and working cross-links.
+- Placeholder scan found one historical `TBD` in `docs/ai/repo-map.md` (not touched in this rollout phase); touched docs in this rollout have no unresolved placeholders.
 
 ---
 
 ### Phase 6: AI-ready docs reflection and next-plan handoff _(mandatory closing phase)_
 
-**Progress**: `[ ]`
+**Progress**: `[x]`
 
 **Layer**: planning/documentation improvement layer
 
@@ -422,7 +455,7 @@ Default sequencing: contract definition → template integration → doc graph u
 
 **Files**:
 
-- `ai_oriented_kanban/10-active/<next-rollout>.md` — create/modify — follow-up plan.
+- `ai_oriented_kanban/10-active/simulation-readiness-ops-cadence.md` — create — follow-up plan.
 - `ai_oriented_kanban/10-active/specs-first-kanban-integration.md` — modify — add handoff note.
 
 **Verification gate**:
@@ -433,16 +466,25 @@ Default sequencing: contract definition → template integration → doc graph u
 
 **Sub-subphase checklist**:
 
-- [ ] **6.1 — Summarize improvements**: capture confirmed follow-up actions.
+- [x] **6.1 — Summarize improvements**: capture confirmed follow-up actions.
   - **Independent verification**: actions listed in next plan scope.
-- [ ] **6.2 — Convert open questions**: add owners and decision criteria.
+- [x] **6.2 — Convert open questions**: add owners and decision criteria.
   - **Independent verification**: no open question lacks decision path.
-- [ ] **6.3 — Author next rollout**: write follow-up plan file.
+- [x] **6.3 — Author next rollout**: write follow-up plan file.
   - **Independent verification**: complete phased plan exists.
-- [ ] **6.4 — Record handoff**: add handoff note to current plan.
+- [x] **6.4 — Record handoff**: add handoff note to current plan.
   - **Independent verification**: link is present.
-- [ ] **6.5 — Capture simulation blockers**: list blockers to docs-only execution with owners/dates.
+- [x] **6.5 — Capture simulation blockers**: list blockers to docs-only execution with owners/dates.
   - **Independent verification**: each blocker has mitigation and due date.
+
+**Phase 6 verification notes (2026-05-29)**:
+
+- Authored follow-up rollout `ai_oriented_kanban/10-active/simulation-readiness-ops-cadence.md` with phased plan, verification gates, and rollback.
+- Converted the two open questions in this rollout into owned decision tracks in the follow-up plan.
+- Captured simulation-readiness blockers with owners, due dates, and mitigation actions in the follow-up plan.
+- Documented a recurring insufficiency pattern: governance-ready docs did not yet define simulation cadence and acceptable fallback-scan ratio targets.
+- Added prevention update: follow-up rollout now enforces owner-bound cadence/ratio policy decisions before Phase 7 drill closure.
+- Added explicit handoff note and link below for next execution cycle.
 
 ---
 
@@ -564,7 +606,19 @@ Docs-only simulation drill
 ## Open Questions
 
 1. Should docs-only simulation drills run for every major rollout or on a release cadence (e.g., biweekly)?
+  - **Owner:** Eng Productivity Lead
+  - **Decision criteria:** Delivery overhead per sprint, defect escape trend, and readiness score stability over 2 cycles.
+  - **Target date:** 2026-06-12 (tracked in follow-up rollout).
 2. What is the acceptable fallback-code-scan ratio target before we call docs “simulation ready”?
+  - **Owner:** AI Governance DRI
+  - **Decision criteria:** Median fallback ratio over 3 drills, unresolved-doc-gap count, and false-positive insufficiency rate.
+  - **Target date:** 2026-06-12 (tracked in follow-up rollout).
+
+## Handoff Note (Phase 6)
+
+- Follow-up rollout created: `ai_oriented_kanban/10-active/simulation-readiness-ops-cadence.md`.
+- Next execution starts at follow-up **Phase 1** to operationalize simulation cadence + fallback ratio policy.
+- This rollout remains open for Phase 7 and Phase 8 completion after follow-up decisions are merged.
 
 ## Recommendation
 

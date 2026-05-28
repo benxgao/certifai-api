@@ -24,6 +24,7 @@ Pass criteria per prompt:
 - Correct primary docs selected
 - `Docs Needed` list present and relevant
 - Major decisions include doc-based evidence and sufficiency verdict
+- Graph-link usage is explicit (index + guide + related-doc routing where applicable)
 - Key constraints included
 - No contradictions with canonical docs
 - If insufficiency is detected, remediation targets are explicit
@@ -115,6 +116,41 @@ Expected behavior:
 - Returns a docs-first decision path and explicit sufficiency verdict.
 - Uses fallback code scan only when justified by missing/ambiguous docs.
 - Produces a remediation list that can be applied in Docs Sync.
+
+### 8) Verify graph-link coverage for governance changes
+
+**Prompt:** “You introduced a new governance policy for rollout reviews. Verify its documentation graph-link coverage and list any missing links before merge.”
+
+Expected doc path usage:
+
+- `docs/operations/spec-first-kanban-integration.md`
+- `docs/operations/docs-maintenance.md`
+- `docs/ai/assistant-context-index.md`
+- `docs/ai/guide.md`
+
+Expected behavior:
+
+- Confirms whether index registration, routing entry, and `## Related Docs` backlinks are present.
+- Calls out exact missing links (if any) with file-level update targets.
+- Does not claim graph-link compliance without evidence.
+
+### 9) Simulate docs insufficiency and remediation
+
+**Prompt:** “A rollout decision depends on auth middleware order, but docs appear ambiguous or outdated. Show docs-first handling: list required docs, mark insufficiency, use minimal fallback scan only if needed, and propose exact doc updates.”
+
+Expected doc path usage:
+
+- `docs/ai/guide.md`
+- `docs/auth/auth-patterns.md`
+- `docs/workflow/auth-verification-workflow.md`
+- `docs/operations/docs-maintenance.md`
+
+Expected behavior:
+
+- Produces a `Docs Needed` list before implementation detail.
+- Marks at least one decision row `Insufficient` when ambiguity is present.
+- If fallback scan is used, ties it to one decision and states insufficiency reason.
+- Proposes concrete doc updates (exact file targets + section intent), not generic “update docs”.
 
 ## Evaluation Checklist
 
