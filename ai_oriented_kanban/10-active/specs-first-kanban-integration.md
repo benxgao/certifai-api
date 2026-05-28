@@ -205,7 +205,7 @@ Default sequencing: contract definition → template integration → doc graph u
 
 - [x] Phase 1 — Spec-first kanban contract
 - [x] Phase 2 — Template and checklist integration
-- [ ] Phase 3 — Graph-link system hardening
+- [x] Phase 3 — Graph-link system hardening
 - [ ] Phase 4 — Retrieval QA expansion
 - [ ] Phase 5 — Docs Sync
 - [ ] Phase 6 — AI-ready docs reflection and next-plan handoff
@@ -294,7 +294,7 @@ Default sequencing: contract definition → template integration → doc graph u
 
 ### Phase 3: Graph-link system hardening
 
-**Progress**: `[ ]`
+**Progress**: `[x]`
 
 **Layer**: documentation topology
 
@@ -316,12 +316,19 @@ Default sequencing: contract definition → template integration → doc graph u
 
 **Sub-subphase checklist**:
 
-- [ ] **3.1 — Update docs-maintenance**: add spec-first/kanban gate and graph-link expectation.
+- [x] **3.1 — Update docs-maintenance**: add spec-first/kanban gate and graph-link expectation.
   - **Independent verification**: policy mentions kanban artifacts explicitly.
-- [ ] **3.2 — Update index and guide**: add entries pointing to new doc.
+- [x] **3.2 — Update index and guide**: add entries pointing to new doc.
   - **Independent verification**: links resolve and appear in correct sections.
-- [ ] **3.3 — Define simulation rubric**: document docs-only execution criteria and evidence collection.
+- [x] **3.3 — Define simulation rubric**: document docs-only execution criteria and evidence collection.
   - **Independent verification**: rubric includes minimum documentation set and pass threshold.
+
+**Phase 3 verification notes (2026-05-29)**:
+
+- `docs/operations/docs-maintenance.md` now includes explicit kanban artifact graph-link enforcement (index + guide + related-doc backlinks) and quarterly validation steps.
+- `docs/ai/guide.md` now explicitly states docs specs are primary, fallback code scans are conditional, and docs updates are required when insufficiencies are found.
+- `docs/ai/assistant-context-index.md` now includes a `Simulation Readiness` entry for `docs/ai/project-simulation-readiness.md`.
+- `docs/ai/project-simulation-readiness.md` now defines measurable docs-only rubric, minimum doc set, scoring threshold (`>= 85`), run log template, and exit criteria.
 
 ---
 

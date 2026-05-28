@@ -8,6 +8,16 @@
 
 This guide routes common assistant tasks to the most relevant canonical documentation. Use this when you start working on a specific feature or bugfix to load the right context documents.
 
+## Docs-First Execution Rule (Required)
+
+For planning and implementation decisions:
+
+1. Use docs specs as the primary source of truth.
+2. Use code scanning only as a fallback when docs are missing, ambiguous, or outdated for a specific decision.
+3. If fallback code scan is used, record the insufficiency and update the impacted docs in the same rollout whenever possible.
+
+This prevents assistant behavior from depending on implicit tribal knowledge and keeps future docs-only execution reliable.
+
 ## Task Routing Map
 
 ### 🔌 API Development
@@ -167,6 +177,10 @@ This guide routes common assistant tasks to the most relevant canonical document
 → Start with: [Project Simulation Readiness](./project-simulation-readiness.md)
 → Then review: [AI Retrieval Smoke Tests](../operations/ai-retrieval-smoke-tests.md) | [Spec-First + Kanban Integration Policy](../operations/spec-first-kanban-integration.md)
 
+**Task: Reconcile doc/code divergence found during rollout**
+→ Start with: [Docs Maintenance Protocol](../operations/docs-maintenance.md)
+→ Then review: [Spec-First + Kanban Integration Policy](../operations/spec-first-kanban-integration.md) | [Project Simulation Readiness](./project-simulation-readiness.md)
+
 ---
 
 ### 🚀 Operations & Deployment
@@ -252,7 +266,8 @@ If an assistant response seems incorrect or incomplete:
 1. Check if the right docs were loaded (compare with task routing map above)
 2. Check if context limits caused truncation (verify docs loaded completely)
 3. If docs are insufficient, record missing/ambiguous docs and propose concrete updates
-4. Open an issue or PR to update the routing map and canonical docs if guidance is missing
+4. If code scan was used due to insufficiency, update canonical docs so the same decision can be made docs-first next time
+5. Open an issue or PR to update the routing map and canonical docs if guidance is missing
 
 ---
 

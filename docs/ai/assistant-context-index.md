@@ -76,6 +76,7 @@ This index provides a machine-friendly list of all canonical documentation files
 | **Docs Maintenance**         | Layering contract, archive policy, update cadence, quarterly topology review | [docs/operations/docs-maintenance.md](../operations/docs-maintenance.md)                 |
 | **AI Retrieval Smoke Tests** | Manual prompt-based QA protocol for verifying key assistant context paths    | [docs/operations/ai-retrieval-smoke-tests.md](../operations/ai-retrieval-smoke-tests.md) |
 | **Spec-First Kanban Policy** | Docs-first rollout contract: docs needed, decision evidence, remediation     | [docs/operations/spec-first-kanban-integration.md](../operations/spec-first-kanban-integration.md) |
+| **Simulation Readiness**     | Docs-only execution rubric, pass/fail thresholds, and drill evidence model   | [docs/ai/project-simulation-readiness.md](./project-simulation-readiness.md)              |
 
 ### 📋 Process & Governance
 

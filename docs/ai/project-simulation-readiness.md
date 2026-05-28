@@ -6,7 +6,7 @@
 
 ## Purpose
 
-Define how to evaluate whether a comparable project can be planned and executed by an assistant using docs specs as primary context.
+Define measurable criteria for whether a comparable project can be planned and executed by an assistant using docs specs as primary context.
 
 ## Readiness Standard
 
@@ -18,39 +18,52 @@ A docs set is simulation-ready when an assistant can:
 4. Propose concrete doc updates that close insufficiency gaps.
 5. Complete a planning simulation with no unjustified fallback code scans.
 
-## Minimum Inputs
+## Minimum Documentation Set (Required)
 
-At minimum, the simulation must load:
+A simulation run is not valid unless all baseline docs below are loaded before planning decisions:
 
 - `docs/ai/guide.md`
 - `docs/ai/assistant-context-index.md`
+- `docs/operations/spec-first-kanban-integration.md`
 - `docs/operations/docs-maintenance.md`
-- `docs/operations/ai-retrieval-smoke-tests.md`
-- Any domain docs required by the task scenario
+- `ai_oriented_kanban/templates/rollout-plan-template.md`
 
-## Drill Output Requirements
+Then add domain-specific docs required by the scenario (API/Auth/Database/etc.).
+
+## Required Evidence Model
 
 Each simulation run must include:
 
-- `Docs Needed` list with rationale
-- Decision evidence table:
+- `Docs Needed` list with rationale per doc
+- Decision evidence for each major decision
+- Sufficiency verdict per decision (`Sufficient` / `Insufficient`)
+- Fallback scan record where used
+- Doc remediation action for every insufficiency
 
-| Decision | Docs cited | Sufficiency | Fallback scan | Doc update action |
+### Decision Evidence Log Schema
+
+| Decision | Docs cited | Sufficiency verdict | Fallback code scan used? | Doc update action |
 | --- | --- | --- | --- | --- |
-| <decision> | <doc paths> | Sufficient/Insufficient | No/Yes (+ reason) | None / <specific update> |
-
-- Summary verdict: `Pass`, `Partial`, or `Fail`
-- Remediation backlog (if partial/fail)
+| `<decision>` | `<doc paths>` | `Sufficient` / `Insufficient` | `No` / `Yes (reason)` | `None` / `<doc update or blocker owner+date>` |
 
 ## Scoring Rubric
 
 | Dimension | Max Points | Pass condition |
 | --- | --- | --- |
-| Docs Needed quality | 25 | Complete list before implementation planning |
-| Decision traceability | 35 | Major decisions mapped to canonical docs |
-| Insufficiency handling | 20 | All gaps produce concrete doc updates/blockers |
-| Fallback discipline | 20 | No unjustified code scans |
-| **Total** | **100** | **Pass threshold: >= 80** |
+| Docs assembly accuracy | 25 | Baseline doc set declared before implementation planning |
+| Decision traceability | 25 | Major decisions include complete decision evidence rows |
+| Fallback discipline | 25 | No unjustified code scan; every fallback includes insufficiency reason |
+| Remediation closure | 25 | Every insufficiency maps to concrete doc update or blocker owner+date |
+| **Total** | **100** | **Pass threshold: >= 85** |
+
+## Simulation Run Procedure
+
+1. Select a representative planning task comparable to active rollout complexity.
+2. Load required baseline docs and any domain docs for the scenario.
+3. Produce `Docs Needed` and initial decision evidence before implementation suggestions.
+4. Complete planning output with docs-first decision path.
+5. Record insufficiencies, fallback scans, and remediation actions.
+6. Score run and publish `Pass` / `Partial` / `Fail` verdict.
 
 ## Failure Modes
 
@@ -61,6 +74,42 @@ Common failure indicators:
 - Fallback code scan with no insufficiency rationale
 - Vague remediation (e.g., “update docs later”) without target docs
 
+## Run Log Template
+
+### Simulation Run
+
+- **Date:** `<YYYY-MM-DD>`
+- **Task scenario:** `<one-sentence summary>`
+- **Evaluator:** `<name>`
+
+### Docs Needed
+
+| Doc | Why needed |
+| --- | --- |
+| `<path>` | `<reason>` |
+
+### Decision Evidence Log
+
+| Decision | Docs cited | Sufficiency verdict | Fallback code scan used? | Doc update action |
+| --- | --- | --- | --- | --- |
+| `<decision>` | `<doc paths>` | `Sufficient` / `Insufficient` | `No` / `Yes (reason)` | `<action>` |
+
+### Scorecard
+
+| Dimension | Points earned | Notes |
+| --- | --- | --- |
+| Docs assembly accuracy (25) | `<0-25>` | `<evidence>` |
+| Decision traceability (25) | `<0-25>` | `<evidence>` |
+| Fallback discipline (25) | `<0-25>` | `<evidence>` |
+| Remediation closure (25) | `<0-25>` | `<evidence>` |
+| **Total (100)** | `<0-100>` | `<Pass if >= 85>` |
+
+### Outcome
+
+- **Readiness verdict:** `Pass` / `Partial` / `Fail`
+- **Critical gaps found:** `<list>`
+- **Required follow-up updates:** `<docs to update + owners/dates>`
+
 ## Remediation Loop
 
 When simulation is `Partial` or `Fail`:
@@ -70,6 +119,15 @@ When simulation is `Partial` or `Fail`:
 3. Re-run simulation prompt from `ai-retrieval-smoke-tests.md`.
 4. Record before/after result in rollout session note.
 
+## Exit Criteria for “Simulation Ready”
+
+A domain/process is simulation ready only when all are true:
+
+- At least one simulation run scored `>= 85`.
+- No unjustified fallback code scan was used.
+- All insufficiencies from that run have merged doc updates or tracked blockers.
+- Routing and index links for touched docs are valid.
+
 ## Related Docs
 
 - [Assistant Guide](./guide.md) – routing to required docs by task
@@ -77,3 +135,4 @@ When simulation is `Partial` or `Fail`:
 - [Docs Maintenance Protocol](../operations/docs-maintenance.md) – governance contract and enforcement
 - [AI Retrieval Smoke Tests](../operations/ai-retrieval-smoke-tests.md) – simulation prompts and QA checklist
 - [Spec-First + Kanban Integration Policy](../operations/spec-first-kanban-integration.md) – rollout contract for docs-first decision evidence
+- [Rollout Plan Template](../../ai_oriented_kanban/templates/rollout-plan-template.md) – required planning structure and evidence fields

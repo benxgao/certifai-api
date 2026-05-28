@@ -51,6 +51,17 @@ A doc is considered merge-ready only if it is:
 3. Includes `Source of truth` metadata
 4. Includes `## Related Docs` with outbound links
 
+### Kanban artifact graph-link enforcement (Required)
+
+For rollout artifacts under `ai_oriented_kanban/` that introduce or change governance rules:
+
+1. Canonical governance doc must exist under `docs/` (not only in kanban artifact text).
+2. Governance doc must be indexed in `docs/ai/assistant-context-index.md`.
+3. Governance doc must be routed in `docs/ai/guide.md` for at least one task path.
+4. Governance doc and affected docs must include `## Related Docs` backlinks to prevent orphan knowledge.
+
+Reject PRs where rollout artifacts reference policy changes that are not graph-linked through index + guide + related-doc backlinks.
+
 ## Archive Retirement Policy
 
 - `docs/plans/` are planning artifacts only; they are **not canonical live guidance**.
@@ -92,6 +103,9 @@ A doc is considered merge-ready only if it is:
    - `grep -R "Docs Needed" ai_oriented_kanban/10-active/`
    - `grep -R "Decision Evidence Log" ai_oriented_kanban/10-active/`
    - spot-check insufficiency rows include docs update actions
+8. Validate kanban-driven governance graph links:
+   - verify any new governance docs are present in index and guide
+   - verify touched governance docs include `## Related Docs`
 
 Record findings in PR or ops notes and open follow-up issues for drift.
 
