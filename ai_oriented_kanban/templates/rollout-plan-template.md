@@ -110,6 +110,25 @@ Representative files:
 - [ ] Recorded decision evidence for all major decisions (doc citation + sufficiency + fallback + update action).
 - [ ] Post-task docs update required: `[ ] Yes` — captured in Docs to update below | `[ ] No` — docs remain accurate after this change.
 
+### Spec-First Readiness Checklist (required)
+
+> These fields are non-optional for rollout readiness.
+
+- [ ] Spec includes explicit `Scope` (in/out boundaries).
+- [ ] Spec includes `Assumptions` with cited docs.
+- [ ] Spec includes `Constraints` (technical/process guardrails).
+- [ ] Spec includes `Decision Log` entries for major decisions.
+- [ ] Spec includes measurable `Acceptance Criteria` with independent verification.
+
+### Graph-Link Checklist (required)
+
+> Complete this section whenever docs are created/updated in the rollout.
+
+- [ ] New/changed governance docs are registered in [`docs/ai/assistant-context-index.md`](../../docs/ai/assistant-context-index.md).
+- [ ] New/changed governance docs are routed from [`docs/ai/guide.md`](../../docs/ai/guide.md).
+- [ ] Touched docs include `## Related Docs` with working relative links.
+- [ ] No rollout-created doc is orphaned (at least one inbound path from index, guide, or related docs).
+
 ### Docs Needed (required before implementation)
 
 | Doc                        | Why it is needed for this rollout       |
@@ -123,6 +142,15 @@ Representative files:
 | <decision statement> | `<doc path>` | Sufficient / Insufficient | No / Yes (`<why>`)       | None / `Update <doc>` |
 
 > If any row is marked **Insufficient**, include a corresponding entry in **Docs to update** (or an explicit blocker with owner and due date).
+
+### Docs Insufficiency Remediation Workflow (non-optional)
+
+For every `Insufficient` decision evidence row:
+
+1. Record the exact insufficiency reason (missing / ambiguous / outdated doc detail).
+2. Record whether fallback code scan was used, and for which decision only.
+3. Add an explicit remediation item under **Docs to update** in this same rollout.
+4. If same-rollout remediation is blocked, record owner + due date and keep rollout phase open until tracked.
 
 ### Docs to create
 
@@ -334,6 +362,7 @@ If user asks for minimal change first, move architecture refactors and retry red
 - `grep "<new-doc-filename>" docs/ai/assistant-context-index.md` returns a match for any new doc added.
 - Docs-first retrieval checklist (above) is filled in: sufficiency was assessed and any gap is recorded.
 - All touched docs have a valid `## Related Docs` section with working relative links (docs link integrity gate).
+- Graph-link checklist (above) is complete for all new/updated docs.
 
 **Sub-subphase checklist**:
 
@@ -376,6 +405,7 @@ If user asks for minimal change first, move architecture refactors and retry red
 - Confirmed actions from the reflection section are explicitly listed in the next rollout scope.
 - Unresolved questions are carried over with clear decision owners or decision criteria.
 - Current rollout contains a handoff note linking to the next rollout plan file.
+- Reflection includes at least one docs insufficiency pattern and one prevention update for future docs-first runs.
 
 **Sub-subphase checklist**:
 

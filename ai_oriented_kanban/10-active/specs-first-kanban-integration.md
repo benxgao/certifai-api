@@ -204,7 +204,7 @@ Default sequencing: contract definition → template integration → doc graph u
 ## Progress Dashboard
 
 - [x] Phase 1 — Spec-first kanban contract
-- [ ] Phase 2 — Template and checklist integration
+- [x] Phase 2 — Template and checklist integration
 - [ ] Phase 3 — Graph-link system hardening
 - [ ] Phase 4 — Retrieval QA expansion
 - [ ] Phase 5 — Docs Sync
@@ -253,7 +253,7 @@ Default sequencing: contract definition → template integration → doc graph u
 
 ### Phase 2: Template and checklist integration
 
-**Progress**: `[ ]`
+**Progress**: `[x]`
 
 **Layer**: kanban template layer
 
@@ -274,14 +274,21 @@ Default sequencing: contract definition → template integration → doc graph u
 
 **Sub-subphase checklist**:
 
-- [ ] **2.1 — Add spec-first checklist**: add required spec fields and acceptance criteria block.
+- [x] **2.1 — Add spec-first checklist**: add required spec fields and acceptance criteria block.
   - **Independent verification**: checklist appears in template and is not optional.
-- [ ] **2.2 — Add graph-link checklist**: require index/guide/related links for any new doc.
+- [x] **2.2 — Add graph-link checklist**: require index/guide/related links for any new doc.
   - **Independent verification**: checklist includes explicit link destinations.
-- [ ] **2.3 — Align closing phases**: mirror certifai-app’s Docs Sync, Reflection/Handoff, and Health Score phases and integrate docs update progress into the rollout flow.
+- [x] **2.3 — Align closing phases**: mirror certifai-app’s Docs Sync, Reflection/Handoff, and Health Score phases and integrate docs update progress into the rollout flow.
   - **Independent verification**: template closing phases match certifai-app sections and include docs-progress checks.
-- [ ] **2.4 — Add decision evidence schema**: include required fields (`Decision`, `Docs`, `Sufficiency`, `Fallback`, `Doc updates`).
+- [x] **2.4 — Add decision evidence schema**: include required fields (`Decision`, `Docs`, `Sufficiency`, `Fallback`, `Doc updates`).
   - **Independent verification**: no rollout can be marked complete without this evidence.
+
+**Phase 2 verification notes (2026-05-29)**:
+
+- `ai_oriented_kanban/templates/rollout-plan-template.md` now includes explicit non-optional `Spec-First Readiness Checklist` and `Graph-Link Checklist` sections.
+- `ai_oriented_kanban/templates/rollout-plan-template.md` now includes a required `Docs Insufficiency Remediation Workflow` tied to `Decision Evidence Log` entries.
+- Closing-phase gates now explicitly include graph-link completion and reflection of docs-insufficiency prevention patterns.
+- `ai_oriented_kanban/templates/excutive-report-template.md` now includes a required `Spec-First + Graph-Link Governance Summary` section.
 
 ---
 

@@ -88,6 +88,19 @@ Summarize whether this rollout improved assistant decision quality and future do
 
 If any row is ⚠️ or ❌, add the remediation action under **Optional Next Wave** and label owner + target date.
 
+### Spec-First + Graph-Link Governance Summary (Required)
+
+Summarize the rollout’s spec-first and documentation topology quality in 5–8 bullets:
+
+- **Spec completeness:** [Scope / Assumptions / Constraints / Decision Log / Acceptance Criteria]
+- **Pre-implementation docs gate met:** [Yes/No] — [link to `Docs Needed`]
+- **Decision traceability quality:** [High / Medium / Low] — [link to evidence log]
+- **Graph-link compliance:** [Pass / Partial / Fail] — include index + guide + related-doc coverage
+- **Docs remediation closure:** [Closed / Partial / Open] — [list unresolved items with owners/dates]
+- **Reuse confidence for next assistant run:** [High / Medium / Low]
+
+If any item is `Partial`, `Fail`, or `Open`, include the concrete remediation owner/date in **Optional Next Wave**.
+
 ---
 
 ## 5) Business Impact by Stakeholder
