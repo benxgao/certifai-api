@@ -152,6 +152,24 @@ Expected behavior:
 - If fallback scan is used, ties it to one decision and states insufficiency reason.
 - Proposes concrete doc updates (exact file targets + section intent), not generic “update docs”.
 
+### 10) Docs-only simulation drill execution (phase-close)
+
+**Prompt:** “Run a docs-only planning simulation for a comparable feature rollout. Return: `Docs Needed`, `Decision Evidence Log`, sufficiency findings, fallback-scan record, and remediation actions. Also provide a score using the project-simulation-readiness rubric.”
+
+Expected doc path usage:
+
+- `docs/ai/project-simulation-readiness.md`
+- `docs/operations/spec-first-kanban-integration.md`
+- `docs/ai/guide.md`
+- `docs/ai/assistant-context-index.md`
+- `docs/operations/docs-maintenance.md`
+
+Expected behavior:
+
+- Output follows the readiness run-log structure (docs list, decisions, scorecard, verdict).
+- Includes an explicit fallback usage line (`No` or `Yes + reason`) for every decision row.
+- If score is `< 85`, output includes concrete blockers with owners/dates before rollout closure.
+
 ## Evaluation Checklist
 
 - [ ] Used canonical docs (index/guide/domain/workflow), not plans-only docs

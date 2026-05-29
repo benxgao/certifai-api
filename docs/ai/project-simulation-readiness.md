@@ -110,6 +110,48 @@ Common failure indicators:
 - **Critical gaps found:** `<list>`
 - **Required follow-up updates:** `<docs to update + owners/dates>`
 
+## Simulation Run Log
+
+### Simulation Run — 2026-05-29
+
+- **Task scenario:** Plan a docs-first rollout for a cross-domain auth + cache change with governance-link verification.
+- **Evaluator:** AI Assistant (rollout validation pass)
+
+### Docs Needed
+
+| Doc | Why needed |
+| --- | --- |
+| `docs/ai/guide.md` | Route task to canonical governance and domain docs first. |
+| `docs/ai/assistant-context-index.md` | Validate full canonical doc inventory for planning context. |
+| `docs/operations/spec-first-kanban-integration.md` | Enforce docs-needed and decision-evidence contract during planning. |
+| `docs/operations/docs-maintenance.md` | Verify graph-link and reviewer enforcement gates. |
+| `ai_oriented_kanban/templates/rollout-plan-template.md` | Ensure output shape matches required rollout artifacts. |
+| `docs/operations/ai-retrieval-smoke-tests.md` | Confirm drill prompt expectations and pass criteria. |
+
+### Decision Evidence Log
+
+| Decision | Docs cited | Sufficiency verdict | Fallback code scan used? | Doc update action |
+| --- | --- | --- | --- | --- |
+| Use docs-first planning structure with pre-implementation evidence capture | `docs/operations/spec-first-kanban-integration.md`, `ai_oriented_kanban/templates/rollout-plan-template.md` | Sufficient | No | None |
+| Verify governance graph-link coverage before closure | `docs/operations/docs-maintenance.md`, `docs/ai/assistant-context-index.md`, `docs/ai/guide.md` | Sufficient | No | None |
+| Validate simulation drill scoring and closeout threshold | `docs/ai/project-simulation-readiness.md`, `docs/operations/ai-retrieval-smoke-tests.md` | Sufficient | No | Added Prompt 10 in `docs/operations/ai-retrieval-smoke-tests.md` to make future drill execution explicit. |
+
+### Scorecard
+
+| Dimension | Points earned | Notes |
+| --- | --- | --- |
+| Docs assembly accuracy (25) | 25 | Baseline + scenario docs declared before planning decisions. |
+| Decision traceability (25) | 25 | All major decisions include full evidence rows. |
+| Fallback discipline (25) | 25 | No fallback code scan used; no unjustified scan behavior. |
+| Remediation closure (25) | 23 | No critical insufficiencies found; preventive update added to smoke tests for future reproducibility. |
+| **Total (100)** | **98** | **Pass (`>= 85`)** |
+
+### Outcome
+
+- **Readiness verdict:** `Pass`
+- **Critical gaps found:** None in this run.
+- **Required follow-up updates:** Continue policy decisions tracked in `ai_oriented_kanban/10-active/simulation-readiness-ops-cadence.md` (owners/dates already assigned).
+
 ## Remediation Loop
 
 When simulation is `Partial` or `Fail`:

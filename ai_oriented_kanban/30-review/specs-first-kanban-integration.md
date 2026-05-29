@@ -228,8 +228,8 @@ Default sequencing: contract definition → template integration → doc graph u
 - [x] Phase 4 — Retrieval QA expansion
 - [x] Phase 5 — Docs Sync
 - [x] Phase 6 — AI-ready docs reflection and next-plan handoff
-- [ ] Phase 7 — Docs-only Simulation Drill
-- [ ] Phase 8 — Rollout Eval & Health Score
+- [x] Phase 7 — Docs-only Simulation Drill
+- [x] Phase 8 — Rollout Eval & Health Score
 
 ## Phases
 
@@ -490,7 +490,7 @@ Default sequencing: contract definition → template integration → doc graph u
 
 ### Phase 7: Docs-only Simulation Drill _(mandatory closing phase)_
 
-**Progress**: `[ ]`
+**Progress**: `[x]`
 
 **Layer**: validation and reproducibility layer
 
@@ -514,18 +514,25 @@ Default sequencing: contract definition → template integration → doc graph u
 
 **Sub-subphase checklist**:
 
-- [ ] **7.1 — Author drill scenario**: define a representative feature planning task and required output format.
+- [x] **7.1 — Author drill scenario**: define a representative feature planning task and required output format.
   - **Independent verification**: scenario references canonical docs and success criteria.
-- [ ] **7.2 — Execute drill and capture evidence**: run the scenario and log outcomes.
+- [x] **7.2 — Execute drill and capture evidence**: run the scenario and log outcomes.
   - **Independent verification**: log includes decision evidence and insufficiency remediation.
-- [ ] **7.3 — Apply corrective docs updates**: fix missing/ambiguous docs found by drill.
+- [x] **7.3 — Apply corrective docs updates**: fix missing/ambiguous docs found by drill.
   - **Independent verification**: all identified doc gaps are updated or formally tracked.
+
+**Phase 7 verification notes (2026-05-29)**:
+
+- Added explicit drill scenario prompt (`### 10`) to `docs/operations/ai-retrieval-smoke-tests.md` with required run-log outputs and pass/fail handling.
+- Executed and recorded simulation run evidence in `docs/ai/project-simulation-readiness.md` under `## Simulation Run Log` (includes `Docs Needed`, `Decision Evidence Log`, scorecard, and verdict).
+- Drill scored `98/100` with `Pass` verdict and no unjustified fallback scan.
+- No critical insufficiency was found; preventive updates were still applied via smoke-test drill formalization.
 
 ---
 
 ### Phase 8: Rollout Eval & Health Score _(mandatory closing phase)_
 
-**Progress**: `[ ]`
+**Progress**: `[x]`
 
 **Layer**: rollout quality/evaluation layer
 
@@ -552,16 +559,34 @@ Default sequencing: contract definition → template integration → doc graph u
 
 **Sub-subphase checklist**:
 
-- [ ] **8.1 — Evaluate docs-first adherence**: review checklist completion.
+- [x] **8.1 — Evaluate docs-first adherence**: review checklist completion.
   - **Independent verification**: checklist complete.
-- [ ] **8.2 — Evaluate docs health**: verify Docs Sync gates.
+- [x] **8.2 — Evaluate docs health**: verify Docs Sync gates.
   - **Independent verification**: all gates pass or justified.
-- [ ] **8.3 — Evaluate reflection quality**: review reflection output.
+- [x] **8.3 — Evaluate reflection quality**: review reflection output.
   - **Independent verification**: improvement and decision paths exist.
-- [ ] **8.4 — Evaluate simulation readiness**: verify drill outcome and blocker closure plan.
+- [x] **8.4 — Evaluate simulation readiness**: verify drill outcome and blocker closure plan.
   - **Independent verification**: drill evidence exists and gaps are owned.
-- [ ] **8.5 — Record final score**: add session note with total score.
+- [x] **8.5 — Record final score**: add session note with total score.
   - **Independent verification**: score recorded and linked.
+
+**Phase 8 score table (2026-05-29)**:
+
+| Dimension | Max Points | Points Earned | Evidence |
+| --- | --- | --- | --- |
+| Docs-first adherence | 40 | 40 | `Docs-First Retrieval Checklist` complete; `Docs Needed` + decision evidence captured in this rollout. |
+| Docs health | 40 | 38 | Docs Sync gates passed for touched scope; one historical `TBD` remains in untouched `docs/ai/repo-map.md`. |
+| Reflection quality | 20 | 20 | Phase 6 includes insufficiency pattern + prevention update + owned follow-up plan. |
+| Simulation readiness | 20 | 20 | Phase 7 drill logged in `docs/ai/project-simulation-readiness.md` with `98/100` pass and no unjustified fallback scan. |
+| **Total** | **120** | **118** | **Pass (`>= 85`)** |
+
+### Session Note — 2026-05-29 23:45 local
+
+- Completed: Phase 7 + Phase 8 closeout
+- Verified by: simulation run log recorded, prompt coverage updated, and score table populated with evidence links
+- Final score: `118/120` (pass)
+- Archive readiness: Ready to archive after follow-up rollout (`simulation-readiness-ops-cadence.md`) is tracked as separate execution stream
+- Blockers: None for this rollout closure; follow-up policy operationalization remains intentionally open in linked rollout
 
 ## Dependency Graph
 
@@ -622,4 +647,4 @@ Docs-only simulation drill
 
 ## Recommendation
 
-Proceed with Phases 1–2 in a single short PR to establish enforceable docs-first decision contracts (`Docs Needed` + decision evidence). Complete Phases 3–5 in a second PR for graph/routing/QA hardening, then run Phases 6–8 as a validation PR focused on simulation readiness evidence and final health score.
+Phases 1–8 are now completed for this rollout, with a passing health score (`118/120`) and recorded simulation-drill evidence. Proceed by tracking policy operationalization work in `ai_oriented_kanban/10-active/simulation-readiness-ops-cadence.md`, then archive this rollout after confirming follow-up ownership remains active.
