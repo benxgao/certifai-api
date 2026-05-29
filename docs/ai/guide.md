@@ -177,6 +177,10 @@ This prevents assistant behavior from depending on implicit tribal knowledge and
 → Start with: [Project Simulation Readiness](./project-simulation-readiness.md)
 → Then review: [AI Retrieval Smoke Tests](../operations/ai-retrieval-smoke-tests.md) | [Spec-First + Kanban Integration Policy](../operations/spec-first-kanban-integration.md)
 
+**Task: Define simulation cadence and fallback-scan ratio policy**
+→ Start with: [Project Simulation Readiness](./project-simulation-readiness.md)
+→ Then review: [Docs Maintenance Protocol](../operations/docs-maintenance.md) | [AI Retrieval Smoke Tests](../operations/ai-retrieval-smoke-tests.md)
+
 **Task: Reconcile doc/code divergence found during rollout**
 → Start with: [Docs Maintenance Protocol](../operations/docs-maintenance.md)
 → Then review: [Spec-First + Kanban Integration Policy](../operations/spec-first-kanban-integration.md) | [Project Simulation Readiness](./project-simulation-readiness.md)

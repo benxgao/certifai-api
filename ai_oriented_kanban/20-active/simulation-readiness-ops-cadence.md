@@ -45,14 +45,14 @@ This follow-up rollout operationalizes the open governance decisions from `specs
 
 ## Progress Dashboard
 
-- [ ] Phase 1 — Cadence decision contract
-- [ ] Phase 2 — Fallback ratio policy definition
-- [ ] Phase 3 — Docs integration and reviewer gates
-- [ ] Phase 4 — Validation run and closure recommendation
+- [x] Phase 1 — Cadence decision contract
+- [x] Phase 2 — Fallback ratio policy definition
+- [x] Phase 3 — Docs integration and reviewer gates
+- [x] Phase 4 — Validation run and closure recommendation
 
 ## Phase 1: Cadence decision contract
 
-**Progress**: `[ ]`
+**Progress**: `[x]`
 
 **Goal**: Resolve whether simulation drills are per-major-rollout, release-cadenced, or hybrid.
 
@@ -66,9 +66,18 @@ This follow-up rollout operationalizes the open governance decisions from `specs
 - Decision table exists with options, tradeoffs, and selected default.
 - Owner and exception path are documented.
 
+**Phase 1 verification notes (2026-05-29)**:
+
+- Added explicit cadence policy in `docs/ai/project-simulation-readiness.md` with default requirements:
+	- per-major-rollout drill (required)
+	- biweekly cross-domain health check (required)
+	- owner-approved exception path with next due date
+- Policy ownership documented as `Eng Productivity Lead`.
+- Reviewer enforcement references added in `docs/operations/docs-maintenance.md`.
+
 ## Phase 2: Fallback ratio policy definition
 
-**Progress**: `[ ]`
+**Progress**: `[x]`
 
 **Goal**: Define acceptable fallback-code-scan ratio and how it is computed.
 
@@ -82,9 +91,21 @@ This follow-up rollout operationalizes the open governance decisions from `specs
 - Formula is unambiguous (numerator/denominator/time window).
 - Thresholds include pass/partial/fail interpretation.
 
+**Phase 2 verification notes (2026-05-29)**:
+
+- Added explicit fallback-ratio formula to `docs/ai/project-simulation-readiness.md`:
+	- numerator = decision rows using fallback scan
+	- denominator = total major decision rows
+- Added thresholds:
+	- Pass: ratio $\le 0.10$
+	- Partial: $0.10 <$ ratio $\le 0.25$
+	- Fail: ratio $> 0.25$
+- Added rolling release-health rule: median ratio across latest 4 runs must be $\le 0.10$.
+- Updated `docs/operations/ai-retrieval-smoke-tests.md` Prompt 10 expected output to require explicit ratio and threshold interpretation.
+
 ## Phase 3: Docs integration and reviewer gates
 
-**Progress**: `[ ]`
+**Progress**: `[x]`
 
 **Goal**: Ensure routing/index/governance docs consistently enforce the new policy.
 
@@ -99,21 +120,48 @@ This follow-up rollout operationalizes the open governance decisions from `specs
 - Policy is discoverable from index + guide.
 - Related-doc backlinks are present for all touched docs.
 
+**Phase 3 verification notes (2026-05-29)**:
+
+- Added routing entry in `docs/ai/guide.md` for defining simulation cadence + fallback-scan ratio policy.
+- Added simulation-readiness policy enforcement section in `docs/operations/docs-maintenance.md` with reviewer gate criteria.
+- Verified `docs/ai/assistant-context-index.md` already routes to simulation-readiness docs; no index file change required.
+- Confirmed touched docs retain `## Related Docs` backlinks.
+
 ## Phase 4: Validation run and closure recommendation
 
-**Progress**: `[ ]`
+**Progress**: `[x]`
 
 **Goal**: Execute one simulation run under the new policy and publish closure recommendation.
 
 **Files**:
 
 - `docs/operations/ai-retrieval-smoke-tests.md` — modify — capture run result reference.
-- `ai_oriented_kanban/10-active/specs-first-kanban-integration.md` — modify — link validated outcomes and close open questions.
+- `ai_oriented_kanban/30-review/specs-first-kanban-integration.md` — modify — link validated outcomes and close open questions.
 
 **Verification gate**:
 
 - Run output includes docs-needed list, decision evidence log, fallback ratio, and remediation items.
 - Recommendation clearly states whether policy is ready for default adoption.
+
+**Phase 4 verification notes (2026-05-29)**:
+
+- Validation run evidence is recorded in `docs/ai/project-simulation-readiness.md` under `## Simulation Run Log`.
+- Run includes `Docs Needed`, `Decision Evidence Log`, scorecard, and fallback ratio (`0/3 = 0.00`).
+- Readiness verdict is `Pass` (`98/100`), with no unjustified fallback scan.
+- Parent rollout handoff/closure linkage updated in `ai_oriented_kanban/30-review/specs-first-kanban-integration.md`.
+
+## Decision Outcomes
+
+1. **Cadence default**: Run simulation drill per major rollout closure + biweekly cross-domain health check.
+2. **Fallback ratio pass target**: $\le 0.10$ per run; rolling median of latest 4 runs must also be $\le 0.10$.
+3. **Exception handling**: defer only with owner-approved note, reason, and next due date.
+
+### Session Note — 2026-05-29 23:58 local
+
+- Completed: Phase 1–4
+- Verified by: policy docs updates + simulation run evidence + routing/maintenance gate updates
+- Result: rollout complete, policy ready for default adoption
+- Next: monitor compliance via biweekly run log and follow-up remediation if ratio drifts above threshold
 
 ## Simulation Blockers (Owned)
 
@@ -131,4 +179,4 @@ This follow-up rollout operationalizes the open governance decisions from `specs
 
 ## Recommendation
 
-Execute this rollout immediately after Phase 6 handoff so Phase 7 and Phase 8 in the parent rollout can be completed with stable, measurable governance inputs.
+Adopt this policy as the default simulation-readiness operating contract. Keep blocker ownership active until the first rolling 4-run median checkpoint confirms sustained fallback-ratio compliance.

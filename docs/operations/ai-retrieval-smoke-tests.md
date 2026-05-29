@@ -29,6 +29,12 @@ Pass criteria per prompt:
 - No contradictions with canonical docs
 - If insufficiency is detected, remediation targets are explicit
 
+## Cadence Execution Notes (Operational Policy)
+
+- Run at least one docs-only simulation drill for every major rollout closure affecting governance/workflow contracts.
+- Run one cross-domain simulation drill every 2 weeks as a release-health check.
+- Any deferred drill must include owner approval, reason, and next due date in rollout notes.
+
 ## Representative Prompts (Required Set)
 
 ### 1) Add a new protected endpoint
@@ -168,6 +174,7 @@ Expected behavior:
 
 - Output follows the readiness run-log structure (docs list, decisions, scorecard, verdict).
 - Includes an explicit fallback usage line (`No` or `Yes + reason`) for every decision row.
+- Includes fallback ratio in explicit form (`numerator/denominator = ratio`) and threshold interpretation (`Pass`/`Partial`/`Fail`).
 - If score is `< 85`, output includes concrete blockers with owners/dates before rollout closure.
 
 ## Evaluation Checklist

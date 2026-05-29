@@ -18,6 +18,47 @@ A docs set is simulation-ready when an assistant can:
 4. Propose concrete doc updates that close insufficiency gaps.
 5. Complete a planning simulation with no unjustified fallback code scans.
 
+## Operational Cadence Policy
+
+Default cadence for docs-only simulation drills:
+
+1. **Per major rollout (required)**
+	- Run at least one simulation drill before closing any rollout that changes governance, workflow contracts, or multi-domain patterns.
+2. **Biweekly release-cycle health check (required)**
+	- Run one cross-domain simulation drill every two weeks even if no major rollout closed, to detect drift.
+3. **Exception path (allowed with owner approval)**
+	- A drill can be deferred only when all are true:
+	  - no canonical doc changes affecting decision contracts,
+	  - no unresolved insufficiency blockers from prior runs,
+	  - owner-approved defer note with next due date.
+
+**Policy owner:** Eng Productivity Lead
+
+## Fallback-Code-Scan Ratio Policy
+
+Use the ratio below for each simulation run:
+
+$$
+	ext{fallback ratio} = \frac{\#\text{ decisions that used fallback code scan}}{\#\text{ total major decisions in the run}}
+$$
+
+Measurement rules:
+
+- Denominator = count of `Decision Evidence Log` rows for the run.
+- Numerator = rows where `Fallback code scan used?` is `Yes (...)`.
+- If denominator is `0`, run is invalid and must be re-executed.
+
+Thresholds:
+
+- **Pass:** fallback ratio $\le 0.10$
+- **Partial:** fallback ratio $> 0.10$ and $\le 0.25$
+- **Fail:** fallback ratio $> 0.25$
+
+Release-health rule (rolling window):
+
+- Track the median fallback ratio for the latest 4 runs.
+- Mark governance as simulation-ready only when median ratio is $\le 0.10$ and no unresolved critical insufficiency exists.
+
 ## Minimum Documentation Set (Required)
 
 A simulation run is not valid unless all baseline docs below are loaded before planning decisions:
@@ -81,6 +122,7 @@ Common failure indicators:
 - **Date:** `<YYYY-MM-DD>`
 - **Task scenario:** `<one-sentence summary>`
 - **Evaluator:** `<name>`
+- **Fallback ratio:** `<numerator/denominator = ratio>`
 
 ### Docs Needed
 
@@ -116,6 +158,7 @@ Common failure indicators:
 
 - **Task scenario:** Plan a docs-first rollout for a cross-domain auth + cache change with governance-link verification.
 - **Evaluator:** AI Assistant (rollout validation pass)
+- **Fallback ratio:** `0/3 = 0.00` (Pass threshold met)
 
 ### Docs Needed
 

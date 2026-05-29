@@ -41,6 +41,19 @@ Reject rollout PRs when any of the following are missing:
 - No decision evidence log for key decisions
 - Fallback code scans used without insufficiency reason
 - Docs insufficiency discovered but no docs update action recorded
+- Simulation drill cadence decision/evidence missing for rollout closures that require drills
+- Fallback-code-scan ratio not reported for simulation drill runs (or ratio formula/threshold undefined)
+
+### Simulation-readiness policy enforcement
+
+For rollouts that claim simulation-readiness completion:
+
+1. Evidence must include cadence compliance (`per-major-rollout` drill plus biweekly health-check context).
+2. Evidence must include fallback-code-scan ratio using:
+   - numerator = decisions with fallback scan
+   - denominator = total major decisions
+3. Ratio threshold interpretation must be explicit (`Pass` / `Partial` / `Fail`).
+4. Any `Partial` or `Fail` result must include blocker owner + due date and follow-up rollout linkage.
 
 ## Discoverability Contract
 

@@ -126,7 +126,7 @@ These steps are safe, low-risk, and immediately improve review quality and retri
 | --- | --- | --- | --- | --- |
 | Expand retrieval QA with graph-link verification prompt | `docs/operations/ai-retrieval-smoke-tests.md`, `docs/operations/spec-first-kanban-integration.md` | Sufficient | No | Updated `docs/operations/ai-retrieval-smoke-tests.md` required prompt set and pass criteria. |
 | Keep docs-sync placeholder check scoped to touched docs evidence | `docs/operations/docs-maintenance.md`, `docs/operations/ai-retrieval-smoke-tests.md` | Sufficient | No | Recorded verification evidence in this rollout and kept unresolved historical placeholder out of touched-doc scope. |
-| Create follow-up operationalization rollout for simulation cadence and scan-ratio targets | `docs/ai/project-simulation-readiness.md`, `docs/ai/guide.md`, `ai_oriented_kanban/templates/rollout-plan-template.md` | Sufficient | No | Created `ai_oriented_kanban/10-active/simulation-readiness-ops-cadence.md` and linked handoff below. |
+| Create follow-up operationalization rollout for simulation cadence and scan-ratio targets | `docs/ai/project-simulation-readiness.md`, `docs/ai/guide.md`, `ai_oriented_kanban/templates/rollout-plan-template.md` | Sufficient | No | Created `ai_oriented_kanban/20-active/simulation-readiness-ops-cadence.md` and linked handoff below. |
 
 ### Docs to create
 
@@ -146,7 +146,7 @@ These steps are safe, low-risk, and immediately improve review quality and retri
 | `ai_oriented_kanban/templates/rollout-plan-template.md`    | Embed spec-first checklist and graph-link references.                |
 | `ai_oriented_kanban/templates/excutive-report-template.md` | Add governance checklist summary block.                              |
 | `.github/copilot-instructions.md`                          | Add docs-first priority, spec-first workflow, and doc-update fallback. |
-| `ai_oriented_kanban/10-active/specs-first-kanban-integration.md` | Track simulation-readiness gates and evidence.                    |
+| `ai_oriented_kanban/30-review/specs-first-kanban-integration.md` | Track simulation-readiness gates and evidence.                    |
 
 ### Docs to delete or archive
 
@@ -455,8 +455,8 @@ Default sequencing: contract definition → template integration → doc graph u
 
 **Files**:
 
-- `ai_oriented_kanban/10-active/simulation-readiness-ops-cadence.md` — create — follow-up plan.
-- `ai_oriented_kanban/10-active/specs-first-kanban-integration.md` — modify — add handoff note.
+- `ai_oriented_kanban/20-active/simulation-readiness-ops-cadence.md` — create — follow-up plan.
+- `ai_oriented_kanban/30-review/specs-first-kanban-integration.md` — modify — add handoff note.
 
 **Verification gate**:
 
@@ -479,7 +479,7 @@ Default sequencing: contract definition → template integration → doc graph u
 
 **Phase 6 verification notes (2026-05-29)**:
 
-- Authored follow-up rollout `ai_oriented_kanban/10-active/simulation-readiness-ops-cadence.md` with phased plan, verification gates, and rollback.
+- Authored follow-up rollout `ai_oriented_kanban/20-active/simulation-readiness-ops-cadence.md` with phased plan, verification gates, and rollback.
 - Converted the two open questions in this rollout into owned decision tracks in the follow-up plan.
 - Captured simulation-readiness blockers with owners, due dates, and mitigation actions in the follow-up plan.
 - Documented a recurring insufficiency pattern: governance-ready docs did not yet define simulation cadence and acceptable fallback-scan ratio targets.
@@ -504,7 +504,7 @@ Default sequencing: contract definition → template integration → doc graph u
 
 - `docs/operations/ai-retrieval-smoke-tests.md` — modify — add simulation drill scenario.
 - `docs/ai/project-simulation-readiness.md` — create/modify — capture drill criteria and result template.
-- `ai_oriented_kanban/10-active/specs-first-kanban-integration.md` — modify — record drill outcome and follow-ups.
+- `ai_oriented_kanban/30-review/specs-first-kanban-integration.md` — modify — record drill outcome and follow-ups.
 
 **Verification gate**:
 
@@ -631,20 +631,18 @@ Docs-only simulation drill
 ## Open Questions
 
 1. Should docs-only simulation drills run for every major rollout or on a release cadence (e.g., biweekly)?
-  - **Owner:** Eng Productivity Lead
-  - **Decision criteria:** Delivery overhead per sprint, defect escape trend, and readiness score stability over 2 cycles.
-  - **Target date:** 2026-06-12 (tracked in follow-up rollout).
+  - **Resolution (2026-05-29):** Both. Policy now requires per-major-rollout drill + biweekly cross-domain health check.
+  - **Reference:** `ai_oriented_kanban/20-active/simulation-readiness-ops-cadence.md`.
 2. What is the acceptable fallback-code-scan ratio target before we call docs “simulation ready”?
-  - **Owner:** AI Governance DRI
-  - **Decision criteria:** Median fallback ratio over 3 drills, unresolved-doc-gap count, and false-positive insufficiency rate.
-  - **Target date:** 2026-06-12 (tracked in follow-up rollout).
+  - **Resolution (2026-05-29):** Pass threshold is fallback ratio $\le 0.10$ per run, with rolling median across latest 4 runs also $\le 0.10$.
+  - **Reference:** `docs/ai/project-simulation-readiness.md` and `ai_oriented_kanban/20-active/simulation-readiness-ops-cadence.md`.
 
 ## Handoff Note (Phase 6)
 
-- Follow-up rollout created: `ai_oriented_kanban/10-active/simulation-readiness-ops-cadence.md`.
-- Next execution starts at follow-up **Phase 1** to operationalize simulation cadence + fallback ratio policy.
-- This rollout remains open for Phase 7 and Phase 8 completion after follow-up decisions are merged.
+- Follow-up rollout created: `ai_oriented_kanban/20-active/simulation-readiness-ops-cadence.md`.
+- Follow-up rollout status: **completed** (Phases 1–4) with policy decisions and validation evidence recorded.
+- This rollout is eligible for archive with follow-up policy now linked as resolved governance input.
 
 ## Recommendation
 
-Phases 1–8 are now completed for this rollout, with a passing health score (`118/120`) and recorded simulation-drill evidence. Proceed by tracking policy operationalization work in `ai_oriented_kanban/10-active/simulation-readiness-ops-cadence.md`, then archive this rollout after confirming follow-up ownership remains active.
+Phases 1–8 are completed with a passing health score (`118/120`) and recorded simulation-drill evidence. The follow-up policy rollout at `ai_oriented_kanban/20-active/simulation-readiness-ops-cadence.md` is also completed; proceed to archive this rollout.
