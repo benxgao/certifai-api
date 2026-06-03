@@ -1,58 +1,59 @@
-# Copilot Instructions (certifai-api: Lean Router)
+# Copilot Instructions (`certifai-api`)
 
-> **Source of truth**: `docs/` (domain specs), routed from this file
-> **Last reviewed**: 2026-06-03
-> **Owner**: Engineering Team / AI Assistants
+> Last reviewed: 2026-06-03  
+> Canonical knowledge lives in `docs/`; this file is the fast-start map.
 
-This file stays intentionally short. Domain behavior belongs in canonical docs.
+## Start of every task (mandatory)
 
-## Start Here (Mandatory)
+1. Read `docs/ai/guide.md` (task routing), then `docs/ai/repo-map.md` (boundaries/invariants).
+2. Load only relevant domain docs via `docs/ai/assistant-context-index.md`.
+3. Use code scanning only when docs are insufficient, then update docs in the same change.
 
-1. Load [`docs/ai/guide.md`](../docs/ai/guide.md) first.
-2. Use [`docs/ai/assistant-context-index.md`](../docs/ai/assistant-context-index.md) to select domain docs.
-3. For planning/rollout tasks, declare `Docs Needed` and a `Decision Evidence Log` before implementation decisions.
-4. If docs are insufficient (missing/ambiguous/outdated), run a bounded fallback code scan for that decision only and update docs in the same change.
+## Big picture architecture (what talks to what)
 
-## Domain Instruction Allocation (`docs/` is canonical)
+- Runtime entrypoints: `functions/src/index.ts` exports `endpoints` (HTTP API) and `delegators` (Cloud Tasks handlers).
+- HTTP app wiring: `functions/src/endpoints/index.ts` mounts `/api`, `/stripe`, `/healthcheck` with `helmet` + CORS + compression.
+- API router: `functions/src/endpoints/api/index.ts` (user/cert/exam/auth/public routes).
+- Service boundary: endpoints orchestrate; business logic lives in `functions/src/services/*` (`prisma`, `redis`, `cache`, `cloudTasks`, `genkit`, `optimizedRateLimit`, etc.).
+- Data flow: Next.js app (`certifai-app`) → REST API → Prisma/Postgres + Firestore + Redis + Genkit/Vertex.
 
-| Domain | Canonical folder | Primary entry docs |
-| --- | --- | --- |
-| AI routing + retrieval | `docs/ai/` | `guide.md`, `assistant-context-index.md`, `repo-map.md`, `project-simulation-readiness.md` |
-| API contracts + endpoints | `docs/api/` | `endpoint-conventions.md`, `response-envelope.md` |
-| Auth + access verification | `docs/auth/`, `docs/workflow/` | `auth-patterns.md`, `auth-verification-workflow.md` |
-| Database + ORM | `docs/database/` | `prisma-patterns.md` |
-| Cache | `docs/cache/` | `redis-patterns.md` |
-| AI services + exam generation | `docs/ai-services/`, `docs/workflow/` | `exam-generation.md`, `exam-generation-workflow.md` |
-| Services layer | `docs/services/` | `service-catalog.md` |
-| Architecture + system structure | `docs/architecture/` | `firebase-functions-structure.md` |
-| Testing | `docs/testing/` | `strategy.md` |
-| Operations + governance | `docs/operations/` | `deployment.md`, `docs-maintenance.md`, `spec-first-kanban-integration.md`, `ai-retrieval-smoke-tests.md` |
-| Product glossary | `docs/product/` | `glossary.md` |
-| Architecture decisions | `docs/adr/` | `0001-docs-architecture-mvp.md` |
+## Project-specific invariants (do not break)
 
-## Non-Negotiable Guardrails
+- Response contract is envelope-only: `{ success: true, data, meta? }` or `{ success: false, error, code? }` (see `docs/api/response-envelope.md`).
+- Protected `:user_id` routes must chain `verifyFirebaseToken` then `verifyUserAccess`; handlers use `req.verified_user` (not request body/query identity).
+- Reuse singleton Prisma from `functions/src/services/prisma/index.ts`; never instantiate `PrismaClient` in handlers.
+- Use Prisma enums (`ExamStatus`, `CertificationStatus`, `DifficultyLevel`) instead of string literals.
+- Redis access goes through `RedisService`/`CacheManager`; use `CACHE_CONFIG.KEYS` helpers for key format + invalidation.
+- Exam generation lifecycle must preserve status transitions (e.g., `QUESTIONS_GENERATING -> READY` or failure path).
 
-- Never run `npm run build` during assistant sessions.
+## Developer workflows that matter here
+
+- Local backend dev: run `npm run serve` in `functions/` (Firebase emulator flow).
+- Tests: `npm test` (or targeted Jest files in `functions/__tests__/`).
+- Type checks after type-heavy changes: `npx tsc --noEmit` (from `functions/`).
+- Deploy behavior: GitHub Actions deploy UAT on `uat` branch and production on `master`; workflows create runtime `.env` and credentials from GitHub secrets.
+
+## Cloud Tasks + async behavior
+
+- Exam/report/knowledge tasks route through `functions/src/delegators/tasks/*` and services in `functions/src/services/cloudTasks/`.
+- Local behavior may appear synchronous/immediate; production is queue-driven async. Write idempotent handlers and test duplicate deliveries.
+
+## Guardrails
+
+- Never run `npm run build` manually during assistant sessions.
 - Never reset the database.
-- Never commit Firebase config/service-account credentials.
-- Never hardcode API endpoints; use environment/config.
-- Keep scope tight: no unsolicited refactors or feature expansion.
+- Never commit service-account files or secrets (`functions/gcp_credentials*.json`, `.env` values).
+- Keep changes scoped; avoid opportunistic refactors.
 
-## Validation Defaults
+## Response style at task completion
 
-- Run targeted tests/checks for touched areas.
-- Run TypeScript checks after significant type changes.
-- `npm run lint` may be skipped only when a known repo-level blocker exists; record the reason in rollout/session notes.
+- Do not end with a paragraph summary.
+- Keep final completion output very short: 1-3 bullet points only.
+- Include only: (1) files changed, (2) verification run status, (3) optional next step if needed.
+- If there is nothing else needed, end after the bullets (no trailing recap text).
+- Avoid repeating context already shown earlier in the conversation.
 
-## Rollout Planning Trigger
+## Rollout/docs policy
 
-For rollout/migration/implementation plans, use [`ai_oriented_kanban/templates/rollout-plan-template.md`](../ai_oriented_kanban/templates/rollout-plan-template.md) and apply policy requirements from [`docs/operations/spec-first-kanban-integration.md`](../docs/operations/spec-first-kanban-integration.md).
-
-## Related Docs
-
-- [Assistant Guide](../docs/ai/guide.md)
-- [Assistant Context Index](../docs/ai/assistant-context-index.md)
-- [Docs Maintenance Protocol](../docs/operations/docs-maintenance.md)
-- [AI Retrieval Smoke Tests](../docs/operations/ai-retrieval-smoke-tests.md)
-- [Spec-First + Kanban Integration Policy](../docs/operations/spec-first-kanban-integration.md)
-- [Project Simulation Readiness](../docs/ai/project-simulation-readiness.md)
+- For rollout/migration plans, use `ai_oriented_kanban/templates/rollout-plan-template.md`.
+- Follow `docs/operations/spec-first-kanban-integration.md` (`Docs Needed` + `Decision Evidence Log` for non-trivial decisions).
