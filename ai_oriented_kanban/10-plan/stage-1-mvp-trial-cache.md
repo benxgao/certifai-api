@@ -2,9 +2,9 @@
 
 ## Summary
 
-This rollout defines the execution plan for **Stage 1** of cached questions: ship a fast, public, no-login trial experience using pre-generated question pools on top certification pages. The intent is to minimize time-to-market while preserving architecture boundaries, response-contract consistency, and rollback safety.
+This rollout defines the execution plan for **Stage 1** of cached questions (The full plan of the 4 stages can be found in `ai_oriented_kanban/00-intake/trial-cert-questions-from-cache.md`): ship a fast, public, no-login trial experience using pre-generated question pools on top certification pages. The intent is to minimize time-to-market while preserving architecture boundaries, response-contract consistency, and rollback safety.
 
-The Stage 1 release focuses on a minimal vertical slice: public trial creation, question fetch from `DEMO_PUBLIC` cache, trial submission with immediate score response, and instrumentation for baseline conversion events. Advanced restrictions, scheduler automation, and registered-user starter cache are intentionally deferred to later stages.
+The Stage 1 release focuses on a minimal vertical slice: public trial creation, question fetch from `DEMO_PUBLIC` cache, trial submission with immediate score response, summary-only trial persistence in Firestore, deterministic trial IDs derived from visitor IP-based hashes, and instrumentation for baseline conversion events. Advanced restrictions, scheduler automation, and registered-user starter cache are intentionally deferred to later stages.
 
 ## Current Evaluation
 
@@ -12,9 +12,8 @@ The Stage 1 release focuses on a minimal vertical slice: public trial creation, 
 
 - Existing Express API routing conventions under `functions/src/endpoints/api/`.
 - Standard `ApiResponse<T>` envelope and metadata conventions.
-- Service layer boundaries for Redis, Prisma, Cloud Tasks, and Genkit.
+- Service layer boundaries for Redis, Firestore, Cloud Tasks, and Genkit.
 - Redis key and TTL guidance via centralized cache patterns.
-- Product-approved 4-stage plan in `ai_oriented_kanban/00-intake/trial-cert-questions-from-cache.md`.
 
 ### What is not centralized / stable / complete yet
 
@@ -56,6 +55,7 @@ Representative files:
 - Stage 1 public-trial backend contract and delivery plan.
 - `DEMO_PUBLIC` cached question retrieval for top certifications.
 - Trial submit flow with immediate score response.
+- Stage 1 summary-only trial persistence in Firestore.
 - Baseline analytics instrumentation requirements (`demo_started`, `demo_completed`, `signup_clicked`).
 - Friendly unavailable-state contract when no valid cache exists.
 
@@ -78,19 +78,23 @@ Representative files:
 - Must follow response envelope and endpoint conventions.
 - Must route all cache operations through Redis/cache services.
 - Must preserve service-layer boundaries (no direct infra SDK logic in route handlers).
-- Stage 1 submission persistence is summary-only (no per-question answer persistence).
+- Stage 1 submission persistence is summary-only in Firestore (no per-question answer persistence).
+- Firestore write path must remain idempotent for duplicate submit requests.
+- Trial ID must be generated server-side as a hashed identifier from visitor IP composition (never persist raw IP in trial summary records).
+- Trial ID hash generation must use a secret salt/pepper from environment configuration.
 - Must keep rollback possible via feature flag (`public_demo_cache_enabled`).
 
 ### Acceptance Criteria
 
 - **Given** Stage 1 public trial APIs are enabled, **when** a visitor starts a trial, **then** first questions load from `DEMO_PUBLIC` cache and response uses `{ success, data, meta? }`. **Evidence**: endpoint integration tests + response snapshot assertions.
 - **Given** a valid trial submission, **when** answers are posted, **then** score summary is returned immediately with deterministic scoring fields. **Evidence**: submission contract tests.
+- **Given** a public trial is created/submitted, **when** the API composes `trial_id`, **then** it is deterministic for the same hashed-IP composition window and no raw IP is persisted to Firestore trial summary documents. **Evidence**: unit tests for trial-id generator + Firestore payload assertions.
 - **Given** no valid pool exists, **when** question fetch is requested, **then** API returns a friendly unavailable contract (not on-demand generation). **Evidence**: cache-miss integration tests.
 - **Given** Stage 1 is live, **when** trial lifecycle events occur, **then** baseline events are emitted/recorded. **Evidence**: telemetry assertions or log grep in non-prod validation.
 
 ## Minimum Viable Hotfix
 
-- Phase 1 and Phase 2 below constitute the hotfix path: contract + read-only cache retrieval with strict fallback.
+- Phase 0, Phase 1, and Phase 2 below constitute the hotfix path: baseline verification + contract + read-only cache retrieval with strict fallback.
 - These are minimal because they avoid scheduler complexity, restrictions, and registered-user flows while delivering immediate GTM value.
 
 ## Docs Impact
@@ -117,7 +121,7 @@ Representative files:
 - [x] Declared `Docs Needed` list with a reason for each required doc before implementation starts.
 - [x] Assessed sufficiency — docs were **sufficient**.
 - [x] Recorded decision evidence for all major decisions.
-- [x] Post-task docs update required: `[ ] Yes` | `[x] No` — planning-only artifact, no canonical behavior changes yet.
+- [x] Post-task docs update required: `[x] Yes` | `[ ] No` — public trial identifier and Firestore service-boundary docs updated.
 
 ### Spec-First Readiness Checklist (required)
 
@@ -148,15 +152,17 @@ Representative files:
 
 ### Decision Evidence Log (required)
 
-| Decision                                                       | Docs cited                                                          | Sufficiency verdict | Fallback code scan used? | Doc update action |
-| -------------------------------------------------------------- | ------------------------------------------------------------------- | ------------------- | ------------------------ | ----------------- |
-| Keep Stage 1 limited to public demo cache + submit + analytics | `ai_oriented_kanban/00-intake/trial-cert-questions-from-cache.md`   | Sufficient          | No                       | None              |
-| Persist only final score summary in Stage 1                    | `ai_oriented_kanban/00-intake/trial-cert-questions-from-cache.md`   | Sufficient          | No                       | None              |
-| Defer percentile-band response fields to Stage 3               | `ai_oriented_kanban/00-intake/trial-cert-questions-from-cache.md`   | Sufficient          | No                       | None              |
-| Use standard envelope for all new trial endpoints              | `docs/api/response-envelope.md`, `docs/api/endpoint-conventions.md` | Sufficient          | No                       | None              |
-| Route cache access through service layer with centralized keys | `docs/cache/redis-patterns.md`, `docs/services/service-catalog.md`  | Sufficient          | No                       | None              |
-| Use one shared unavailable message contract across API/frontend | `docs/api/response-envelope.md`                                     | Sufficient          | No                       | None              |
-| Use contract-first tests for fallback and score submission     | `docs/testing/strategy.md`                                          | Sufficient          | No                       | None              |
+| Decision                                                        | Docs cited                                                             | Sufficiency verdict | Fallback code scan used? | Doc update action                       |
+| --------------------------------------------------------------- | ---------------------------------------------------------------------- | ------------------- | ------------------------ | --------------------------------------- |
+| Keep Stage 1 limited to public demo cache + submit + analytics  | `ai_oriented_kanban/00-intake/trial-cert-questions-from-cache.md`      | Sufficient          | No                       | None                                    |
+| Persist only final score summary in Stage 1                     | `ai_oriented_kanban/00-intake/trial-cert-questions-from-cache.md`      | Sufficient          | No                       | None                                    |
+| Persist Stage 1 trial summaries in Firestore (not Prisma)       | `docs/services/service-catalog.md`                                     | Sufficient          | No                       | None                                    |
+| Use server-generated hashed IP-composed value as `trial_id`     | `docs/api/endpoint-conventions.md`, `docs/services/service-catalog.md` | Sufficient          | No                       | Update docs with public trial ID policy |
+| Defer percentile-band response fields to Stage 3                | `ai_oriented_kanban/00-intake/trial-cert-questions-from-cache.md`      | Sufficient          | No                       | None                                    |
+| Use standard envelope for all new trial endpoints               | `docs/api/response-envelope.md`, `docs/api/endpoint-conventions.md`    | Sufficient          | No                       | None                                    |
+| Route cache access through service layer with centralized keys  | `docs/cache/redis-patterns.md`, `docs/services/service-catalog.md`     | Sufficient          | No                       | None                                    |
+| Use one shared unavailable message contract across API/frontend | `docs/api/response-envelope.md`                                        | Sufficient          | No                       | None                                    |
+| Use contract-first tests for fallback and score submission      | `docs/testing/strategy.md`                                             | Sufficient          | No                       | None                                    |
 
 ### Docs Insufficiency Remediation Workflow (non-optional)
 
@@ -170,9 +176,10 @@ No insufficiency found at planning time; remediation section not triggered.
 
 ### Docs to update
 
-| File                    | What changes                                                                  |
-| ----------------------- | ----------------------------------------------------------------------------- |
-| _None (planning phase)_ | Reassess during implementation if contract details diverge from current docs. |
+| File                               | What changes                                                                                              |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `docs/api/endpoint-conventions.md` | Add public-trial identifier rule: server-side hashed IP composition only, no raw IP persistence.          |
+| `docs/services/service-catalog.md` | Add Firestore-service responsibility for Stage 1 trial summary persistence and trial-id hashing boundary. |
 
 ### Docs to delete or archive
 
@@ -182,7 +189,7 @@ No insufficiency found at planning time; remediation section not triggered.
 
 ### No docs affected
 
-- [x] Confirmed: this plan introduces no new patterns, changes no existing conventions, and removes no documented features.
+- [ ] Confirmed: this plan introduces no new patterns, changes no existing conventions, and removes no documented features.
 
 ## Context Map
 
@@ -204,17 +211,36 @@ No insufficiency found at planning time; remediation section not triggered.
 
 ### Dependencies / related patterns
 
-| File                                     | Relationship                                      |
-| ---------------------------------------- | ------------------------------------------------- |
-| `functions/src/types/express.ts`         | Shared response/request typing                    |
-| `functions/src/services/redis/index.ts`  | Redis data access boundary                        |
-| `functions/src/services/cache/index.ts`  | Cache manager + semantic invalidation conventions |
-| `functions/src/services/prisma/index.ts` | Trial-scoring persistence and typed DB access     |
+| File                                    | Relationship                                      |
+| --------------------------------------- | ------------------------------------------------- |
+| `functions/src/types/express.ts`        | Shared response/request typing                    |
+| `functions/src/services/redis/index.ts` | Redis data access boundary                        |
+| `functions/src/services/cache/index.ts` | Cache manager + semantic invalidation conventions |
+| `functions/src/services/firestore/`     | Trial summary persistence boundary                |
 
 ### Risks
 
 - [ ] If scoring writes are added too early, Stage 1 complexity rises beyond MVP target.
 - [ ] Missing fixture coverage for empty/stale pools can regress fallback UX.
+- [ ] Firestore document growth and retention policy may be undefined for anonymous trial data.
+- [ ] IP-based identifier collisions can occur for shared/NAT networks; collision handling must be deterministic and safe.
+- [ ] Incorrect proxy trust configuration can produce unstable or spoofable client IP extraction.
+
+## Resolved Design Decisions (2026-06-06)
+
+- [x] **Trial ID strategy resolved**: use server-generated hashed identifier composed from visitor IP for Stage 1 public trials.
+- [x] **Idempotency key resolved**: use `trial_id` as primary idempotency key for Firestore summary upsert in Stage 1.
+- [x] **Persistence model resolved**: single Firestore summary document per `trial_id` for Stage 1 MVP (no per-attempt append collection).
+- [x] **Collection naming resolved**: use dedicated Firestore collection for Stage 1 trial summaries (`trial_exam_summaries`).
+
+## Open Questions / Concerns
+
+- [ ] **Retention + cleanup**: what is the required TTL/archival policy for anonymous trial summaries?
+  - **Concern**: indefinite retention may increase cost and compliance risk.
+- [ ] **Security rules and access surface**: any Firestore rules updates needed if data is only server-written but queried for analytics?
+  - **Concern**: future read paths could accidentally broaden access if rules are not explicit now.
+- [ ] **Regional consistency**: does Firestore region align with Functions runtime and expected write latency?
+  - **Concern**: cross-region writes may impact submit P95 in public demo traffic spikes.
 
 ## Recommended Architecture
 
@@ -234,6 +260,7 @@ Protect release behind `public_demo_cache_enabled`; if no valid pool, return det
 
 Each phase in this Stage 1 rollout touches one primary layer only:
 
+0. Discovery/evidence layer (existing-solution verification + drift check)
 1. Contract layer (types + route contract)
 2. Cache/service layer (pool selection + fallback)
 3. Trial domain persistence/scoring layer
@@ -243,7 +270,7 @@ This reduces mixed-layer failures and keeps rollback scope narrow.
 
 ## Phase Sequencing Rule
 
-Default sequence for Stage 1: API contract first → cache retrieval/fallback → trial submit/scoring → telemetry/tests.
+Default sequence for Stage 1: baseline verification/drift detection → API contract → cache retrieval/fallback → trial submit/scoring → telemetry/tests.
 
 ## Commit Slicing Rule
 
@@ -258,6 +285,7 @@ Each phase should ship in one or two safe commits maximum, with independent veri
 
 ## Progress Dashboard
 
+- [ ] Phase 0 — Baseline verification + drift detection
 - [ ] Phase 1 — Public API contract + flag gates
 - [ ] Phase 2 — Demo pool selection + fallback behavior
 - [ ] Phase 3 — Trial submission + immediate scoring
@@ -268,6 +296,44 @@ Each phase should ship in one or two safe commits maximum, with independent veri
 - [ ] Phase 8 — Rollout Eval & Health Score
 
 ## Phases
+
+### Phase 0: Baseline verification + architecture evidence
+
+**Progress**: `[ ]`
+
+**Layer**: discovery/evidence layer
+
+**Goal**: Verify existing solutions, detect doc drift before coding, confirm architectural boundaries, and provide codebase evidence for design decisions.
+
+**Files**:
+
+- `docs/api/endpoint-conventions.md` — read/verify — confirm route and status-code expectations
+- `docs/api/response-envelope.md` — read/verify — confirm stable envelope contract
+- `docs/cache/redis-patterns.md` — read/verify — confirm canonical key/TTL patterns
+- `docs/services/service-catalog.md` — read/verify — confirm handler/service boundaries
+- `functions/src/endpoints/api/` — inspect — collect evidence of current routing patterns
+- `functions/src/services/cache/` — inspect — collect evidence of existing cache helper conventions
+
+**Verification gate**:
+
+- Existing route/cache/service implementations are inventoried with file-level evidence.
+- Drift table records any mismatch between docs and code before implementation starts.
+- Stage 1 assumptions are explicitly marked as `confirmed` or `open` with owner/action.
+
+**Sub-subphase checklist**:
+
+- [ ] **0.1 — Verify existing solutions**: identify reusable route handlers, cache helpers, and trial-domain primitives already in the codebase.
+  - **Independent verification**: evidence table includes concrete file paths + symbols.
+- [ ] **0.2 — Detect doc drift pre-coding**: compare canonical docs vs current implementation behavior.
+  - **Independent verification**: drift findings logged as `none` or tracked deltas with resolution path.
+- [ ] **0.3 — Confirm architecture boundaries**: validate thin-handler/service-heavy boundary and no direct infra calls in handlers.
+  - **Independent verification**: code scan evidence confirms boundary compliance or lists required remediation.
+- [ ] **0.4 — Capture decision evidence**: map each major Stage 1 design choice to doc citations plus codebase proof.
+  - **Independent verification**: Decision Evidence Log contains doc citation + file reference for each decision.
+- [ ] **0.5 — AI-assisted plan refresh**: require AI assistants to update this Stage 1 plan using Phase 0 findings before any code implementation begins.
+  - **Independent verification**: plan diff includes explicit updates to scope/risks/files/phases tied to Phase 0 evidence entries.
+
+---
 
 ### Phase 1: Public API contract + flag gates
 
@@ -329,15 +395,15 @@ Each phase should ship in one or two safe commits maximum, with independent veri
 
 **Progress**: `[ ]`
 
-**Layer**: trial domain/persistence layer
+**Layer**: trial domain/persistence layer (Firestore-backed)
 
-**Goal**: Add Stage 1 answer submission and immediate score summary response while persisting only final summary fields.
+**Goal**: Add Stage 1 answer submission and immediate score summary response while persisting only final summary fields in Firestore.
 
 **Files**:
 
 - `functions/src/endpoints/api/public/trials.ts` — modify — submit endpoint wiring
 - `functions/src/services/trialExam/Stage1PublicTrialService.ts` — modify — scoring orchestration
-- `functions/src/services/prisma/` (relevant module) — modify — minimal persistence/read path for trial results
+- `functions/src/services/firestore/` (relevant module) — modify/create — minimal persistence/read path for trial summary results
 
 **Verification gate**:
 
@@ -347,9 +413,12 @@ Each phase should ship in one or two safe commits maximum, with independent veri
 **Sub-subphase checklist**:
 
 - [ ] **3.1 — Add submit contract**: validate payload and response shape.
+  - Generate `trial_id` server-side from hashed IP composition (do not accept raw `trial_id` from client).
   - **Independent verification**: endpoint contract tests for valid/invalid payloads.
 - [ ] **3.2 — Add scoring summary**: compute `%`, correct count, completion timestamp.
   - Stage 1 explicitly excludes percentile-band fields.
+  - Persist summary-only fields via Firestore service boundary (no direct SDK in handler).
+  - Upsert Firestore summary by `trial_id` for deterministic duplicate-submit behavior.
   - **Independent verification**: deterministic scoring test fixtures.
 
 ---
@@ -409,9 +478,25 @@ Each phase should ship in one or two safe commits maximum, with independent veri
 
 **Goal**: Convert Stage 1 execution learnings into Stage 2 scheduler/infra rollout plan.
 
+**Files**:
+
+- `ai_oriented_kanban/10-plan/stage-1-mvp-trial-cache.md` — modify — summarize which docs/actions were validated by Phase 0 and carried through implementation
+- `ai_oriented_kanban/10-plan/` (new Stage 2 plan file) — create/modify — include implementation-ready next steps grounded in Stage 1 evidence
+- Relevant canonical docs under `docs/` — update-plan list only — generate actionable doc tasks with scope, owner, and expected change detail
+
 **Verification gate**:
 
 - New Stage 2 plan exists in `ai_oriented_kanban/10-plan/` and is linked from Stage 1 artifact.
+- AI assistants produce a docs action backlog derived from Phase 0 verification outputs, with per-doc change details.
+
+**Sub-subphase checklist**:
+
+- [ ] **6.1 — Generate docs update backlog**: AI assistants enumerate all docs needing updates based on Phase 0 drift/evidence and Stage 1 implementation learnings.
+  - **Independent verification**: backlog lists each doc path, why update is needed, and specific sections to modify.
+- [ ] **6.2 — Attach actionable doc tasks**: for each doc, define concrete update steps, owner, priority, and done criteria.
+  - **Independent verification**: each task includes measurable acceptance criteria and cross-links to evidence.
+- [ ] **6.3 — Link docs tasks to next implementation wave**: ensure Stage 2 plan references docs backlog items as prerequisites or parallel tracks.
+  - **Independent verification**: Stage 2 plan contains explicit links to generated docs tasks and dependency notes.
 
 ---
 
@@ -446,4 +531,4 @@ Each phase should ship in one or two safe commits maximum, with independent veri
 - Disable `public_demo_cache_enabled` to hard-stop Stage 1 API surface.
 - Revert public trial route registration commit.
 - Revert Stage 1 trial service changes without touching scheduler/restriction/registered-cache layers.
-- Preserve DB records created during trial runs for audit; do not destructive-reset in rollback.
+- Preserve Firestore trial summary records created during trial runs for audit; do not destructive-reset in rollback.

@@ -1,7 +1,7 @@
 # Endpoint Conventions
 
 > **Source of truth**: `functions/src/endpoints/api/`, `functions/src/types/express.ts`, `functions/src/types/errors.ts`
-> **Last reviewed**: 2026-05-26
+> **Last reviewed**: 2026-06-06
 > **Owner**: Backend Team
 
 ## Purpose
@@ -92,6 +92,17 @@ router.delete(
   deleteExam,            // Attacker can delete other users' exams!
 );
 ```
+
+### Public Endpoint Identifier Derivation (No-Login Flows)
+
+For unauthenticated public endpoints that still need deterministic request correlation (e.g., Stage 1 public trial flows), identifier composition must follow these rules:
+
+1. Generate identifier **server-side only** (do not trust client-provided trial IDs).
+2. Compose from visitor IP signal and hash with a server secret salt/pepper.
+3. Persist only the hashed identifier (e.g., `trial_id`) in storage/logging payloads.
+4. Never persist raw IP address in public trial summary records.
+
+This keeps public contracts deterministic for idempotency while reducing direct handling of raw network identifiers in persistence layers.
 
 ---
 

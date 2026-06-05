@@ -12,6 +12,7 @@ Use this template when a user asks for a rollout plan, phased plan, migration pl
 - Identify a minimum-viable hotfix path (usually first 1–2 phases) before progressive hardening.
 - If a phase is too large for one safe commit, split it into sub-subphases that are independently reviewable, revertible, and verifiable.
 - Prefer wording that makes the plan easy to execute incrementally in separate commits.
+- Always require a **Phase 0 verification phase** before implementation work begins, with evidence-backed outputs.
 - Always include mandatory closing phases for Docs Sync, AI-ready docs reflection/next-plan handoff, Docs-only Simulation Drill, and Eval & Health Score.
 - Enforce a docs-first decision contract: list required docs before implementation, record sufficiency, and update docs when insufficiency is discovered.
 
@@ -81,6 +82,14 @@ Representative files:
 
 - <item>
 - <item>
+
+## Phase 0 Verification Contract (mandatory before planned work)
+
+- Verify existing solutions first (reuse route handlers, services, cache helpers, schemas where possible).
+- Detect docs-to-code drift before coding starts; log `none` or explicit deltas with remediation path.
+- Confirm architecture boundaries (thin handlers, service orchestration, no direct infra calls in route layer unless explicitly approved).
+- Provide codebase evidence for each major design decision (doc citation + file/symbol evidence).
+- Require AI assistants to refresh the current rollout plan from Phase 0 findings before Phase 1 begins.
 
 ## Minimum Viable Hotfix
 
@@ -217,11 +226,13 @@ For every `Insufficient` decision evidence row:
 
 > **Each phase must touch exactly one dependency layer unless the user explicitly asks for a looser plan.**
 
+> **Phase 0 is mandatory and must complete before any implementation phase (Phase 1+) starts.**
+
 <Explain the dependency chain and why mixed-layer phases are risky.>
 
 ## Phase Sequencing Rule
 
-> **Default sequencing: root-cause fix → data recovery/backfill → contract hardening → UX/message polish → tests.**
+> **Default sequencing: Phase 0 verification/drift detection → root-cause fix → data recovery/backfill → contract hardening → UX/message polish → tests.**
 
 If user asks for minimal change first, move architecture refactors and retry redesign behind the immediate hotfix phases.
 
@@ -245,6 +256,7 @@ If user asks for minimal change first, move architecture refactors and retry red
 
 ## Progress Dashboard
 
+- [ ] Phase 0 — Verification and plan refresh
 - [ ] Phase 1 — <name>
 - [ ] Phase 2 — <name>
 - [ ] Phase 3 — <name>
@@ -254,6 +266,42 @@ If user asks for minimal change first, move architecture refactors and retry red
 - [ ] Phase N+3 — Rollout Eval & Health Score
 
 ## Phases
+
+### Phase 0: Verification baseline and plan refresh
+
+**Progress**: `[ ]`
+
+**Layer**: discovery/evidence layer
+
+**Goal**: Verify what already exists, detect doc drift, confirm boundaries, and update the plan using evidence before implementation starts.
+
+**Files**:
+
+- `<doc path>` — read/verify — confirm source-of-truth behavior for this rollout
+- `<code path>` — inspect — collect implementation evidence and reusable components
+- `<current-rollout-path>.md` — modify — refresh plan scope/files/risks based on verified findings
+
+**Verification gate** (must pass before Phase 1 starts):
+
+- Evidence table exists with concrete file paths + symbols for reusable solutions.
+- Doc drift status is explicitly logged (`none` or tracked deltas with remediation).
+- Architecture boundary check is explicitly logged (`confirmed` or remediation needed).
+- Plan diff shows updates grounded in Phase 0 evidence.
+
+**Sub-subphase checklist**:
+
+- [ ] **0.1 — Verify existing solutions**: identify reusable patterns/components/services.
+  - **Independent verification**: evidence table includes file paths and symbols.
+- [ ] **0.2 — Detect doc drift**: compare canonical docs with current implementation behavior.
+  - **Independent verification**: drift table is present with `none` or actionable deltas.
+- [ ] **0.3 — Confirm architectural boundaries**: validate layer boundaries and prohibited coupling.
+  - **Independent verification**: scan findings explicitly mark boundary status.
+- [ ] **0.4 — Capture decision evidence**: map each major decision to docs + codebase proof.
+  - **Independent verification**: Decision Evidence Log rows include doc citation and file evidence.
+- [ ] **0.5 — AI-assisted plan refresh**: update current rollout plan before Phase 1.
+  - **Independent verification**: plan changes reference Phase 0 evidence IDs/entries.
+
+---
 
 ### Phase 1: <name>
 

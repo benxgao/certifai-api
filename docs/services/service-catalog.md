@@ -1,7 +1,7 @@
 # Service Catalog
 
 > **Source of truth**: `functions/src/services/`
-> **Last reviewed**: 2026-05-26
+> **Last reviewed**: 2026-06-06
 > **Owner**: Backend Team
 
 ## Purpose
@@ -24,8 +24,9 @@ Provide a canonical inventory of backend services and when to use each, so contr
    - Use for: relational data reads/writes, transactional updates.
 
 2. **`firestore/`**
-   - Responsibility: Firestore-specific access patterns.
-   - Use for: question/report documents and non-relational exam artifacts.
+    - Responsibility: Firestore-specific access patterns.
+    - Use for: question/report documents, non-relational exam artifacts, and Stage 1 public trial summary persistence.
+    - Stage 1 rule: generate/store public trial identifiers only as server-side hashed values (IP-composed with secret salt/pepper); never persist raw IP in Firestore trial summary docs.
 
 3. **`firebase/`**
    - Responsibility: Firebase Admin wrappers (auth/logger/rtdb helpers).
@@ -102,6 +103,7 @@ Provide a canonical inventory of backend services and when to use each, so contr
 ## Which Service to Call (Quick Matrix)
 
 - Add/update relational exam metadata → `prisma/`
+- Persist Stage 1 public trial summaries → `firestore/`
 - Read/write Redis cache and TTL policy → `redis/` + `cache/`
 - Enqueue async exam work → `cloudTasks/`
 - Generate AI topics/questions/reports → `genkit/`
