@@ -60,17 +60,20 @@ Adaptive exam generation personalizes certification practice by analyzing each u
 ## Key Design Decisions
 
 ### 1. Topic Allocation Strategy
+
 - **Weak areas (60%)**: Users spend most time on areas they struggle with
 - **Average areas (25%)**: Reinforcement and consolidation
 - **Strong areas (15%)**: Validation of mastery
 
 ### 2. Duplication Approach
+
 - Weak topics (accuracy <50%): Include 2-4 times
 - Weak topics (accuracy 50-60%): Include 1-2 times
 - Average topics: Include 1-2 times
 - Strong topics: Include once or skip
 
 ### 3. Backward Compatibility
+
 - System gracefully handles exams without previous reports
 - Falls back to standard topic generation if needed
 - No breaking changes to existing APIs
@@ -79,16 +82,17 @@ Adaptive exam generation personalizes certification practice by analyzing each u
 
 ### Core Services
 
-| Component | Purpose | Location |
-|-----------|---------|----------|
-| **Exam Planner** | Generates adaptive topic lists | `services/genkit/examPlanner.ts` |
-| **Adaptive Topics** | Parses performance data and builds instructions | `services/genkit/adaptiveTopics.ts` |
-| **Create Exam** | Entry point for exam creation | `endpoints/api/users/exams/createExam.ts` |
-| **Exam Report Parser** | Parses structured Firestore data | `types/examReport.ts` |
+| Component              | Purpose                                         | Location                                  |
+| ---------------------- | ----------------------------------------------- | ----------------------------------------- |
+| **Exam Planner**       | Generates adaptive topic lists                  | `services/genkit/examPlanner.ts`          |
+| **Adaptive Topics**    | Parses performance data and builds instructions | `services/genkit/adaptiveTopics.ts`       |
+| **Create Exam**        | Entry point for exam creation                   | `endpoints/api/users/exams/createExam.ts` |
+| **Exam Report Parser** | Parses structured Firestore data                | `types/examReport.ts`                     |
 
 ### Data Structures
 
 **Topic Performance** (from exam report):
+
 ```
 {
   topic: string                           // Topic name
@@ -101,6 +105,7 @@ Adaptive exam generation personalizes certification practice by analyzing each u
 ```
 
 **Exam Report** (stored in Firestore):
+
 ```
 {
   exam_id: string
@@ -111,13 +116,13 @@ Adaptive exam generation personalizes certification practice by analyzing each u
 
 ## Benefits
 
-| Benefit | Impact |
-|---------|--------|
-| **Focused Practice** | Users concentrate on weak areas instead of reviewing mastered topics |
-| **Efficiency** | Reduces study time by eliminating redundant easy content |
-| **Data-Driven** | Personalization based on actual performance, not guessing |
-| **Scalable** | Firestore handles large-scale data; works for all certification types |
-| **Seamless** | Automatic - no user configuration needed |
+| Benefit              | Impact                                                                |
+| -------------------- | --------------------------------------------------------------------- |
+| **Focused Practice** | Users concentrate on weak areas instead of reviewing mastered topics  |
+| **Efficiency**       | Reduces study time by eliminating redundant easy content              |
+| **Data-Driven**      | Personalization based on actual performance, not guessing             |
+| **Scalable**         | Firestore handles large-scale data; works for all certification types |
+| **Seamless**         | Automatic - no user configuration needed                              |
 
 ## Integration Points
 
@@ -133,6 +138,7 @@ POST /api/users/{user_id}/exams
 ```
 
 The system automatically:
+
 1. Queries last exam report for this user + certification
 2. Extracts topic performance data
 3. Passes it to exam planner
@@ -141,20 +147,29 @@ The system automatically:
 ### Monitoring
 
 Log these events to track adaptive learning usage:
+
 - `ADAPTIVE_LEARNING: Found last exam report` - Adaptive mode enabled
 - `ADAPTIVE_LEARNING: No previous exam found` - Standard mode used
 - Topic distribution: weak/average/strong counts
 
 ## Error Handling
 
-| Scenario | Behavior |
-|----------|----------|
-| No previous exam | Use standard topic generation (backward compatible) |
-| Corrupt report data | Log warning and fall back to standard generation |
-| Database error | System continues without adaptive data |
-| Invalid JSON | Caught by parser, falls back gracefully |
+| Scenario            | Behavior                                            |
+| ------------------- | --------------------------------------------------- |
+| No previous exam    | Use standard topic generation (backward compatible) |
+| Corrupt report data | Log warning and fall back to standard generation    |
+| Database error      | System continues without adaptive data              |
+| Invalid JSON        | Caught by parser, falls back gracefully             |
 
 The system never fails exam creation due to adaptive learning issues.
+
+## Related Docs
+
+- [docs/workflow/exam-generation-workflow.md](../workflow/exam-generation-workflow.md) — Spec-first exam generation lifecycle, from request to completion. Ref: `functions/src/services/genkit/examPlanner.ts`
+- [docs/ai-services/exam-generation.md](../ai-services/exam-generation.md) — Genkit and AI generation guardrails for adaptive topic selection. Ref: `functions/src/services/genkit/adaptiveTopics.ts`
+- [docs/architecture/exam_active.md](./exam_active.md) — Exam status lifecycle that receives the generated exam. Ref: `functions/src/endpoints/api/users/exams/getExamLiveStatus.ts`
+- [docs/architecture/exam_data.md](./exam_data.md) — Persistence model for exams, reports, and topic performance input. Ref: `functions/src/types/examReport.ts`
+- [docs/services/service-catalog.md](../services/service-catalog.md) — Service-layer boundaries for planner, Prisma, and Firestore dependencies. Ref: `functions/src/endpoints/api/users/exams/createExam.ts`
 
 ## Future Enhancements
 

@@ -862,3 +862,11 @@ When debugging exam creation flow issues, verify these checkpoints:
 - [ ] **Phase 3**: Prisma update succeeds: `exam_status→READY`, `total_questions` set
 - [ ] **Frontend**: `useExamLiveStatus()` polling stops when status becomes READY
 - [ ] **Frontend**: UI components update to show "Ready to Start" status
+
+## Related Docs
+
+- [docs/architecture/exam_active.md](./exam_active.md) — Companion status-flow doc for the READY transition and polling behavior. Ref: `functions/src/utils/examQuestionAssociation.ts`
+- [docs/architecture/database-design.md](./database-design.md) — Storage model for Prisma, Firestore, and RTDB data involved in the transition. Ref: `functions/prisma/schema.prisma`
+- [docs/workflow/exam-generation-workflow.md](../workflow/exam-generation-workflow.md) — Spec-first end-to-end exam generation workflow. Ref: `functions/src/delegators/tasks/buildExam/examCompletion.ts`
+- [docs/cache/redis-patterns.md](../cache/redis-patterns.md) — Cache invalidation expectations after exam state changes. Ref: `functions/src/services/cache/index.ts`
+- [docs/services/service-catalog.md](../services/service-catalog.md) — Service-layer boundary references for Prisma, Firestore, and task handlers. Ref: `functions/src/services/cloudTasks/examGenerationTaskService.ts`

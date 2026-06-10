@@ -225,6 +225,15 @@ QUESTIONS_GENERATING  → READY → STARTED → COMPLETED
 2. Review scaling considerations above
 3. Set up alerts based on key metrics
 
+## Related Docs
+
+- [docs/architecture/adaptive-exam-generation.md](./adaptive-exam-generation.md) — Adaptive exam planning and topic allocation. Ref: `functions/src/services/genkit/examPlanner.ts`
+- [docs/architecture/exam_active.md](./exam_active.md) — Status lifecycle and polling behavior for generated exams. Ref: `functions/src/endpoints/api/users/exams/getExamLiveStatus.ts`
+- [docs/architecture/exam_data.md](./exam_data.md) — Storage and transition details for exam metadata and associated question data. Ref: `functions/src/utils/examQuestionAssociation.ts`
+- [docs/architecture/knowledge-pooling.md](./knowledge-pooling.md) — Post-exam insight generation and Firestore consolidation. Ref: `functions/src/services/firestore/examKnowledgePoolingFirestoreService.ts`
+- [docs/architecture/redis-cache.md](./redis-cache.md) — Cache strategy and invalidation patterns used across the architecture. Ref: `functions/src/services/cache/cacheHierarchy.ts`
+- [docs/architecture/prisma.md](./prisma.md) — Prisma setup notes for the relational backend layer. Ref: `functions/prisma/schema.prisma`
+
 ## Document Structure
 
 ```

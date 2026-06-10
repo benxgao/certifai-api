@@ -121,3 +121,10 @@ Key events to track:
 - `questions_generated` - Batch completed
 - `status_ready` - Exam ready for user
 - `exam_started` - User began exam
+
+## Related Docs
+
+- [docs/workflow/exam-generation-workflow.md](../workflow/exam-generation-workflow.md) — Spec-first lifecycle for request, batching, and completion. Ref: `functions/src/delegators/tasks/buildExam/examCompletion.ts`
+- [docs/architecture/exam_data.md](./exam_data.md) — Detailed state transition and storage references for the READY checkpoint. Ref: `functions/src/utils/examQuestionAssociation.ts`
+- [docs/architecture/firebase-functions-structure.md](./firebase-functions-structure.md) — Backend routing and handler placement for live status endpoints. Ref: `functions/src/endpoints/api/users/exams/getExamLiveStatus.ts`
+- [docs/ai-services/exam-generation.md](../ai-services/exam-generation.md) — AI and Cloud Tasks guardrails that shape question generation. Ref: `functions/src/delegators/tasks/buildExam/`

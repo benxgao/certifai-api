@@ -59,11 +59,13 @@ User's AWS Certification
 ## System Components
 
 ### 1. Exam Submission Trigger
+
 - **Event:** User submits exam
 - **Action:** Queue Cloud Task for knowledge pooling
 - **Async:** Yes (doesn't block exam completion)
 
 ### 2. Knowledge Pooling Service
+
 - **Input:** Exam ID, User ID, Incorrectly answered questions
 - **Process**:
   1. Fetch incorrect answers from PostgreSQL
@@ -73,11 +75,13 @@ User's AWS Certification
 - **Output:** Array of insights
 
 ### 3. Firestore Storage
+
 - **Path:** `users/{userId}/certs/{certId}`
 - **Structure:** Single document per certification
 - **Merge:** New insights merged (old per-exam data removed)
 
 ### 4. Caching Strategy
+
 - **Duration:** 7 days
 - **Invalidation:** User can force refresh
 - **Speed Benefit:** Instant retrieval for cached data
@@ -85,9 +89,11 @@ User's AWS Certification
 ## API Endpoints
 
 ### Internal: POST `/api/ai/knowledge-pooling`
+
 Service-to-service endpoint (used by Cloud Tasks)
 
 **Request:**
+
 ```json
 {
   "exam_id": "exam_123",
@@ -97,6 +103,7 @@ Service-to-service endpoint (used by Cloud Tasks)
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -111,9 +118,11 @@ Service-to-service endpoint (used by Cloud Tasks)
 ```
 
 ### User: GET `/users/:user_id/certifications/:cert_id/knowledge-pooling`
+
 Retrieve consolidated insights for a certification
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -135,13 +144,15 @@ Retrieve consolidated insights for a certification
 ```
 
 ### User: POST `/users/:user_id/certifications/:cert_id/knowledge-pooling`
+
 Generate/refresh insights for a specific exam
 
 **Request:**
+
 ```json
 {
   "exam_id": "exam_123",
-  "forceGenerate": true  // Skip cache
+  "forceGenerate": true // Skip cache
 }
 ```
 
@@ -208,6 +219,7 @@ Invalid at any step → Clear error with HTTP status code
 ## Storage Structure
 
 **Firestore Document:**
+
 ```
 Collection: users
   Document: {userId}
@@ -246,6 +258,7 @@ This prevents duplicate learning points from multiple exams.
 ## Caching Logic
 
 **On GET request:**
+
 ```
 1. Check if Firestore doc exists
    └─ Not found → 404 (no completed exams yet)
@@ -260,6 +273,7 @@ This prevents duplicate learning points from multiple exams.
 ```
 
 **On POST request:**
+
 ```
 1. If forceGenerate = false
    └─ Same as GET
@@ -270,19 +284,20 @@ This prevents duplicate learning points from multiple exams.
 
 ## Error Handling
 
-| Scenario | HTTP Code | Behavior |
-|----------|-----------|----------|
-| No token | 401 | Authentication required |
-| Invalid exam_id | 400 | Bad request |
-| Exam not found | 404 | Not found |
-| User doesn't own exam | 404 | Not found (security) |
-| Exam not complete | 404 | Can't analyze draft exam |
-| No incorrect answers | 404 | Nothing to analyze |
-| AI generation fails | 500 | Service error (logged) |
+| Scenario              | HTTP Code | Behavior                 |
+| --------------------- | --------- | ------------------------ |
+| No token              | 401       | Authentication required  |
+| Invalid exam_id       | 400       | Bad request              |
+| Exam not found        | 404       | Not found                |
+| User doesn't own exam | 404       | Not found (security)     |
+| Exam not complete     | 404       | Can't analyze draft exam |
+| No incorrect answers  | 404       | Nothing to analyze       |
+| AI generation fails   | 500       | Service error (logged)   |
 
 ## Monitoring
 
 Key metrics:
+
 - `knowledge_pooling_generated` - New insights created
 - `knowledge_pooling_cached` - Cached data returned
 - `regeneration_requested` - Force refresh used
@@ -297,10 +312,11 @@ Key metrics:
 3. **Peer Insights** - Anonymized insights from similar users
 4. **Performance Trends** - Track improvement over time
 
-  -H 'Authorization: Bearer <TOKEN>' \
-  -H 'Content-Type: application/json' \
-  -d '{"exam_id": "exam_123", "forceGenerate": true}'
-```
+   -H 'Authorization: Bearer <TOKEN>' \
+   -H 'Content-Type: application/json' \
+   -d '{"exam_id": "exam_123", "forceGenerate": true}'
+
+````
 
 **Get existing insights:**
 
@@ -308,7 +324,7 @@ Key metrics:
 curl -X GET \
   'http://localhost:5001/certifai-uat/us-central1/endpoints/api/users/user_456/certifications/1/knowledge-pooling' \
   -H 'Authorization: Bearer <TOKEN>'
-```
+````
 
 **Internal API (service-to-service):**
 
@@ -386,3 +402,11 @@ When a user submits an exam:
 6. Insights available within 1-3 seconds
 
 **Note:** Cloud Tasks only run once per exam. To regenerate, call the user endpoint with `forceGenerate=true`.
+
+## Related Docs
+
+- [docs/architecture/exam_data.md](./exam_data.md) — Exam/report storage model and the data that feeds insight generation. Ref: `functions/src/services/firebase/examReportFirestore.ts`
+- [docs/workflow/exam-generation-workflow.md](../workflow/exam-generation-workflow.md) — Spec-first lifecycle for exam completion and downstream tasks. Ref: `functions/src/delegators/tasks/knowledge-pooling/`
+- [docs/ai-services/exam-generation.md](../ai-services/exam-generation.md) — AI service conventions and rate/cost guardrails. Ref: `functions/src/services/firestore/examKnowledgePoolingFirestoreService.ts`
+- [docs/cache/redis-patterns.md](../cache/redis-patterns.md) — Cache rules for consolidated insight retrieval. Ref: `functions/src/services/cache/index.ts`
+- [docs/database/prisma-patterns.md](../database/prisma-patterns.md) — Relational query and schema conventions for exam ownership checks. Ref: `functions/prisma/schema.prisma`

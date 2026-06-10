@@ -409,3 +409,11 @@ When implementing data changes:
 - Cert summary Firestore: `functions/src/services/firebase/certSummaryFirestore.ts`
 - Knowledge pooling Firestore: `functions/src/services/firestore/examKnowledgePoolingFirestoreService.ts`
 - Stripe Firestore projection: `functions/src/endpoints/stripe/db/types.ts`, `functions/src/endpoints/stripe/db/account.ts`
+
+## Related Docs
+
+- [docs/database/prisma-patterns.md](../database/prisma-patterns.md) — Prisma schema and migration conventions for the relational source of truth. Ref: `functions/prisma/schema.prisma`
+- [docs/architecture/exam_data.md](./exam_data.md) — Exam transition state changes that depend on the relational model. Ref: `functions/src/utils/examQuestionAssociation.ts`
+- [docs/architecture/knowledge-pooling.md](./knowledge-pooling.md) — Firestore-backed exam insight storage built on exam history data. Ref: `functions/src/services/firestore/examKnowledgePoolingFirestoreService.ts`
+- [docs/architecture/exam_active.md](./exam_active.md) — Live exam status reads that depend on persisted exam records. Ref: `functions/src/endpoints/api/users/exams/getExamLiveStatus.ts`
+- [docs/cache/redis-patterns.md](../cache/redis-patterns.md) — Cache invalidation patterns that sit alongside storage writes. Ref: `functions/src/services/cache/index.ts`
