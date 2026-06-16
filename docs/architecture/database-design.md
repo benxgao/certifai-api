@@ -91,8 +91,8 @@ Purpose: core API user account.
 | ------------------ | ------------------- | ---------------------- |
 | `user_id`          | `String` PK uuid    | Internal API user ID   |
 | `firebase_user_id` | `String?` unique    | Firebase Auth UID link |
-| `credit_tokens`    | `Int` default `300` | Credit token balance   |
-| `energy_tokens`    | `Int` default `0`   | Energy token balance   |
+| `credit_tokens`    | `Int` default `300` | Spendable exam credit balance   |
+| `energy_tokens`    | `Int` default `0`   | Reward balance earned from correct answers   |
 | `created_at`       | `DateTime`          | Create timestamp       |
 | `updated_at`       | `DateTime`          | Update timestamp       |
 
@@ -177,7 +177,7 @@ Purpose: user exam session header.
 | `exam_status`        | `ExamStatus`       | Exam lifecycle state     |
 | `total_questions`    | `Int?`             | Planned question count   |
 | `score`              | `Float?`           | Final score              |
-| `token_cost`         | `Int` default `60` | Token cost for exam      |
+| `token_cost`         | `Int` default `60` | Stored credit cost for the exam (written from requested question count)      |
 | `custom_prompt_text` | `String?`          | Custom generation prompt |
 | `started_at`         | `DateTime`         | Start timestamp          |
 | `submitted_at`       | `DateTime?`        | Submission timestamp     |
@@ -206,6 +206,13 @@ Purpose: per-question answer record inside an exam.
 Constraints:
 
 - Unique per exam/question: `@@unique([exam_id, quiz_question_id])`
+
+### Token balance lifecycle
+
+- `GET /api/users/:user_id/profile` reads both `credit_tokens` and `energy_tokens` for display.
+- `createExam` validates that `credit_tokens` covers the requested exam size before generation starts.
+- `submitExamForUser` decrements `credit_tokens` by the stored `token_cost` and increments `energy_tokens` by the earned amount in the same transaction.
+- Profile cache invalidation is required after submission so the stored balances stay in sync with the UI.
 
 ---
 
@@ -395,6 +402,7 @@ When implementing data changes:
    - `users/{user_id}/certs/{cert_id}/summaries/cert_summary`
    - `users/{user_id}/certs/{cert_id}` → `knowledge_pooling`
 4. For billing/subscription features, use Firestore `accounts/{api_user_id}` and treat it as minimal Stripe projection.
+5. For token-economy changes, start with the Prisma `User` and `ExamAttempt` models, then review `docs/product/token-economy.md` and `docs/workflow/exam-token-workflow.md`.
 
 ---
 
@@ -417,3 +425,5 @@ When implementing data changes:
 - [docs/architecture/knowledge-pooling.md](./knowledge-pooling.md) — Firestore-backed exam insight storage built on exam history data. Ref: `functions/src/services/firestore/examKnowledgePoolingFirestoreService.ts`
 - [docs/architecture/exam_active.md](./exam_active.md) — Live exam status reads that depend on persisted exam records. Ref: `functions/src/endpoints/api/users/exams/getExamLiveStatus.ts`
 - [docs/cache/redis-patterns.md](../cache/redis-patterns.md) — Cache invalidation patterns that sit alongside storage writes. Ref: `functions/src/services/cache/index.ts`
+- [docs/product/token-economy.md](../product/token-economy.md) — Credit/energy balance model used by the user profile and exam submission flow.
+- [docs/workflow/exam-token-workflow.md](../workflow/exam-token-workflow.md) — Step-by-step mutation path for balance validation, deduction, and reward.

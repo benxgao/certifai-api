@@ -129,6 +129,10 @@ This prevents assistant behavior from depending on implicit tribal knowledge and
 → Start with: [Service Catalog](../services/service-catalog.md)
 → Then review: [Repository Map](./repo-map.md) (System Boundaries section)
 
+**Task: Understand or change credit/energy token balances**
+→ Start with: [Token Economy](../product/token-economy.md)
+→ Then review: [Exam Token Workflow](../workflow/exam-token-workflow.md) | [Database Design](../architecture/database-design.md)
+
 ---
 
 ### 🧪 Testing

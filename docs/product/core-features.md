@@ -22,5 +22,8 @@ Practice with timed exams that match the format, difficulty, and standards of re
 ### 6. Intelligent Performance & Responsiveness
 The platform delivers instant responses and live updates without lag or delays. Real-time exam status polling, fast question retrieval, and smooth interactions create a seamless practice experience. Background processing ensures exam generation and insight consolidation happen asynchronously, so you get immediate feedback while comprehensive analysis happens behind the scenes.
 
+### 7. Credit and Energy Token Economy
+Users have a spendable credit balance for exam usage and an earned energy balance for progress feedback. The system validates credit availability before exam creation, deducts the stored exam cost when an exam is submitted, and awards energy tokens based on correct answers so the account profile reflects both access and achievement.
+
 ## Value for Future Integration
 These features establish the foundation for deeper RAG (Retrieval-Augmented Generation) integration. As the platform evolves, RAG can enhance question realism, personalize explanations, and deepen knowledge pooling by retrieving and synthesizing insights from larger certification knowledge bases.

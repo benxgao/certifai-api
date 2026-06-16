@@ -89,6 +89,7 @@ This index provides a machine-friendly list of all canonical documentation files
 | Doc                  | Purpose                                                       | File                                               |
 | -------------------- | ------------------------------------------------------------- | -------------------------------------------------- |
 | **Product Glossary** | Shared terminology for product, engineering, and AI retrieval | [docs/product/glossary.md](../product/glossary.md) |
+| **Token Economy**    | Credit/energy balance model, reward rules, and exam cost flow | [docs/product/token-economy.md](../product/token-economy.md) |
 
 ### 🧭 AI Documentation Entry Points
 
@@ -107,6 +108,7 @@ All step-by-step lifecycle procedures live in `docs/workflow/` to keep invariant
 | --------------------- | ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
 | **Exam Generation**   | Request → rate limit check → Cloud Tasks → Genkit → polling → completion | [docs/workflow/exam-generation-workflow.md](../workflow/exam-generation-workflow.md)     |
 | **Auth Verification** | Token arrival → authCheck → jwtAuth → verifyUserAccess → req.user        | [docs/workflow/auth-verification-workflow.md](../workflow/auth-verification-workflow.md) |
+| **Exam Token**        | Balance validation → exam creation → submission deduction → energy award | [docs/workflow/exam-token-workflow.md](../workflow/exam-token-workflow.md)               |
 | **Workflow Template** | Standard structure and naming convention for new `*-workflow.md` docs    | [docs/workflow/README.md](../workflow/README.md)                                         |
 
 ## Section Templates
@@ -141,6 +143,7 @@ Each section has a standardized template to ensure consistent structure when add
 | Add a caching layer to a query                | [Redis Patterns](../cache/redis-patterns.md)                 | [Service Catalog](../services/service-catalog.md)                                               |
 | Debug an async test failure                   | [Testing Strategy](../testing/strategy.md)                   | [Exam Generation Workflow](../workflow/exam-generation-workflow.md) (for Cloud Tasks behavior)  |
 | Understand how users authenticate             | [Auth Patterns](../auth/auth-patterns.md)                    | [Auth Verification Workflow](../workflow/auth-verification-workflow.md) (for step-by-step flow) |
+| Understand credit/energy balances             | [Token Economy](../product/token-economy.md)                 | [Database Design](../architecture/database-design.md), [Exam Token Workflow](../workflow/exam-token-workflow.md) |
 | Add a new service                             | [Service Catalog](../services/service-catalog.md)            | [Repository Map](./repo-map.md) (for boundaries)                                                |
 | Deploy changes to production                  | [Deployment Guide](../operations/deployment.md)              | [GitHub workflows](../../.github/workflows/) (source)                                           |
 | Create docs-first rollout plan                | [Spec-First Kanban Policy](../operations/spec-first-kanban-integration.md) | [Docs Maintenance](../operations/docs-maintenance.md), [Assistant Guide](./guide.md) |

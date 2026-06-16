@@ -16,6 +16,7 @@ Define where and how to document step-by-step procedures.
 Examples:
 - `exam-generation-workflow.md`
 - `auth-verification-workflow.md`
+- `exam-token-workflow.md`
 
 ## Layering Contract
 
@@ -46,3 +47,4 @@ Do not embed numbered procedural sequences in invariant domain docs.
 - [Auth Patterns](../auth/auth-patterns.md) – auth invariants
 - [Exam Generation (AI Services Invariants)](../ai-services/exam-generation.md) – AI guardrails
 - [Service Catalog](../services/service-catalog.md) – service ownership
+- [Token Economy](../product/token-economy.md) – credit/energy balance model used by exam submission flows

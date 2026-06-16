@@ -194,6 +194,7 @@ QUESTIONS_GENERATING → READY → IN_PROGRESS → COMPLETED
 | Add a caching layer       | Use Redis service in `functions/src/services/redis/` with explicit TTL.                                             | [Redis Patterns](../cache/redis-patterns.md)                      |
 | Add a Prisma migration    | Follow `src/services/prisma/migrations.ts` for safe migration workflow.                                             | [Prisma Patterns](../database/prisma-patterns.md)                 |
 | Add exam generation logic | Rate-limit first, then call Genkit service with model config.                                                       | [Genkit Patterns](../ai-services/exam-generation.md)              |
+| Understand credit/energy balances | Validate `credit_tokens` before exam creation and mutate token balances only through the submission transaction. | [Token Economy](../product/token-economy.md) and [Exam Token Workflow](../workflow/exam-token-workflow.md) |
 | Debug a Cloud Tasks issue | Check logs in Cloud Logging. Remember: SYNC in local dev, ASYNC in production.                                      | [Cloud Tasks (Workflow)](../workflow/exam-generation-workflow.md) |
 
 ## Quick Navigation
@@ -206,6 +207,7 @@ QUESTIONS_GENERATING → READY → IN_PROGRESS → COMPLETED
 - Implement caching → [Redis Patterns](../cache/redis-patterns.md)
 - Understand the auth chain → [Auth Patterns](../auth/auth-patterns.md) → [Auth Verification Workflow](../workflow/auth-verification-workflow.md)
 - Generate exams with AI → [AI Services Conventions](../ai-services/exam-generation.md) → [Exam Generation Workflow](../workflow/exam-generation-workflow.md)
+- Understand credit/energy balances → [Token Economy](../product/token-economy.md) → [Exam Token Workflow](../workflow/exam-token-workflow.md)
 - Find the right service → [Service Catalog](../services/service-catalog.md)
 - Write tests → [Testing Strategy](../testing/strategy.md)
 - Deploy changes → [Deployment Guide](../operations/deployment.md)
@@ -217,5 +219,7 @@ QUESTIONS_GENERATING → READY → IN_PROGRESS → COMPLETED
 - [Auth: Auth Patterns](../auth/auth-patterns.md) – Auth invariants
 - [Services: Service Catalog](../services/service-catalog.md) – Inventory of all 20+ services
 - [Workflows](../workflow/) – Step-by-step procedures for multi-step domains (exam generation, auth verification)
+- [Token Economy](../product/token-economy.md) – credit/energy balance rules and exam cost flow
+- [Exam Token Workflow](../workflow/exam-token-workflow.md) – token deduction and reward sequence
 - [Assistant Context Index](./assistant-context-index.md) – Complete index of all canonical docs
 - [Assistant Guide](./guide.md) – Task routing: which doc to load for which task

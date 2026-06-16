@@ -103,6 +103,21 @@ Relational database for user accounts, exam metadata, certification mappings, an
 
 **Related**: Prisma, Database, Exam Metadata
 
+### Credit Token
+Spendable account balance used by Certifai to gate exam usage. New users start with `300` credit tokens, the profile API exposes the balance as `credit_tokens`, and the finalized exam flow decrements the balance when an exam is submitted.
+
+**Related**: User (Database), Exam, Token Economy
+
+### Energy Token
+Reward balance earned from correct exam answers. New users start with `0` energy tokens, the profile API exposes the balance as `energy_tokens`, and the finalized exam flow increments the balance after successful submission.
+
+**Related**: User (Database), Exam Result, Token Economy
+
+### Token Economy
+The paired credit/energy system used across Certifai. Credit tokens gate exam usage, while energy tokens capture earned progress and engagement. This is distinct from authentication tokens and rate-limit tokens.
+
+**Related**: Credit Token, Energy Token, Exam, User (Database)
+
 ### Firebase Auth
 Google's authentication service. Handles user sign-up, login, and token management. Certifai frontend (Next.js) uses Firebase Auth SDK; backend verifies tokens via custom JWT middleware.
 
@@ -194,3 +209,4 @@ A planned, phased deployment of a feature or change to production. Includes test
 - [API Response Envelope](../api/response-envelope.md) – Details of the ApiResponse structure
 - [Architecture Overview](../architecture/firebase-functions-structure.md) – System context and core components
 - [Repository Map](../ai/repo-map.md) – System boundaries and structure
+- [Token Economy](./token-economy.md) – credit and energy balance rules used across exam flows

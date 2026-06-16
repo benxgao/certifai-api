@@ -26,6 +26,7 @@ Document the end-to-end procedure for exam generation from request intake throug
 3. **Certification + token eligibility checks**
    - Validate certification exists.
    - Validate user has enough credit tokens for requested question count.
+   - This is a preflight check only; the actual credit deduction happens later in the exam submission workflow.
 
 4. **Create exam attempt record**
    - Persist exam in `QUESTIONS_GENERATING` state via transactional write path.
@@ -103,3 +104,5 @@ Implementation/testing must tolerate both modes.
 - [Service Catalog](../services/service-catalog.md) – involved services and ownership
 - [Redis Patterns](../cache/redis-patterns.md) – cache/rate-limit behavior
 - [Testing Strategy](../testing/strategy.md) – async behavior test guidance
+- [Token Economy](../product/token-economy.md) – credit/energy balance model used by exam flows
+- [Exam Token Workflow](./exam-token-workflow.md) – submission-time mutation and reward lifecycle
