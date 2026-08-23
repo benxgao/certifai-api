@@ -32,6 +32,9 @@ Update admin IAM roles
 Generate API API key - https://aistudio.google.com/app/apikey
 Add GOOGLE_GENAI_API_KEY to secret manager
 
+Generate DeepSeek API key - https://platform.deepseek.com/api_keys
+Add DEEPSEEK_API_KEY to secret manager
+
 Enable Cloud Billing API - https://console.cloud.google.com/apis/library/cloudbilling.googleapis.com?project=certifai-prod&inv=1&invt=Abx-ew
 
 ```sh

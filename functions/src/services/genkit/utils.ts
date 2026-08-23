@@ -1,5 +1,6 @@
-import { genkit, z, Genkit } from 'genkit';
+import { genkit, z, Genkit, ModelReference } from 'genkit';
 import { googleAI } from '@genkit-ai/google-genai';
+import { deepSeek } from '@genkit-ai/compat-oai/deepseek';
 import { enableFirebaseTelemetry } from '@genkit-ai/firebase';
 import { GenerationConfig } from '../../types/genkit';
 
@@ -21,7 +22,9 @@ export const DEFAULT_GENERATION_CONFIG: GenerationConfig = {
 /**
  * Default Genkit AI model for text generation
  */
-export const DEFAULT_GENAI_MODEL = 'gemini-2.5-flash';
+export const DEFAULT_GENAI_MODEL = 'deepseek-chat'; // 'gemini-2.5-flash'
+
+const deepseekModel = deepSeek.model(DEFAULT_GENAI_MODEL);
 
 /**
  * Singleton Genkit AI instance - shared across all operations
@@ -35,10 +38,13 @@ let genkitInstance: Genkit | null = null;
 let initAttemptCount = 0;
 
 /**
- * Initialize a Genkit AI instance with Google AI plugin (singleton)
+ * Initialize a Genkit AI instance with configurable provider (singleton)
+ * @param provider - 'google' for Gemini or 'deepseek' for DeepSeek (default)
  * @returns Promise<Genkit> - Initialized AI instance
  */
-export const initializeAiInstance = async (): Promise<Genkit> => {
+export const initializeAiInstance = async (
+  provider: 'google' | 'deepseek' = 'deepseek',
+): Promise<Genkit> => {
   // Return existing instance if already initialized
   if (genkitInstance) {
     logger.info(
@@ -56,7 +62,9 @@ export const initializeAiInstance = async (): Promise<Genkit> => {
 
   try {
     const secretStart = Date.now();
-    const apiKey = await getSecret('GOOGLE_GENAI_API_KEY');
+    const apiKey = await getSecret(
+      provider === 'google' ? 'GOOGLE_GENAI_API_KEY' : 'DEEPSEEK_API_KEY',
+    );
     secretElapsedMs = Date.now() - secretStart;
 
     logger.info('GenkitAI: secret fetched successfully', {
@@ -65,8 +73,12 @@ export const initializeAiInstance = async (): Promise<Genkit> => {
     });
 
     const genkitStart = Date.now();
+
     genkitInstance = genkit({
-      plugins: [googleAI({ apiKey })],
+      plugins: [
+        provider === 'google' ? googleAI({ apiKey }) : deepSeek({ apiKey }),
+      ],
+      model: provider === 'google' ? 'gemini-2.5-flash' : deepseekModel,
     });
 
     logger.info('GenkitAI: New instance created and cached successfully', {
@@ -161,7 +173,7 @@ export const validateAndFilterResponse = <T>(
  * @param schema - Zod schema for output validation
  * @param sendChunk - Function to send chunks to client
  * @param config - Generation configuration
- * @param model - AI model to use (e.g., googleAI.model('gemini-2.5-flash'))
+ * @param model - AI model to use (e.g., deepSeek.model('deepseek-chat'))
  * @returns Generated and validated response
  */
 export const generateWithValidation = async <T>(
@@ -170,7 +182,7 @@ export const generateWithValidation = async <T>(
   schema: z.ZodSchema<T>,
   sendChunk: (chunk: string) => void,
   config: GenerationConfig = DEFAULT_GENERATION_CONFIG,
-  model?: ReturnType<typeof googleAI.model>,
+  model?: ModelReference<any>,
 ): Promise<T> => {
   type GenerateStreamParams = {
     prompt: string;
@@ -181,7 +193,7 @@ export const generateWithValidation = async <T>(
       topK?: number;
     };
     output: { schema: z.ZodSchema<T> };
-    model?: ReturnType<typeof googleAI.model>;
+    model?: ModelReference<any>;
   };
   const generateParams: GenerateStreamParams = {
     prompt,
@@ -308,7 +320,10 @@ export const handleGenerationError = (
   context: Record<string, unknown>,
   operation: string,
 ): never => {
-  logger.error(`Error in ${operation}:`, { ...context, error: error instanceof Error ? error.message : String(error) });
+  logger.error(`Error in ${operation}:`, {
+    ...context,
+    error: error instanceof Error ? error.message : String(error),
+  });
   throw new Error(
     `Failed to ${operation}: ${
       error instanceof Error ? error.message : String(error)
@@ -352,8 +367,4 @@ export const logGenerationComplete = (
   );
 };
 
-/**
- * Export googleAI instance for model creation in service flows
- * Use: googleAI.model('gemini-2.5-flash') to create model references
- */
-export { googleAI };
+export { deepseekModel };

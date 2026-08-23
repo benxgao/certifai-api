@@ -10,8 +10,6 @@ import {
   handleGenerationError,
   logGenerationStart,
   logGenerationComplete,
-  googleAI,
-  DEFAULT_GENAI_MODEL,
 } from './utils';
 import {
   buildQuizPrompt,
@@ -125,7 +123,7 @@ export const quizGeneratorPromise = aiInstancePromise
               topP: 0.9,
               topK: 40,
             },
-            googleAI.model(DEFAULT_GENAI_MODEL),
+            // model uses default configured in genkit instance
           );
 
           // Validate and filter questions with missing examTopic using shared utility

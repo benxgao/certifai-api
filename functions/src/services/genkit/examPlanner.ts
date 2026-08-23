@@ -14,8 +14,6 @@ import {
   handleGenerationError,
   logGenerationStart,
   logGenerationComplete,
-  googleAI,
-  DEFAULT_GENAI_MODEL,
 } from './utils';
 
 enableFirebaseTelemetry();
@@ -181,8 +179,7 @@ export const examPlannerPromise = aiInstancePromise
             prompt,
             z.array(z.string()),
             sendChunk,
-            undefined,
-            googleAI.model(DEFAULT_GENAI_MODEL),
+            // model uses default configured in genkit instance
           );
 
           // Validate and filter topics using shared utility
