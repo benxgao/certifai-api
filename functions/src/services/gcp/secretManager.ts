@@ -22,12 +22,16 @@ export async function getSecret(
   version?: string,
 ): Promise<string> {
   // Check cache for Google GenAI API key
-  if (secretName === 'GOOGLE_GENAI_API_KEY' && !version) {
+  if (
+    (secretName === 'GOOGLE_GENAI_API_KEY' ||
+      secretName === 'DEEPSEEK_API_KEY') &&
+    !version
+  ) {
     if (
       googleGenAIApiKeyCache &&
       googleGenAIApiKeyCache.expiresAt > Date.now()
     ) {
-      logger.info(`Using cached GOOGLE_GENAI_API_KEY:
+      logger.info(`Using cached ${secretName}:
         | valid for ${Math.round(
           (googleGenAIApiKeyCache.expiresAt - Date.now()) /
             (1000 * 60 * 60 * 24),
@@ -94,7 +98,11 @@ export async function getSecret(
   });
 
   // Cache Google GenAI API key
-  if (secretName === 'GOOGLE_GENAI_API_KEY' && !version) {
+  if (
+    (secretName === 'GOOGLE_GENAI_API_KEY' ||
+      secretName === 'DEEPSEEK_API_KEY') &&
+    !version
+  ) {
     googleGenAIApiKeyCache = {
       value: secret,
       expiresAt: Date.now() + CACHE_TTL_MS,

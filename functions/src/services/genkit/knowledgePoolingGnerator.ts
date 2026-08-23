@@ -10,8 +10,8 @@ import {
   logGenerationStart,
   logGenerationComplete,
   DEFAULT_GENERATION_CONFIG,
-  googleAI,
-  DEFAULT_GENAI_MODEL,
+  // googleAI,
+  // DEFAULT_GENAI_MODEL,
 } from './utils';
 
 enableFirebaseTelemetry();
@@ -147,7 +147,7 @@ Generate knowledge insights which should be covered by the official exam guide.
               maxOutputTokens: 4096,
               temperature: 0.5,
             },
-            googleAI.model(DEFAULT_GENAI_MODEL),
+            // googleAI.model(DEFAULT_GENAI_MODEL),
           );
 
           const result = {
