@@ -13,7 +13,7 @@ Define stable AI-service invariants for exam generation: Genkit usage, model/con
 ## Key Concepts
 
 - **Genkit singleton initialization** with timeout-protected retry behavior.
-- **Default model**: `gemini-2.5-flash` (`DEFAULT_GENAI_MODEL`).
+- **Default model**: `deepseek-chat` (`DEFAULT_GENAI_MODEL`) via `@genkit-ai/compat-oai` DeepSeek plugin.
 - **Structured generation** via Zod schemas and validated outputs.
 - **Rate limiting before generation** for cost and fairness controls.
 - **Cloud Tasks offload** for asynchronous generation batches.

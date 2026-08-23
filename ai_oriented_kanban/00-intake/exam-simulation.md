@@ -129,7 +129,7 @@ MaterialChunk {
    • Difficulty level: ADVANCED
    ```
 
-5. Call Genkit (gemini-2.5-flash) with grounded prompt
+5. Call Genkit (deepseek-chat) with grounded prompt
 6. Return question with `source_material_id` reference
 
 **Key Differences from Current System:**
@@ -421,7 +421,7 @@ Certification {
                │
                ▼
 ┌──────────────────────────────────────┐
-│ 4. Call Genkit (gemini-2.5-flash)    │
+│ 4. Call Genkit (deepseek-chat)       │
 │ with grounded prompt                 │
 └──────────────┬──────────────────────┘
                │
@@ -600,7 +600,7 @@ Certification {
 
 **Recommendation:**
 
-- Use gemini-2.5-flash for generation (faster, cheaper)
+- Use deepseek-chat for generation (faster, cheaper)
 - Use GPT-4/Claude only for validation (better reasoning) OR
 - Batch validations async at night (reduce real-time latency)
 - Cost-optimize: Process 100 questions nightly for $5/night

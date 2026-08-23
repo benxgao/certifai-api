@@ -1,6 +1,7 @@
 import logger from '../../../services/firebase/logger';
 import { ExamGenerationLogger } from '../../../services/exam-generation-logger';
 import { QuizItem } from '../../../types/genkit';
+import { DEFAULT_GENAI_MODEL } from '../../../services/genkit/utils';
 import {
   TaskPayload,
   ExamTopicItem,
@@ -45,7 +46,7 @@ export const generateQuestionsWithAI = async (
   ExamGenerationLogger.logAIRequest({
     exam_id,
     batch_number,
-    ai_service: 'gemini-2.5-flash',
+    ai_service: DEFAULT_GENAI_MODEL,
     certification_name,
     questions_requested: questions_to_generate,
   });
@@ -146,7 +147,7 @@ export const generateQuestionsWithAI = async (
   ExamGenerationLogger.logAIResponse({
     exam_id,
     batch_number,
-    ai_service: 'gemini-2.5-flash',
+    ai_service: DEFAULT_GENAI_MODEL,
     questions_generated: generatedQuestions?.length || 0,
     duration_ms: aiDuration,
     success: true,

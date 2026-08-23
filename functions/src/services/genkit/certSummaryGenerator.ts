@@ -15,8 +15,6 @@ import {
   logGenerationStart,
   logGenerationComplete,
   DEFAULT_GENERATION_CONFIG,
-  // googleAI,
-  // DEFAULT_GENAI_MODEL,
 } from './utils';
 
 enableFirebaseTelemetry();
@@ -219,7 +217,7 @@ Keep the summary between 200-300 words, be specific about topic names and perfor
               maxOutputTokens: 600, // Increased for comprehensive summary
               temperature: 0.4, // Balanced creativity and consistency
             },
-            // googleAI.model(DEFAULT_GENAI_MODEL),
+            // model uses default configured in genkit instance
           );
 
           const result = {

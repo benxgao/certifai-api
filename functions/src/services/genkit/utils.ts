@@ -22,9 +22,9 @@ export const DEFAULT_GENERATION_CONFIG: GenerationConfig = {
 /**
  * Default Genkit AI model for text generation
  */
-export const DEFAULT_GENAI_MODEL = 'deepseek-v4-flash'; // 'gemini-2.5-flash'
+export const DEFAULT_GENAI_MODEL = 'deepseek-chat'; // 'gemini-2.5-flash'
 
-export const deepseekModel = deepSeek.model('deepseek-v4-flash');
+const deepseekModel = deepSeek.model(DEFAULT_GENAI_MODEL);
 
 /**
  * Singleton Genkit AI instance - shared across all operations
@@ -38,7 +38,8 @@ let genkitInstance: Genkit | null = null;
 let initAttemptCount = 0;
 
 /**
- * Initialize a Genkit AI instance with Google AI plugin (singleton)
+ * Initialize a Genkit AI instance with configurable provider (singleton)
+ * @param provider - 'google' for Gemini or 'deepseek' for DeepSeek (default)
  * @returns Promise<Genkit> - Initialized AI instance
  */
 export const initializeAiInstance = async (
@@ -172,7 +173,7 @@ export const validateAndFilterResponse = <T>(
  * @param schema - Zod schema for output validation
  * @param sendChunk - Function to send chunks to client
  * @param config - Generation configuration
- * @param model - AI model to use (e.g., googleAI.model('gemini-2.5-flash'))
+ * @param model - AI model to use (e.g., deepSeek.model('deepseek-chat'))
  * @returns Generated and validated response
  */
 export const generateWithValidation = async <T>(
@@ -366,4 +367,4 @@ export const logGenerationComplete = (
   );
 };
 
-export { googleAI };
+export { deepseekModel };

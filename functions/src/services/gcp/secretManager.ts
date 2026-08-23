@@ -6,7 +6,7 @@ interface CachedSecret {
   expiresAt: number;
 }
 
-let googleGenAIApiKeyCache: CachedSecret | null = null;
+let llmApiKeyCache: CachedSecret | null = null;
 const CACHE_TTL_MS = 60 * 60 * 1000 * 24 * 30; // 30 days
 
 /**
@@ -28,16 +28,16 @@ export async function getSecret(
     !version
   ) {
     if (
-      googleGenAIApiKeyCache &&
-      googleGenAIApiKeyCache.expiresAt > Date.now()
+      llmApiKeyCache &&
+      llmApiKeyCache.expiresAt > Date.now()
     ) {
       logger.info(`Using cached ${secretName}:
         | valid for ${Math.round(
-          (googleGenAIApiKeyCache.expiresAt - Date.now()) /
+          (llmApiKeyCache.expiresAt - Date.now()) /
             (1000 * 60 * 60 * 24),
         )} days`);
 
-      return googleGenAIApiKeyCache.value;
+      return llmApiKeyCache.value;
     }
   }
 
@@ -103,7 +103,7 @@ export async function getSecret(
       secretName === 'DEEPSEEK_API_KEY') &&
     !version
   ) {
-    googleGenAIApiKeyCache = {
+    llmApiKeyCache = {
       value: secret,
       expiresAt: Date.now() + CACHE_TTL_MS,
     };
@@ -113,8 +113,8 @@ export async function getSecret(
 }
 
 /**
- * Clears the cached Google GenAI API key (useful for key rotation)
+ * Clears the cached LLM API key (useful for key rotation)
  */
-export function clearGoogleGenAICache(): void {
-  googleGenAIApiKeyCache = null;
+export function clearLlmApiKeyCache(): void {
+  llmApiKeyCache = null;
 }

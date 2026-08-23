@@ -5,6 +5,7 @@ import { ExamGenerationLogger } from '../../../services/exam-generation-logger';
 import { ExamGenerationMetrics } from '../../../services/exam-generation-metrics';
 import { CacheManager } from '../../../services/cache';
 import { TaskPayload } from './helper';
+import { DEFAULT_GENAI_MODEL } from '../../../services/genkit/utils';
 import { getExamTopicsFromRtdb } from './rtdb';
 import {
   handleCorruptedExamPlan,
@@ -272,7 +273,7 @@ const handler = async (req: Request, res: Response) => {
       ExamGenerationLogger.logAIResponse({
         exam_id,
         batch_number,
-        ai_service: 'gemini-2.5-flash',
+        ai_service: DEFAULT_GENAI_MODEL,
         questions_generated: 0,
         duration_ms: 0,
         success: false,
